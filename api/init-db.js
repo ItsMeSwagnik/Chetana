@@ -52,7 +52,7 @@ module.exports = async function handler(req, res) {
     `).catch(() => {});
     
     // Create default admin user
-    const bcrypt = require('bcrypt');
+    const bcrypt = require('bcryptjs');
     const hashedPassword = await bcrypt.hash('admin123', 10);
     
     await pool.query(`

@@ -149,15 +149,17 @@ app.post('/api/login', async (req, res) => {
 
 app.post('/api/assessments', async (req, res) => {
   try {
-    const { userId, phq9, gad7, pss } = req.body;
+    const { userId, phq9, gad7, pss, assessmentDate } = req.body;
+    const dateToUse = assessmentDate || new Date().toLocaleDateString('en-CA');
     
     const result = await pool.query(
-      'INSERT INTO assessments (user_id, phq9_score, gad7_score, pss_score) VALUES ($1, $2, $3, $4) RETURNING *',
-      [userId, phq9, gad7, pss]
+      'INSERT INTO assessments (user_id, phq9_score, gad7_score, pss_score, assessment_date) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [userId, phq9, gad7, pss, dateToUse]
     );
     
     res.json({ success: true, assessment: result.rows[0] });
   } catch (err) {
+    console.error('Save assessment error:', err);
     res.status(500).json({ error: 'Failed to save assessment' });
   }
 });

@@ -54,7 +54,7 @@
         <main class="dashboard-main">
             <div class="card card--primary" id="go-to-therapist-chat-btn"><h3>🧠 AI Therapist Chat (Unlimited)</h3></div>
             <div class="card card--secondary" id="go-to-assessment-btn"><h3>📊 Take Self-Assessment</h3></div>
-            <div class="card card--primary"><h3>📅 Book Appointment</h3></div>
+            <div class="card card--primary" id="go-to-booking-btn"><h3>📅 Book Appointment</h3></div>
             <div class="card card--secondary"><h3>💬 Community Forum</h3></div>
             <div class="card card--primary" id="go-to-progress-btn"><h3>📈 My Progress Dashboard</h3></div>
             <div class="card card--secondary" id="go-to-resources-btn"><h3>🌿 Wellness Resources</h3></div>
@@ -143,6 +143,9 @@
                 <h2>Progress History</h2>
                 <canvas id="user-progress-chart"></canvas>
             </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <button id="user-reports-dashboard-btn" class="btn btn--secondary">🏠 Back to Dashboard</button>
+            </div>
         </div>
     </div>
 
@@ -226,6 +229,7 @@
             <div id="phq9-results" class="score-card"></div>
             <div id="gad7-results" class="score-card"></div>
             <div id="pss-results" class="score-card"></div>
+            <button id="results-view-progress-btn" class="btn btn--primary" style="margin-top: 20px;">📈 View My Progress</button>
         </div>
     </div>
 
@@ -308,6 +312,36 @@
                 <p class="section-prompt" id="progress-prompt">You haven't completed any assessments yet. Take one to start tracking your progress!</p>
                 <canvas id="progress-chart"></canvas>
             </div>
+        </div>
+    </div>
+
+    <div id="booking-screen" class="screen">
+        <header class="page-header">
+            <div class="header-side-panel"><button id="booking-back-btn" class="back-btn">🏠</button></div>
+            <h2 class="header-title">Find Your Therapist</h2>
+            <div class="header-controls"></div>
+        </header>
+        <div class="swipe-container">
+            <div class="therapist-counter-container">
+                <span id="therapist-counter">1/4</span>
+            </div>
+            <div id="therapist-card" class="therapist-swipe-card"></div>
+            <div class="swipe-actions">
+                <button id="pass-btn" class="swipe-btn pass">❌</button>
+                <button id="book-btn" class="swipe-btn book">💚</button>
+            </div>
+            <button id="view-requests-btn" class="requests-floating-btn">📋</button>
+        </div>
+    </div>
+
+    <div id="requests-screen" class="screen">
+        <header class="page-header">
+            <div class="header-side-panel"><button id="requests-back-btn" class="back-btn">🏠</button></div>
+            <h2 class="header-title">My Booking Requests</h2>
+            <div class="header-controls"></div>
+        </header>
+        <div class="page-content">
+            <div id="requests-list" class="requests-list"></div>
         </div>
     </div>
 

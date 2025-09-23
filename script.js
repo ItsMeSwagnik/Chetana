@@ -43,6 +43,17 @@ document.addEventListener('DOMContentLoaded', () => {
     const screens = document.querySelectorAll('.screen');
     const modals = document.querySelectorAll('.modal');
     
+    // Dummy therapist data
+    const therapists = [
+        { id: 1, name: "Dr. Sarah Johnson", specialty: "Anxiety & Depression", rating: 4.9, reviews: 127, distance: "0.8 km", price: "$80/session", image: "👩‍⚕️" },
+        { id: 2, name: "Dr. Michael Chen", specialty: "Trauma & PTSD", rating: 4.8, reviews: 89, distance: "1.2 km", price: "$90/session", image: "👨‍⚕️" },
+        { id: 3, name: "Dr. Emily Rodriguez", specialty: "Relationship Counseling", rating: 4.7, reviews: 156, distance: "1.5 km", price: "$75/session", image: "👩‍⚕️" },
+        { id: 4, name: "Dr. James Wilson", specialty: "Stress Management", rating: 4.9, reviews: 203, distance: "2.1 km", price: "$85/session", image: "👨‍⚕️" }
+    ];
+    
+    // Booking requests storage
+    let bookingRequests = JSON.parse(localStorage.getItem('bookingRequests')) || [];
+    
     const setAppHeight = () => document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
     
     function showScreen(screenId) {
@@ -416,7 +427,8 @@ document.addEventListener('DOMContentLoaded', () => {
                     phq9: scores.phq9,
                     gad7: scores.gad7,
                     pss: scores.pss,
-                    responses: userAnswers
+                    responses: userAnswers,
+                    assessmentDate: new Date().toLocaleDateString('en-CA')
                 })
             });
             
@@ -461,11 +473,18 @@ document.addEventListener('DOMContentLoaded', () => {
             <div id="phq9-results" class="score-card"></div>
             <div id="gad7-results" class="score-card"></div>
             <div id="pss-results" class="score-card"></div>
+            <button id="results-view-progress-btn" class="btn btn--primary" style="margin-top: 20px;">📈 View My Progress</button>
         `;
         
         document.getElementById('phq9-results').innerHTML = `<h2>Depression (PHQ-9)</h2><p class="score">${scores.phq9}</p><p class="interpretation">${getInterpretation('phq9', scores.phq9)}</p>`;
         document.getElementById('gad7-results').innerHTML = `<h2>Anxiety (GAD-7)</h2><p class="score">${scores.gad7}</p><p class="interpretation">${getInterpretation('gad7', scores.gad7)}</p>`;
         document.getElementById('pss-results').innerHTML = `<h2>Stress (PSS-10)</h2><p class="score">${scores.pss}</p><p class="interpretation">${getInterpretation('pss', scores.pss)}</p>`;
+        
+        // Add event listener to the dynamically created button
+        document.getElementById('results-view-progress-btn')?.addEventListener('click', () => { 
+            renderProgressChart(); 
+            showScreen('progress-screen'); 
+        });
     }
 
     async function renderProgressChart() {
@@ -489,7 +508,10 @@ document.addEventListener('DOMContentLoaded', () => {
             chartEl.style.display = 'block';
             promptEl.style.display = 'none';
             
-            const labels = history.map(item => new Date(item.assessment_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+            const labels = history.map(item => {
+                const date = new Date(item.assessment_date);
+                return isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+            });
             const phq9Data = history.map(item => item.phq9_score);
             const gad7Data = history.map(item => item.gad7_score);
             const pssData = history.map(item => item.pss_score);
@@ -720,7 +742,10 @@ document.addEventListener('DOMContentLoaded', () => {
     function renderUserProgressChart(history) {
         const chartEl = document.getElementById('user-progress-chart');
         
-        const labels = history.map(item => new Date(item.assessment_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+        const labels = history.map(item => {
+            const date = new Date(item.assessment_date);
+            return isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
+        });
         const phq9Data = history.map(item => item.phq9_score);
         const gad7Data = history.map(item => item.gad7_score);
         const pssData = history.map(item => item.pss_score);
@@ -750,8 +775,227 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    let currentTherapistIndex = 0;
+    let startX = 0;
+    let currentX = 0;
+    let isDragging = false;
+    let isSwipeEnabled = true;
+    
+    function loadTherapists() {
+        currentTherapistIndex = 0;
+        showCurrentTherapist();
+        setupSwipeListeners();
+    }
+    
+    function showCurrentTherapist() {
+        if (currentTherapistIndex >= therapists.length) {
+            showNoMoreTherapists();
+            return;
+        }
+        
+        const therapist = therapists[currentTherapistIndex];
+        const stars = '⭐'.repeat(Math.floor(therapist.rating)) + (therapist.rating % 1 ? '✨' : '');
+        const therapistCard = document.getElementById('therapist-card');
+        
+        therapistCard.innerHTML = `
+            <div class="therapist-profile">
+                <div class="therapist-image">${therapist.image}</div>
+                <h2>${therapist.name}</h2>
+                <p class="specialty">${therapist.specialty}</p>
+                <div class="rating">${stars} ${therapist.rating}</div>
+                <div class="reviews">${therapist.reviews} reviews</div>
+                <div class="details">
+                    <div class="detail-item">
+                        <span class="icon">📍</span>
+                        <span>${therapist.distance} away</span>
+                    </div>
+                    <div class="detail-item">
+                        <span class="icon">💰</span>
+                        <span>${therapist.price}</span>
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        document.getElementById('therapist-counter').textContent = `${currentTherapistIndex + 1}/${therapists.length}`;
+        therapistCard.style.transform = 'translateX(0) rotate(0deg)';
+        therapistCard.style.opacity = '1';
+    }
+    
+    function showNoMoreTherapists() {
+        const therapistCard = document.getElementById('therapist-card');
+        therapistCard.innerHTML = `
+            <div class="no-more-therapists">
+                <h2>🎉 That's all!</h2>
+                <p>You've seen all available therapists in your area.</p>
+                <button onclick="resetTherapists()" class="btn btn--primary">Start Over</button>
+            </div>
+        `;
+        document.getElementById('therapist-counter').style.display = 'none';
+        isSwipeEnabled = false;
+    }
+    
+    function resetTherapists() {
+        currentTherapistIndex = 0;
+        document.getElementById('therapist-counter').style.display = 'block';
+        isSwipeEnabled = true;
+        showCurrentTherapist();
+    }
+    
+    function setupSwipeListeners() {
+        const card = document.getElementById('therapist-card');
+        
+        card.addEventListener('touchstart', handleTouchStart, { passive: true });
+        card.addEventListener('touchmove', handleTouchMove, { passive: true });
+        card.addEventListener('touchend', handleTouchEnd);
+        
+        card.addEventListener('mousedown', handleMouseStart);
+        card.addEventListener('mousemove', handleMouseMove);
+        card.addEventListener('mouseup', handleMouseEnd);
+        card.addEventListener('mouseleave', handleMouseEnd);
+    }
+    
+    function handleTouchStart(e) {
+        if (!isSwipeEnabled) return;
+        startX = e.touches[0].clientX;
+        isDragging = true;
+    }
+    
+    function handleMouseStart(e) {
+        if (!isSwipeEnabled) return;
+        startX = e.clientX;
+        isDragging = true;
+        e.preventDefault();
+    }
+    
+    function handleTouchMove(e) {
+        if (!isDragging || !isSwipeEnabled) return;
+        currentX = e.touches[0].clientX;
+        updateCardPosition();
+    }
+    
+    function handleMouseMove(e) {
+        if (!isDragging || !isSwipeEnabled) return;
+        currentX = e.clientX;
+        updateCardPosition();
+    }
+    
+    function updateCardPosition() {
+        const diff = currentX - startX;
+        const card = document.getElementById('therapist-card');
+        const rotation = diff * 0.1;
+        const opacity = Math.max(0.5, 1 - Math.abs(diff) / 300);
+        
+        card.style.transform = `translateX(${diff}px) rotate(${rotation}deg)`;
+        card.style.opacity = opacity;
+    }
+    
+    function handleTouchEnd() {
+        handleSwipeEnd();
+    }
+    
+    function handleMouseEnd() {
+        handleSwipeEnd();
+    }
+    
+    function handleSwipeEnd() {
+        if (!isDragging) return;
+        isDragging = false;
+        
+        const diff = currentX - startX;
+        const threshold = 100;
+        
+        if (Math.abs(diff) > threshold) {
+            if (diff > 0) {
+                bookCurrentTherapist();
+            } else {
+                passCurrentTherapist();
+            }
+        } else {
+            // Snap back
+            const card = document.getElementById('therapist-card');
+            card.style.transform = 'translateX(0) rotate(0deg)';
+            card.style.opacity = '1';
+        }
+        
+        currentX = 0;
+        startX = 0;
+    }
+    
+    function passCurrentTherapist() {
+        nextTherapist();
+    }
+    
+    function bookCurrentTherapist() {
+        if (currentTherapistIndex >= therapists.length) return;
+        const therapist = therapists[currentTherapistIndex];
+        addBookingRequest(therapist.id, therapist.name);
+        nextTherapist();
+    }
+    
+    function nextTherapist() {
+        const card = document.getElementById('therapist-card');
+        card.style.transform = 'translateX(0) rotate(0deg)';
+        card.style.opacity = '1';
+        
+        currentTherapistIndex++;
+        setTimeout(() => {
+            showCurrentTherapist();
+        }, 300);
+    }
+    
+    function addBookingRequest(therapistId, therapistName) {
+        const request = {
+            id: Date.now(),
+            therapistId,
+            therapistName,
+            status: 'Pending',
+            date: new Date().toLocaleDateString(),
+            time: new Date().toLocaleTimeString()
+        };
+        bookingRequests.push(request);
+        localStorage.setItem('bookingRequests', JSON.stringify(bookingRequests));
+        alert(`💚 Booking request sent to ${therapistName}!`);
+    }
+    
+    function loadBookingRequests() {
+        const requestsList = document.getElementById('requests-list');
+        
+        if (bookingRequests.length === 0) {
+            requestsList.innerHTML = '<p>No booking requests yet.</p>';
+            return;
+        }
+        
+        requestsList.innerHTML = '';
+        bookingRequests.forEach(request => {
+            const requestCard = document.createElement('div');
+            requestCard.className = 'request-card';
+            requestCard.innerHTML = `
+                <div class="request-header">
+                    <h3>${request.therapistName}</h3>
+                    <span class="status ${request.status.toLowerCase()}">${request.status}</span>
+                </div>
+                <div class="request-details">
+                    <p>📅 ${request.date} at ${request.time}</p>
+                </div>
+                <button onclick="cancelRequest(${request.id})" class="cancel-btn">Cancel Request</button>
+            `;
+            requestsList.appendChild(requestCard);
+        });
+    }
+    
+    function cancelRequest(requestId) {
+        if (confirm('Are you sure you want to cancel this booking request?')) {
+            bookingRequests = bookingRequests.filter(req => req.id !== requestId);
+            localStorage.setItem('bookingRequests', JSON.stringify(bookingRequests));
+            loadBookingRequests();
+        }
+    }
+    
     window.deleteUser = deleteUser;
     window.viewUserReports = viewUserReports;
+    window.cancelRequest = cancelRequest;
+    window.resetTherapists = resetTherapists;
 
     function initializeApp() {
         window.addEventListener('resize', setAppHeight);
@@ -786,6 +1030,7 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         document.getElementById('admin-logout-btn')?.addEventListener('click', () => showScreen('login-screen'));
         document.getElementById('user-reports-back-btn')?.addEventListener('click', () => showScreen('admin-screen'));
+        document.getElementById('user-reports-dashboard-btn')?.addEventListener('click', () => showScreen('admin-screen'));
         document.getElementById('demo-chat-login-btn')?.addEventListener('click', () => showScreen('login-screen'));
         document.getElementById('demo-send-btn')?.addEventListener('click', () => handleSendMessage('demo'));
         document.getElementById('demo-message-input')?.addEventListener('keypress', e => { 
@@ -831,6 +1076,10 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('go-to-assessment-btn')?.addEventListener('click', startAssessment);
         document.getElementById('assessment-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
         document.getElementById('results-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        document.getElementById('results-view-progress-btn')?.addEventListener('click', () => { 
+            renderProgressChart(); 
+            showScreen('progress-screen'); 
+        });
         document.getElementById('go-to-resources-btn')?.addEventListener('click', () => showScreen('resources-screen'));
         document.getElementById('resources-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
         document.getElementById('go-to-progress-btn')?.addEventListener('click', () => { 
@@ -838,6 +1087,18 @@ document.addEventListener('DOMContentLoaded', () => {
             showScreen('progress-screen'); 
         });
         document.getElementById('progress-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        document.getElementById('go-to-booking-btn')?.addEventListener('click', () => {
+            loadTherapists();
+            showScreen('booking-screen');
+        });
+        document.getElementById('booking-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        document.getElementById('pass-btn')?.addEventListener('click', passCurrentTherapist);
+        document.getElementById('book-btn')?.addEventListener('click', bookCurrentTherapist);
+        document.getElementById('view-requests-btn')?.addEventListener('click', () => {
+            loadBookingRequests();
+            showScreen('requests-screen');
+        });
+        document.getElementById('requests-back-btn')?.addEventListener('click', () => showScreen('booking-screen'));
         document.getElementById('prev-question-btn')?.addEventListener('click', () => {
             saveCurrentAnswer();
             if (currentQuestionIndex > 0) {

@@ -174,7 +174,7 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
 
-    function handleLogin() {
+    async function handleLogin() {
         const email = document.getElementById('login-email').value.trim();
         const password = document.getElementById('login-password').value.trim();
         const loginBtn = document.getElementById('login-btn');
@@ -184,32 +184,41 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // Show loader
         loginBtn.innerHTML = '<span class="loader"></span>Logging in...';
         loginBtn.classList.add('loading');
         
-        setTimeout(() => {
+        try {
+            const response = await fetch('/api/login', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ email, password })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                localStorage.setItem('token', data.token);
+                
+                if (data.isAdmin) {
+                    loadAdminPanel();
+                    showScreen('admin-screen');
+                } else {
+                    localStorage.setItem('currentUser', JSON.stringify(data.user));
+                    updateWelcomeMessage(data.user.name);
+                    showModal('permissions-modal');
+                }
+            } else {
+                alert(data.error || 'Login failed');
+            }
+        } catch (err) {
+            alert('Connection error. Please try again.');
+        } finally {
             loginBtn.innerHTML = 'Login';
             loginBtn.classList.remove('loading');
-            
-            // Check stored users
-            const users = JSON.parse(localStorage.getItem('registeredUsers')) || [];
-            const user = users.find(u => u.email === email && u.password === password);
-            
-            if (user) {
-                localStorage.setItem('currentUser', JSON.stringify(user));
-                updateWelcomeMessage(user.name);
-                showModal('permissions-modal');
-            } else if (email === 'admin@chetana.com' && password === 'admin123') {
-                loadAdminPanel();
-                showScreen('admin-screen');
-            } else {
-                alert('Invalid credentials. Please check your email and password.');
-            }
-        }, 1500);
+        }
     }
 
-    function handleCreateAccount() {
+    async function handleCreateAccount() {
         const name = document.getElementById('register-name')?.value.trim();
         const dob = document.getElementById('register-dob')?.value;
         const email = document.getElementById('register-email')?.value.trim();
@@ -221,36 +230,36 @@ document.addEventListener('DOMContentLoaded', () => {
             return;
         }
         
-        // Validate email format
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
             alert('Please enter a valid email address.');
             return;
         }
         
-        // Check if user already exists
-        const users = JSON.parse(localStorage.getItem('registeredUsers')) || [];
-        if (users.find(u => u.email === email)) {
-            alert('An account with this email already exists.');
-            return;
-        }
-        
-        // Show loader
         createBtn.innerHTML = '<span class="loader"></span>Creating Account...';
         createBtn.classList.add('loading');
         
-        setTimeout(() => {
+        try {
+            const response = await fetch('/api/register', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ name, email, password, dob })
+            });
+            
+            const data = await response.json();
+            
+            if (data.success) {
+                alert('Account created successfully! Please log in.');
+                showScreen('login-screen');
+            } else {
+                alert(data.error || 'Registration failed');
+            }
+        } catch (err) {
+            alert('Connection error. Please try again.');
+        } finally {
             createBtn.innerHTML = 'Create Account';
             createBtn.classList.remove('loading');
-            
-            // Save new user
-            const newUser = { name, email, password, dob, createdAt: new Date().toISOString() };
-            users.push(newUser);
-            localStorage.setItem('registeredUsers', JSON.stringify(users));
-            
-            alert('Account created successfully! Please log in.');
-            showScreen('login-screen');
-        }, 2000);
+        }
     }
 
     function setupAllQuestions() {
@@ -331,12 +340,24 @@ document.addEventListener('DOMContentLoaded', () => {
         }, 2500);
     }
     
-    function saveAssessmentResult(scores) {
+    async function saveAssessmentResult(scores) {
         const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-        const historyKey = currentUser ? `assessmentHistory_${currentUser.email}` : 'assessmentHistory';
-        let history = JSON.parse(localStorage.getItem(historyKey)) || [];
-        history.push({ date: new Date().toISOString().split('T')[0], scores });
-        localStorage.setItem(historyKey, JSON.stringify(history));
+        if (!currentUser) return;
+        
+        try {
+            await fetch('/api/assessments', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({
+                    userId: currentUser.id,
+                    phq9: scores.phq9,
+                    gad7: scores.gad7,
+                    pss: scores.pss
+                })
+            });
+        } catch (err) {
+            console.error('Failed to save assessment:', err);
+        }
     }
 
     function displayResults(scores) {
@@ -376,23 +397,35 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('pss-results').innerHTML = `<h2>Stress (PSS-10)</h2><p class="score">${scores.pss}</p><p class="interpretation">${getInterpretation('pss', scores.pss)}</p>`;
     }
 
-    function renderProgressChart() {
+    async function renderProgressChart() {
         const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-        const historyKey = currentUser ? `assessmentHistory_${currentUser.email}` : 'assessmentHistory';
-        const history = JSON.parse(localStorage.getItem(historyKey)) || [];
+        if (!currentUser) return;
+        
         const chartEl = document.getElementById('progress-chart');
         const promptEl = document.getElementById('progress-prompt');
-        if (history.length === 0) {
+        
+        try {
+            const response = await fetch(`/api/assessments/${currentUser.id}`);
+            const data = await response.json();
+            const history = data.assessments || [];
+            
+            if (history.length === 0) {
+                chartEl.style.display = 'none';
+                promptEl.style.display = 'block';
+                return;
+            }
+        chartEl.style.display = 'block';
+        promptEl.style.display = 'none';
+            const labels = history.map(item => new Date(item.assessment_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+            const phq9Data = history.map(item => item.phq9_score);
+            const gad7Data = history.map(item => item.gad7_score);
+            const pssData = history.map(item => item.pss_score);
+        } catch (err) {
+            console.error('Failed to load progress data:', err);
             chartEl.style.display = 'none';
             promptEl.style.display = 'block';
             return;
         }
-        chartEl.style.display = 'block';
-        promptEl.style.display = 'none';
-        const labels = history.map(item => new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
-        const phq9Data = history.map(item => item.scores.phq9);
-        const gad7Data = history.map(item => item.scores.gad7);
-        const pssData = history.map(item => item.scores.pss);
         const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary');
         const gridColor = getComputedStyle(document.body).getPropertyValue('--border');
         if (progressChart) progressChart.destroy();
@@ -449,52 +482,49 @@ document.addEventListener('DOMContentLoaded', () => {
         showScreen('login-screen');
     }
 
-    function loadAdminPanel() {
-        const users = JSON.parse(localStorage.getItem('registeredUsers')) || [];
-        const totalUsers = users.length;
-        let totalAssessments = 0;
-        
-        users.forEach(user => {
-            const userHistory = JSON.parse(localStorage.getItem(`assessmentHistory_${user.email}`)) || [];
-            totalAssessments += userHistory.length;
-        });
-        
-        document.getElementById('total-users').textContent = totalUsers;
-        document.getElementById('total-assessments').textContent = totalAssessments;
-        
-        const usersList = document.getElementById('users-list');
-        usersList.innerHTML = '';
-        
-        users.forEach((user, index) => {
-            const userHistory = JSON.parse(localStorage.getItem(`assessmentHistory_${user.email}`)) || [];
-            const userCard = document.createElement('div');
-            userCard.className = 'user-card';
-            userCard.innerHTML = `
-                <div class="user-header">
-                    <div>
-                        <div class="user-name">${user.name}</div>
-                        <div class="user-email">${user.email}</div>
+    async function loadAdminPanel() {
+        try {
+            const response = await fetch('/api/admin/users');
+            const data = await response.json();
+            
+            document.getElementById('total-users').textContent = data.totalUsers;
+            document.getElementById('total-assessments').textContent = data.totalAssessments;
+            
+            const usersList = document.getElementById('users-list');
+            usersList.innerHTML = '';
+            
+            data.users.forEach(user => {
+                const userCard = document.createElement('div');
+                userCard.className = 'user-card';
+                userCard.innerHTML = `
+                    <div class="user-header">
+                        <div>
+                            <div class="user-name">${user.name}</div>
+                            <div class="user-email">${user.email}</div>
+                        </div>
+                        <button class="delete-user-btn" onclick="deleteUser(${user.id})">Delete</button>
                     </div>
-                    <button class="delete-user-btn" onclick="deleteUser('${user.email}')">Delete</button>
-                </div>
-                <div class="user-details">
-                    <div>DOB: ${user.dob}</div>
-                    <div>Assessments: ${userHistory.length}</div>
-                    <div>Joined: ${new Date(user.createdAt).toLocaleDateString()}</div>
-                    <div>Last Active: ${userHistory.length > 0 ? new Date(userHistory[userHistory.length - 1].date).toLocaleDateString() : 'Never'}</div>
-                </div>
-            `;
-            usersList.appendChild(userCard);
-        });
+                    <div class="user-details">
+                        <div>DOB: ${user.dob || 'N/A'}</div>
+                        <div>Assessments: ${user.assessment_count}</div>
+                        <div>Joined: ${new Date(user.created_at).toLocaleDateString()}</div>
+                    </div>
+                `;
+                usersList.appendChild(userCard);
+            });
+        } catch (err) {
+            console.error('Failed to load admin data:', err);
+        }
     }
     
-    function deleteUser(email) {
-        if (confirm(`Are you sure you want to delete user: ${email}?`)) {
-            let users = JSON.parse(localStorage.getItem('registeredUsers')) || [];
-            users = users.filter(user => user.email !== email);
-            localStorage.setItem('registeredUsers', JSON.stringify(users));
-            localStorage.removeItem(`assessmentHistory_${email}`);
-            loadAdminPanel();
+    async function deleteUser(userId) {
+        if (confirm('Are you sure you want to delete this user?')) {
+            try {
+                await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+                loadAdminPanel();
+            } catch (err) {
+                alert('Failed to delete user');
+            }
         }
     }
     

@@ -15,7 +15,7 @@
           --background: #ffffff;
           --surface: #f8f9fa;
           --border: #e9ecef;
-          --shadow: rgba(0, 0,0, 0.1);
+          --shadow: rgba(0, 0, 0, 0.1);
           --danger: #ff3860;
           --radius-base: 12px;
           --font-family-base: 'Poppins', sans-serif;
@@ -29,7 +29,7 @@
           --background: #1a202c;
           --surface: #2d3748;
           --border: #4a5568;
-          --shadow: rgba(0, 0,0, 0.3);
+          --shadow: rgba(0, 0, 0, 0.3);
         }
         *, *::before, *::after { box-sizing: border-box; }
         body { margin: 0; font-family: var(--font-family-base); color: var(--text-primary); background-color: var(--background); transition: background-color 0.3s ease, color 0.3s ease; overflow: hidden; }
@@ -444,7 +444,7 @@
             const screens = document.querySelectorAll('.screen');
             const modals = document.querySelectorAll('.modal');
             
-            const setAppHeight = () => document.documentElement.style.setProperty('--app-height', ${window.innerHeight}px);
+            const setAppHeight = () => document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
             
             function showScreen(screenId) {
                 currentScreen = screenId;
@@ -486,8 +486,8 @@
                 if (!chatMessages) return;
                 const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
                 const messageDiv = document.createElement('div');
-                messageDiv.className = message ${sender}-message;
-                messageDiv.innerHTML = <div class="message-bubble">${text}</div><div class="message-time">${time}</div>;
+                messageDiv.className = `message ${sender}-message`;
+                messageDiv.innerHTML = `<div class="message-bubble">${text}</div><div class="message-time">${time}</div>`;
                 chatMessages.appendChild(messageDiv);
                 chatMessages.scrollTop = chatMessages.scrollHeight;
             }
@@ -547,9 +547,9 @@
             function setupAllQuestions() {
                 allQuestions = [];
                 const { phq9, gad7, pss } = assessmentData;
-                phq9.questions.forEach((q, i) => allQuestions.push({ test: 'phq9', name: phq9-q${i}, text: q, options: phq9.options }));
-                gad7.questions.forEach((q, i) => allQuestions.push({ test: 'gad7', name: gad7-q${i}, text: q, options: gad7.options }));
-                pss.questions.forEach((q, i) => allQuestions.push({ test: 'pss', name: pss-q${i}, text: q, options: pss.options, reverse: pss.reverseScore.includes(i) }));
+                phq9.questions.forEach((q, i) => allQuestions.push({ test: 'phq9', name: `phq9-q${i}`, text: q, options: phq9.options }));
+                gad7.questions.forEach((q, i) => allQuestions.push({ test: 'gad7', name: `gad7-q${i}`, text: q, options: gad7.options }));
+                pss.questions.forEach((q, i) => allQuestions.push({ test: 'pss', name: `pss-q${i}`, text: q, options: pss.options, reverse: pss.reverseScore.includes(i) }));
             }
 
             function startAssessment() {
@@ -565,12 +565,12 @@
                 const container = document.getElementById('assessment-question-container');
                 let optionsHTML = '<div class="options-group">';
                 question.options.forEach(opt => {
-                    const id = ${question.name}-opt${opt.value};
+                    const id = `${question.name}-opt${opt.value}`;
                     const isChecked = userAnswers[question.name] === opt.value;
-                    optionsHTML += <input type="radio" id="${id}" name="${question.name}" value="${opt.value}" ${isChecked ? 'checked' : ''} required><label for="${id}">${opt.text}</label>;
+                    optionsHTML += `<input type="radio" id="${id}" name="${question.name}" value="${opt.value}" ${isChecked ? 'checked' : ''} required><label for="${id}">${opt.text}</label>`;
                 });
                 optionsHTML += '</div>';
-                container.innerHTML = <div class="question-card"><p>${question.text}</p>${optionsHTML}</div>;
+                container.innerHTML = `<div class="question-card"><p>${question.text}</p>${optionsHTML}</div>`;
                 updateAssessmentNav();
             }
 
@@ -580,15 +580,15 @@
                 const prevBtn = document.getElementById('prev-question-btn');
                 const nextBtn = document.getElementById('next-question-btn');
                 const progressPercent = ((currentQuestionIndex + 1) / allQuestions.length) * 100;
-                progressBar.style.width = ${progressPercent}%;
-                progressText.textContent = Question ${currentQuestionIndex + 1} of ${allQuestions.length};
+                progressBar.style.width = `${progressPercent}%`;
+                progressText.textContent = `Question ${currentQuestionIndex + 1} of ${allQuestions.length}`;
                 prevBtn.disabled = currentQuestionIndex === 0;
                 nextBtn.textContent = (currentQuestionIndex === allQuestions.length - 1) ? 'See My Results' : 'Next';
             }
 
             function saveCurrentAnswer() {
                 const currentQuestion = allQuestions[currentQuestionIndex];
-                const selectedOption = document.querySelector(input[name="${currentQuestion.name}"]:checked);
+                const selectedOption = document.querySelector(`input[name="${currentQuestion.name}"]:checked`);
                 if (selectedOption) {
                     userAnswers[currentQuestion.name] = parseInt(selectedOption.value);
                     return true;
@@ -627,9 +627,9 @@
                         if (score <= 13) return "Low perceived stress"; if (score <= 26) return "Moderate perceived stress"; return "High perceived stress";
                     }
                 };
-                document.getElementById('phq9-results').innerHTML = <h2>Depression (PHQ-9)</h2><p class="score">${scores.phq9}</p><p class="interpretation">${getInterpretation('phq9', scores.phq9)}</p>;
-                document.getElementById('gad7-results').innerHTML = <h2>Anxiety (GAD-7)</h2><p class="score">${scores.gad7}</p><p class="interpretation">${getInterpretation('gad7', scores.gad7)}</p>;
-                document.getElementById('pss-results').innerHTML = <h2>Stress (PSS-10)</h2><p class="score">${scores.pss}</p><p class="interpretation">${getInterpretation('pss', scores.pss)}</p>;
+                document.getElementById('phq9-results').innerHTML = `<h2>Depression (PHQ-9)</h2><p class="score">${scores.phq9}</p><p class="interpretation">${getInterpretation('phq9', scores.phq9)}</p>`;
+                document.getElementById('gad7-results').innerHTML = `<h2>Anxiety (GAD-7)</h2><p class="score">${scores.gad7}</p><p class="interpretation">${getInterpretation('gad7', scores.gad7)}</p>`;
+                document.getElementById('pss-results').innerHTML = `<h2>Stress (PSS-10)</h2><p class="score">${scores.pss}</p><p class="interpretation">${getInterpretation('pss', scores.pss)}</p>`;
                 showScreen('results-screen');
             }
 

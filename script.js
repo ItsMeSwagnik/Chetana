@@ -9,6 +9,9 @@ document.addEventListener('DOMContentLoaded', () => {
     let userAnswers = {};
     let progressChart;
     
+    // API Base URL
+    const API_BASE = 'http://localhost:3000';
+    
     // --- DATA & CONFIG ---
     const dummyAiResponses = [
         "Thank you for sharing. How does that make you feel?",
@@ -188,7 +191,7 @@ document.addEventListener('DOMContentLoaded', () => {
         loginBtn.classList.add('loading');
         
         try {
-            const response = await fetch('/api/login', {
+            const response = await fetch(`${API_BASE}/api/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password })
@@ -240,7 +243,7 @@ document.addEventListener('DOMContentLoaded', () => {
         createBtn.classList.add('loading');
         
         try {
-            const response = await fetch('/api/register', {
+            const response = await fetch(`${API_BASE}/api/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, email, password, dob })
@@ -345,7 +348,7 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!currentUser) return;
         
         try {
-            await fetch('/api/assessments', {
+            await fetch(`${API_BASE}/api/assessments`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
@@ -405,7 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const promptEl = document.getElementById('progress-prompt');
         
         try {
-            const response = await fetch(`/api/assessments/${currentUser.id}`);
+            const response = await fetch(`${API_BASE}/api/assessments/${currentUser.id}`);
             const data = await response.json();
             const history = data.assessments || [];
             
@@ -484,7 +487,7 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadAdminPanel() {
         try {
-            const response = await fetch('/api/admin/users');
+            const response = await fetch(`${API_BASE}/api/admin/users`);
             const data = await response.json();
             
             document.getElementById('total-users').textContent = data.totalUsers;
@@ -520,7 +523,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function deleteUser(userId) {
         if (confirm('Are you sure you want to delete this user?')) {
             try {
-                await fetch(`/api/admin/users/${userId}`, { method: 'DELETE' });
+                await fetch(`${API_BASE}/api/admin/users/${userId}`, { method: 'DELETE' });
                 loadAdminPanel();
             } catch (err) {
                 alert('Failed to delete user');

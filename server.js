@@ -108,6 +108,17 @@ app.post('/api/login', async (req, res) => {
       return res.json({ success: true, isAdmin: true, token });
     }
     
+    // Dummy test user login
+    if (email === 'test@test.com' && password === '123456') {
+      const token = jwt.sign({ userId: 999 }, process.env.JWT_SECRET);
+      console.log('Test user login successful');
+      return res.json({ 
+        success: true, 
+        token, 
+        user: { id: 999, name: 'Test User', email: 'test@test.com' } 
+      });
+    }
+    
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
     
     if (result.rows.length === 0) {

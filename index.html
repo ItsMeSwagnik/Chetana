@@ -1,0 +1,741 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>चेtanā - Awakening Minds, Nurturing Wellbeing</title>
+    <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
+    <style>
+        :root {
+          --primary-color: #87CEEB;
+          --secondary-color: #98FB98;
+          --accent-color: #F8F8FF;
+          --text-primary: #2c3e50;
+          --text-secondary: #7f8c8d;
+          --background: #ffffff;
+          --surface: #f8f9fa;
+          --border: #e9ecef;
+          --shadow: rgba(0, 0,0, 0.1);
+          --danger: #ff3860;
+          --radius-base: 12px;
+          --font-family-base: 'Poppins', sans-serif;
+        }
+        [data-theme='dark'] {
+          --primary-color: #4A9EFF;
+          --secondary-color: #6BCF7F;
+          --accent-color: #1a202c;
+          --text-primary: #f7fafc;
+          --text-secondary: #a0aec0;
+          --background: #1a202c;
+          --surface: #2d3748;
+          --border: #4a5568;
+          --shadow: rgba(0, 0,0, 0.3);
+        }
+        *, *::before, *::after { box-sizing: border-box; }
+        body { margin: 0; font-family: var(--font-family-base); color: var(--text-primary); background-color: var(--background); transition: background-color 0.3s ease, color 0.3s ease; overflow: hidden; }
+        .screen { width: 100vw; height: 100vh; height: var(--app-height, 100vh); display: none; flex-direction: column; align-items: center; justify-content: flex-start; padding: 0; overflow-y: auto; }
+        .screen.active { display: flex; }
+        .auth-screen { justify-content: center; padding: 1rem; }
+        .auth-container { width: 100%; max-width: 400px; padding: 2rem; background-color: var(--surface); border-radius: 20px; box-shadow: 0 10px 30px var(--shadow); }
+        .logo-section { text-align: center; margin-bottom: 2rem; }
+        .logo { font-size: 3rem; font-weight: 700; background: linear-gradient(135deg, var(--primary-color), var(--secondary-color)); -webkit-background-clip: text; -webkit-text-fill-color: transparent; margin: 0; }
+        .tagline { color: var(--text-secondary); font-size: 1rem; margin-top: 0.5rem; }
+        .auth-form .form-group { margin-bottom: 1.25rem; }
+        .input-group { position: relative; }
+        .input-icon { position: absolute; left: 15px; top: 50%; transform: translateY(-50%); font-size: 1.2rem; color: var(--text-secondary); }
+        input[type="email"], input[type="password"], input[type="text"], input[type="date"] { width: 100%; padding: 1rem 1rem 1rem 3rem; border-radius: var(--radius-base); border: 1px solid var(--border); background-color: var(--background); color: var(--text-primary); font-size: 1rem; }
+        .auth-form button { margin-top: 1rem; }
+        .btn { display: inline-flex; align-items: center; justify-content: center; width: 100%; padding: 1rem 1.5rem; border: none; border-radius: var(--radius-base); font-size: 1rem; font-weight: 600; cursor: pointer; transition: all 0.2s ease; text-decoration: none; }
+        .btn:hover { transform: translateY(-2px); filter: brightness(1.1); }
+        .btn--primary { background-color: var(--primary-color); color: var(--accent-color); }
+        .btn--secondary { background-color: var(--secondary-color); color: var(--text-primary); }
+        .btn--outline { background: transparent; border: 2px solid var(--primary-color); color: var(--primary-color); }
+        .btn--outline:hover { background: var(--primary-color); color: var(--accent-color); }
+        .btn[disabled] { background-color: var(--text-secondary); cursor: not-allowed; transform: none; filter: brightness(0.8); }
+        .chat-wrapper { width: 100%; height: 100%; display: flex; flex-direction: column; background-color: var(--background); position: relative; }
+        .page-header { width: 100%; display: flex; align-items: center; justify-content: space-between; padding: 0.75rem 1rem; background: var(--surface); box-shadow: 0 2px 5px var(--shadow); z-index: 10; flex-shrink: 0; }
+        .header-title { font-size: 1.1rem; margin: 0; text-align: center; position: absolute; left: 50%; transform: translateX(-50%); white-space: nowrap; }
+        .header-side-panel, .header-controls { display: flex; align-items: center; gap: 0.5rem; z-index: 1; min-width: 60px; }
+        .header-controls { justify-content: flex-end; }
+        .theme-toggle { position: static; width: auto; height: auto; box-shadow: none; background: none; padding: 0.5rem; border: none; cursor: pointer; font-size: 1.5rem; color: var(--text-primary); }
+        .back-btn { background: none; border: none; font-size: 1.5rem; cursor: pointer; color: var(--text-primary); padding: 0.5rem; }
+        .chat-messages-container { flex-grow: 1; overflow-y: auto; padding: 1rem; }
+        .chat-messages { display: flex; flex-direction: column; gap: 1rem; }
+        .message { display: flex; flex-direction: column; max-width: 80%; }
+        .message-bubble { padding: 0.75rem 1rem; border-radius: 18px; line-height: 1.4; word-wrap: break-word; }
+        .message-time { font-size: 0.75rem; color: var(--text-secondary); margin-top: 0.25rem; }
+        .ai-message { align-self: flex-start; }
+        .ai-message .message-bubble { background-color: var(--surface); border-top-left-radius: 4px; }
+        .ai-message .message-time { text-align: left; margin-left: 0.5rem; }
+        .user-message { align-self: flex-end; }
+        .user-message .message-bubble { background-color: var(--primary-color); color: var(--accent-color); border-top-right-radius: 4px; }
+        .user-message .message-time { text-align: right; margin-right: 0.5rem; }
+        .chat-input-area { padding: 1rem; background: var(--surface); flex-shrink: 0; }
+        .quick-actions { display: flex; gap: 0.5rem; margin-bottom: 0.75rem; flex-wrap: nowrap; overflow-x: auto; padding-bottom: 8px; -ms-overflow-style: none; scrollbar-width: none; }
+        .quick-actions::-webkit-scrollbar { display: none; }
+        .quick-btn { padding: 0.5rem 1rem; border-radius: 20px; border: 1px solid var(--primary-color); background: transparent; color: var(--primary-color); cursor: pointer; font-size: 0.9rem; flex-shrink: 0; white-space: nowrap; }
+        .chat-input { display: flex; gap: 0.5rem; }
+        .chat-input input { flex-grow: 1; padding: 0.75rem 1rem; border-radius: 20px; border: 1px solid var(--border); background: var(--background); }
+        .chat-input button { padding: 0.75rem 1.5rem; border-radius: 20px; border: none; background: var(--primary-color); color: var(--accent-color); font-weight: 600; cursor: pointer; }
+        .btn-header-login { background: transparent; border: 1px solid var(--primary-color); color: var(--primary-color); padding: 0.4rem 0.8rem; border-radius: 20px; cursor: pointer; font-size: 0.9rem; font-weight: 500; white-space: nowrap; transition: all 0.2s ease; }
+        .btn-header-login:hover { background-color: var(--primary-color); color: var(--accent-color); }
+        .modal { position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.6); display: none; align-items: center; justify-content: center; z-index: 2000; padding: 1rem; opacity: 0; visibility: hidden; transition: opacity 0.3s ease; }
+        .modal.active { display: flex; opacity: 1; visibility: visible; }
+        #dashboard-screen { justify-content: flex-start; padding: 0; max-width: 1200px; margin: auto; }
+        .dashboard-header { width: 100%; display: flex; justify-content: space-between; align-items: center; padding: 1.5rem; background: var(--surface); }
+        .dashboard-main { width: 100%; display: grid; grid-template-columns: 1fr; gap: 1rem; padding: 1.5rem; }
+        .card { padding: 1.5rem; border-radius: var(--radius-base); text-align: center; cursor: pointer; transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .card:hover { transform: translateY(-5px); box-shadow: 0 12px 25px var(--shadow); }
+        .card h3 { margin: 0; }
+        .card--primary { background: var(--primary-color); color: var(--accent-color); }
+        .card--secondary { background: var(--secondary-color); color: var(--text-primary); }
+        .floating-btn { position: fixed; bottom: 2rem; right: 2rem; width: 60px; height: 60px; background-color: var(--danger); color: white; border-radius: 50%; font-size: 2rem; border: none; cursor: pointer; box-shadow: 0 10px 20px rgba(255, 56, 96, 0.4); display: flex; align-items: center; justify-content: center; z-index: 1000; }
+        .theme-toggle-container { position: fixed; top: 0.75rem; right: 1rem; z-index: 1001; }
+        #toast-notification { visibility: hidden; min-width: 250px; background-color: var(--surface); color: var(--text-primary); text-align: center; border-radius: var(--radius-base); padding: 1rem; position: fixed; z-index: 3000; left: 50%; transform: translateX(-50%); top: -100px; opacity: 0; transition: opacity 0.5s, top 0.5s; box-shadow: 0 5px 15px var(--shadow); }
+        #toast-notification.show { visibility: visible; opacity: 1; top: 20px; }
+        .permissions-list { margin: 1.5rem 0; text-align: left; }
+        .permission-item { display: flex; align-items: center; padding: 0.75rem; background-color: var(--background); border-radius: var(--radius-base); margin-bottom: 0.75rem; cursor: pointer; border: 1px solid var(--border); transition: border-color 0.2s ease; }
+        .permission-item:hover { border-color: var(--primary-color); }
+        .permission-item input[type="checkbox"] { margin-right: 1rem; transform: scale(1.2); accent-color: var(--primary-color); }
+        .permission-icon { font-size: 1.5rem; margin-right: 1rem; }
+        .permission-text { display: flex; flex-direction: column; }
+        .permission-text strong { color: var(--text-primary); }
+        .permission-text small { color: var(--text-secondary); font-size: 0.8rem; }
+        .page-content { padding: 1.5rem; width: 100%; max-width: 800px; margin: 0 auto; }
+        .page-section { margin-bottom: 2.5rem; }
+        .page-section h2 { border-bottom: 2px solid var(--primary-color); padding-bottom: 0.5rem; margin-bottom: 1.5rem; }
+        .question-card { background: var(--surface); padding: 1.5rem; border-radius: var(--radius-base); margin-bottom: 1rem; box-shadow: 0 4px 6px var(--shadow); }
+        .question-card p { margin: 0 0 1rem 0; font-weight: 500; }
+        .options-group { display: flex; flex-direction: column; gap: 0.75rem; }
+        .options-group label { display: block; background: var(--background); padding: 0.75rem 1rem; border-radius: 8px; border: 1px solid var(--border); cursor: pointer; }
+        .options-group input[type="radio"] { display: none; }
+        .options-group input[type="radio"]:checked + label { background-color: var(--primary-color); color: var(--accent-color); border-color: var(--primary-color); }
+        .results-container { text-align: center; }
+        .score-card { background: var(--surface); padding: 1.5rem; border-radius: var(--radius-base); margin-bottom: 1rem; box-shadow: 0 4px 6px var(--shadow); }
+        .score-card h2 { margin: 0; }
+        .score-card .score { font-size: 3rem; font-weight: 700; color: var(--primary-color); margin: 0.5rem 0; }
+        .score-card .interpretation { font-size: 1.1rem; color: var(--text-secondary); }
+        .resources-grid { display: grid; grid-template-columns: 1fr; gap: 1rem; }
+        .resource-card { display: flex; align-items: center; gap: 1rem; background: var(--surface); padding: 1rem; border-radius: var(--radius-base); text-decoration: none; color: var(--text-primary); box-shadow: 0 4px 6px var(--shadow); transition: transform 0.2s ease, box-shadow 0.2s ease; }
+        .resource-card:hover { transform: translateY(-5px); box-shadow: 0 8px 15px var(--shadow); }
+        .resource-icon { font-size: 2rem; }
+        .resource-title { font-weight: 600; margin: 0; }
+        .resource-description { font-size: 0.9rem; color: var(--text-secondary); margin: 0; }
+        .assessment-progress { width: 100%; margin-bottom: 1rem; }
+        .progress-bar-container { width: 100%; background-color: var(--border); border-radius: 20px; overflow: hidden; }
+        .progress-bar { height: 10px; width: 0%; background-color: var(--secondary-color); transition: width 0.3s ease; }
+        .progress-text { text-align: center; margin-top: 0.5rem; font-size: 0.9rem; color: var(--text-secondary); }
+        .assessment-nav { display: flex; justify-content: space-between; margin-top: 1.5rem; }
+        .assessment-nav .btn { width: auto; min-width: 120px; }
+        @media (min-width: 768px) { .dashboard-main { grid-template-columns: repeat(2, 1fr); } .chat-wrapper { max-width: 800px; height: 85vh; margin: auto; border-radius: 16px; box-shadow: 0 6px 25px var(--shadow); overflow: hidden; } .resources-grid { grid-template-columns: repeat(2, 1fr); } }
+        @media (min-width: 1024px) { body { display: flex; justify-content: center; align-items: center; min-height: 100vh; } .screen { min-height: auto; } #dashboard-screen { border-radius: 20px; box-shadow: 0 10px 30px var(--shadow); } .dashboard-main { grid-template-columns: repeat(3, 1fr); } .chat-wrapper { max-width: 900px; height: 80vh; } }
+    </style>
+</head>
+<body data-theme="dark">
+
+    <div class="theme-toggle-container">
+        <button id="theme-toggle-global" class="theme-toggle"><span class="theme-icon">🌙</span></button>
+    </div>
+
+    <div id="toast-notification">Welcome to चेtanā - Your Mental Wellness Companion!</div>
+
+    <div id="login-screen" class="screen auth-screen active">
+        <div class="auth-container">
+            <div class="logo-section"><h1 class="logo">चेtanā</h1><p class="tagline">Awakening Minds, Nurturing Wellbeing</p></div>
+            <form class="auth-form">
+                <div class="form-group"><div class="input-group"><span class="input-icon">📧</span><input id="login-email" type="email" placeholder="Email / Username" required /></div></div>
+                <div class="form-group"><div class="input-group"><span class="input-icon">🔒</span><input id="login-password" type="password" placeholder="Password" required /></div></div>
+                <button type="button" id="login-btn" class="btn btn--primary">Login</button>
+                <button type="button" id="go-to-register-btn" class="btn btn--secondary">Register</button>
+                <button type="button" id="guest-login-btn" class="btn btn--outline">Continue as Guest (Demo)</button>
+            </form>
+        </div>
+    </div>
+
+    <div id="register-screen" class="screen auth-screen">
+        <div class="auth-container">
+            <div class="logo-section"><h1 class="logo">चेtanā</h1><p class="tagline">Create your Account</p></div>
+            <form class="auth-form">
+                <div class="form-group"><div class="input-group"><span class="input-icon">👤</span><input id="register-name" type="text" placeholder="Full Name" required /></div></div>
+                <div class="form-group"><div class="input-group"><span class="input-icon">🎂</span><input id="register-dob" type="date" placeholder="Date of Birth" required /></div></div>
+                <div class="form-group"><div class="input-group"><span class="input-icon">📧</span><input id="register-email" type="email" placeholder="Email Address" required /></div></div>
+                <div class="form-group"><div class="input-group"><span class="input-icon">🔒</span><input id="register-password" type="password" placeholder="Password" required /></div></div>
+                <button type="button" id="create-account-btn" class="btn btn--primary">Create Account</button>
+                <button type="button" id="back-to-login-btn" class="btn btn--outline">Back to Login</button>
+            </form>
+        </div>
+    </div>
+    
+    <div id="dashboard-screen" class="screen">
+        <header class="dashboard-header">
+            <div><h2 id="welcome-heading">Welcome, Student</h2><small>Profile & Settings</small></div>
+            <div class="header-controls">
+                <button id="logout-btn" class="btn-header-login">Logout</button>
+            </div>
+        </header>
+        <main class="dashboard-main">
+            <div class="card card--primary" id="go-to-therapist-chat-btn"><h3>🧠 AI Therapist Chat (Unlimited)</h3></div>
+            <div class="card card--secondary" id="go-to-assessment-btn"><h3>📊 Take Self-Assessment</h3></div>
+            <div class="card card--primary"><h3>📅 Book Appointment</h3></div>
+            <div class="card card--secondary"><h3>💬 Community Forum</h3></div>
+            <div class="card card--primary" id="go-to-progress-btn"><h3>📈 My Progress Dashboard</h3></div>
+            <div class="card card--secondary" id="go-to-resources-btn"><h3>🌿 Wellness Resources</h3></div>
+        </main>
+        <button id="emergency-btn" class="floating-btn">🚨</button>
+    </div>
+
+    <div id="demo-chat-screen" class="screen">
+        <div class="chat-wrapper">
+            <header class="page-header">
+                <div class="header-side-panel"><button id="demo-chat-login-btn" class="btn-header-login">Login</button></div>
+                <h2 class="header-title">Demo AI Chat</h2>
+                <div class="header-controls"></div>
+            </header>
+            <div class="chat-messages-container"><div id="demo-chat-messages" class="chat-messages"></div></div>
+            <div class="chat-input-area">
+                <div class="quick-actions">
+                     <button class="quick-btn" data-message="I feel anxious">I feel anxious</button>
+                    <button class="quick-btn" data-message="I can't sleep">I can't sleep</button>
+                    <button class="quick-btn" data-message="I'm feeling overwhelmed">I'm overwhelmed</button>
+                    <button class="quick-btn" data-message="I had a bad day">I had a bad day</button>
+                    <button class="quick-btn" data-message="Can we talk about stress?">Talk about stress</button>
+                </div>
+                <div class="chat-input">
+                    <input type="text" id="demo-message-input" placeholder="Type your message (50 daily limit)..." />
+                    <button id="demo-send-btn">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="therapist-chat-screen" class="screen">
+        <div class="chat-wrapper">
+            <header class="page-header">
+                <div class="header-side-panel"><button id="therapist-chat-home-btn" class="back-btn">🏠</button></div>
+                <h2 class="header-title">AI Therapist</h2>
+                <div class="header-controls"></div>
+            </header>
+            <div class="chat-messages-container"><div id="therapist-chat-messages" class="chat-messages"></div></div>
+            <div class="chat-input-area">
+                <div class="quick-actions">
+                    <button class="quick-btn" data-message="I feel anxious">I feel anxious</button>
+                    <button class="quick-btn" data-message="I can't sleep">I can't sleep</button>
+                    <button class="quick-btn" data-message="I'm feeling overwhelmed">I'm overwhelmed</button>
+                    <button class="quick-btn" data-message="I had a bad day">I had a bad day</button>
+                    <button class="quick-btn" data-message="Can we talk about stress?">Talk about stress</button>
+                </div>
+                <div class="chat-input">
+                    <input type="text" id="therapist-message-input" placeholder="Type your message..." />
+                    <button id="therapist-send-btn">Send</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="assessment-screen" class="screen">
+        <header class="page-header">
+            <div class="header-side-panel"><button id="assessment-back-btn" class="back-btn">🏠</button></div>
+            <h2 class="header-title">Self-Assessment</h2>
+            <div class="header-controls"></div>
+        </header>
+        <div class="page-content">
+            <div class="assessment-progress">
+                <div id="progress-text" class="progress-text">Question 1 of 26</div>
+                <div class="progress-bar-container">
+                    <div id="progress-bar" class="progress-bar"></div>
+                </div>
+            </div>
+            <div id="assessment-question-container"></div>
+            <div class="assessment-nav">
+                <button type="button" id="prev-question-btn" class="btn btn--outline">Previous</button>
+                <button type="button" id="next-question-btn" class="btn btn--primary">Next</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="results-screen" class="screen">
+        <header class="page-header">
+            <div class="header-side-panel"><button id="results-back-btn" class="back-btn">🏠</button></div>
+            <h2 class="header-title">Your Results</h2>
+            <div class="header-controls"></div>
+        </header>
+        <div class="page-content results-container">
+            <p style="color: var(--text-secondary);">This is not a diagnosis. Please consult a healthcare professional for a formal evaluation.</p>
+            <div id="phq9-results" class="score-card"></div>
+            <div id="gad7-results" class="score-card"></div>
+            <div id="pss-results" class="score-card"></div>
+        </div>
+    </div>
+
+    <div id="resources-screen" class="screen">
+        <header class="page-header">
+            <div class="header-side-panel"><button id="resources-back-btn" class="back-btn">🏠</button></div>
+            <h2 class="header-title">Wellness Resources</h2>
+            <div class="header-controls"></div>
+        </header>
+        <div class="page-content">
+            <div class="page-section">
+                <h2>Coping with Depression</h2>
+                <div class="resources-grid">
+                    <a href="#" class="resource-card" target="_blank" rel="noopener noreferrer">
+                        <span class="resource-icon">📖</span>
+                        <div>
+                            <h4 class="resource-title">Understanding Depression</h4>
+                            <p class="resource-description">An article on the signs, symptoms, and types of depression.</p>
+                        </div>
+                    </a>
+                    <a href="#" class="resource-card" target="_blank" rel="noopener noreferrer">
+                        <span class="resource-icon">🚶‍♂</span>
+                        <div>
+                            <h4 class="resource-title">Behavioral Activation</h4>
+                            <p class="resource-description">A simple technique to improve mood by scheduling positive activities.</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+            <div class="page-section">
+                <h2>Managing Anxiety</h2>
+                <div class="resources-grid">
+                     <a href="#" class="resource-card" target="_blank" rel="noopener noreferrer">
+                        <span class="resource-icon">🧘</span>
+                        <div>
+                            <h4 class="resource-title">Guided Deep Breathing</h4>
+                            <p class="resource-description">A 5-minute audio exercise to calm your nervous system.</p>
+                        </div>
+                    </a>
+                     <a href="#" class="resource-card" target="_blank" rel="noopener noreferrer">
+                        <span class="resource-icon">✍</span>
+                        <div>
+                            <h4 class="resource-title">The Worry Journal</h4>
+                            <p class="resource-description">Learn how to manage anxious thoughts by writing them down.</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+             <div class="page-section">
+                <h2>Reducing Stress</h2>
+                <div class="resources-grid">
+                     <a href="#" class="resource-card" target="_blank" rel="noopener noreferrer">
+                        <span class="resource-icon">🎧</span>
+                        <div>
+                            <h4 class="resource-title">Mindfulness Meditation</h4>
+                            <p class="resource-description">A 10-minute guided session to practice mindfulness.</p>
+                        </div>
+                    </a>
+                     <a href="#" class="resource-card" target="_blank" rel="noopener noreferrer">
+                        <span class="resource-icon">🏃</span>
+                        <div>
+                            <h4 class="resource-title">Stress and Physical Activity</h4>
+                            <p class="resource-description">Discover the powerful link between exercise and stress relief.</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+    
+    <div id="progress-screen" class="screen">
+        <header class="page-header">
+            <div class="header-side-panel"><button id="progress-back-btn" class="back-btn">🏠</button></div>
+            <h2 class="header-title">My Progress</h2>
+            <div class="header-controls"></div>
+        </header>
+        <div class="page-content">
+             <div class="page-section">
+                <h2>Your Assessment History</h2>
+                <p class="section-prompt" id="progress-prompt">You haven't completed any assessments yet. Take one to start tracking your progress!</p>
+                <canvas id="progress-chart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <div id="permissions-modal" class="modal">
+        <div class="auth-container">
+             <h2 style="text-align: center;">Grant Permissions</h2>
+             <p style="text-align: center; color: var(--text-secondary);">To enhance your experience, please grant the following permissions.</p>
+             <div class="permissions-list">
+                <label class="permission-item">
+                    <input type="checkbox" id="location-permission" checked>
+                    <span class="permission-icon">📍</span>
+                    <div class="permission-text">
+                        <strong>Location</strong>
+                        <small>For localized emergency resources.</small>
+                    </div>
+                </label>
+                <label class="permission-item">
+                    <input type="checkbox" id="microphone-permission" checked>
+                    <span class="permission-icon">🎤</span>
+                    <div class="permission-text">
+                        <strong>Microphone</strong>
+                        <small>For future voice-to-text features.</small>
+                    </div>
+                </label>
+                <label class="permission-item">
+                    <input type="checkbox" id="notifications-permission" checked>
+                    <span class="permission-icon">🔔</span>
+                    <div class="permission-text">
+                        <strong>Notifications</strong>
+                        <small>For appointment reminders.</small>
+                    </div>
+                </label>
+             </div>
+             <button id="grant-permissions-btn" class="btn btn--primary">Allow</button>
+             <button id="skip-permissions-btn" class="btn btn--outline">Maybe Later</button>
+        </div>
+    </div>
+    <div id="limit-reached-modal" class="modal">
+        <div class="auth-container">
+             <div class="logo-section"><h1 class="logo">चेtanā</h1><p class="tagline">Daily demo limit reached.</p></div>
+            <p style="text-align: center; color: var(--text-secondary);">Please login or register for unlimited access.</p>
+            <button id="limit-modal-login-btn" class="btn btn--primary">Login / Register</button>
+            <button id="limit-modal-close-btn" class="btn btn--outline">Close</button>
+        </div>
+    </div>
+    <div id="emergency-modal" class="modal">
+        <div class="auth-container">
+             <h2 style="text-align: center;">Emergency Support</h2>
+             <p style="text-align: center; color: var(--text-secondary);">If this is an emergency, please contact a helpline immediately.</p>
+             <a href="tel:999" class="btn btn--primary">Call Emergency Services</a>
+             <button id="emergency-modal-close-btn" class="btn btn--outline">Close</button>
+        </div>
+    </div>
+    
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+            // --- STATE VARIABLES ---
+            let currentScreen = 'login-screen';
+            let chatCount = parseInt(localStorage.getItem('demoChatCount')) || 0;
+            const DAILY_CHAT_LIMIT = 50;
+            let currentTheme = 'dark';
+            let allQuestions = [];
+            let currentQuestionIndex = 0;
+            let userAnswers = {};
+            let progressChart;
+            
+            // --- DATA & CONFIG ---
+            const dummyAiResponses = [
+                "Thank you for sharing. How does that make you feel?",
+                "I understand. Could you tell me more about what's on your mind?",
+                "That sounds challenging. I'm here to listen.",
+                "It takes courage to open up about that. What are your thoughts on it?",
+                "I hear you. Let's explore that feeling a bit more."
+            ];
+
+            const assessmentData = {
+                phq9: {
+                    title: "Depression (PHQ-9)",
+                    questions: ["Little interest or pleasure in doing things.","Feeling down, depressed, or hopeless.","Trouble falling or staying asleep, or sleeping too much.","Feeling tired or having little energy.","Poor appetite or overeating.","Feeling bad about yourself — or that you are a failure or have let yourself or your family down.","Trouble concentrating on things, such as reading the newspaper or watching television.","Moving or speaking so slowly that other people could have noticed? Or the opposite — being so fidgety or restless that you have been moving around a lot more than usual.","Thoughts that you would be better off dead or of hurting yourself in some way."],
+                    options: [{ text: "Not at all", value: 0 },{ text: "Several days", value: 1 },{ text: "More than half the days", value: 2 },{ text: "Nearly every day", value: 3 }]
+                },
+                gad7: {
+                    title: "Anxiety (GAD-7)",
+                    questions: ["Feeling nervous, anxious, or on edge.","Not being able to stop or control worrying.","Worrying too much about different things.","Trouble relaxing.","Being so restless that it's hard to sit still.","Becoming easily annoyed or irritable.","Feeling afraid as if something awful might happen."],
+                    options: [{ text: "Not at all", value: 0 },{ text: "Several days", value: 1 },{ text: "More than half the days", value: 2 },{ text: "Nearly every day", value: 3 }]
+                },
+                pss: {
+                    title: "Stress (PSS-10)",
+                    questions: ["In the last month, how often have you been upset because of something that happened unexpectedly?","In the last month, how often have you felt that you were unable to control the important things in your life?","In the last month, how often have you felt nervous and 'stressed'?","In the last month, how often have you felt confident about your ability to handle your personal problems?","In the last month, how often have you felt that things were going your way?","In the last month, how often have you found that you could not cope with all the things that you had to do?","In the last month, how often have you been able to control irritations in your life?","In the last month, how often have you felt that you were on top of things?","In the last month, how often have you been angered because of things that were outside of your control?","In the last month, how often have you felt difficulties were piling up so high that you could not overcome them?"],
+                    options: [{ text: "Never", value: 0 },{ text: "Almost Never", value: 1 },{ text: "Sometimes", value: 2 },{ text: "Fairly Often", value: 3 },{ text: "Very Often", value: 4 }],
+                    reverseScore: [3, 4, 6, 7] // 0-indexed questions
+                }
+            };
+
+            const screens = document.querySelectorAll('.screen');
+            const modals = document.querySelectorAll('.modal');
+            
+            const setAppHeight = () => document.documentElement.style.setProperty('--app-height', ${window.innerHeight}px);
+            
+            function showScreen(screenId) {
+                currentScreen = screenId;
+                screens.forEach(screen => screen.classList.toggle('active', screen.id === screenId));
+                const activeScreen = document.querySelector('.screen.active');
+                if (activeScreen) activeScreen.scrollTop = 0;
+            }
+
+            function showModal(modalId) { document.getElementById(modalId)?.classList.add('active'); }
+            function hideModals() { modals.forEach(modal => modal.classList.remove('active')); }
+
+            function applyTheme(theme) {
+                currentTheme = theme;
+                document.body.setAttribute('data-theme', theme);
+                localStorage.setItem('theme', theme);
+                document.querySelectorAll('.theme-icon').forEach(icon => { icon.textContent = theme === 'dark' ? '☀' : '🌙'; });
+                if (progressChart) {
+                    const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary');
+                    const gridColor = getComputedStyle(document.body).getPropertyValue('--border');
+                    progressChart.options.scales.x.ticks.color = textColor;
+                    progressChart.options.scales.y.ticks.color = textColor;
+                    progressChart.options.scales.x.grid.color = gridColor;
+                    progressChart.options.scales.y.grid.color = gridColor;
+                    progressChart.update();
+                }
+            }
+
+            function showToast() {
+                const toast = document.getElementById('toast-notification');
+                if (!toast) return;
+                toast.classList.add('show');
+                setTimeout(() => {
+                    toast.classList.remove('show');
+                }, 4000);
+            }
+
+            function addMessage(containerId, sender, text) {
+                const chatMessages = document.getElementById(containerId);
+                if (!chatMessages) return;
+                const time = new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' });
+                const messageDiv = document.createElement('div');
+                messageDiv.className = message ${sender}-message;
+                messageDiv.innerHTML = <div class="message-bubble">${text}</div><div class="message-time">${time}</div>;
+                chatMessages.appendChild(messageDiv);
+                chatMessages.scrollTop = chatMessages.scrollHeight;
+            }
+            
+            function handleQuickMessage(type, message) {
+                if (!message) return;
+                const isDemo = type === 'demo';
+                if (isDemo && chatCount >= DAILY_CHAT_LIMIT) {
+                    showModal('limit-reached-modal');
+                    return;
+                }
+                const containerId = isDemo ? 'demo-chat-messages' : 'therapist-chat-messages';
+                addMessage(containerId, 'user', message);
+                if (isDemo) {
+                    chatCount++;
+                    localStorage.setItem('demoChatCount', chatCount);
+                }
+                setTimeout(() => {
+                    const randomResponse = dummyAiResponses[Math.floor(Math.random() * dummyAiResponses.length)];
+                    addMessage(containerId, 'ai', randomResponse);
+                }, 1000);
+            }
+
+            function handleSendMessage(type) {
+                const isDemo = type === 'demo';
+                const input = document.getElementById(isDemo ? 'demo-message-input' : 'therapist-message-input');
+                const message = input.value.trim();
+                if (message) {
+                    handleQuickMessage(type, message); 
+                    input.value = '';
+                }
+            }
+
+            function handleLogin() {
+                const email = document.getElementById('login-email').value;
+                const password = document.getElementById('login-password').value;
+                if (email === 'user@example.com' && password === 'password123') {
+                    showModal('permissions-modal');
+                } else {
+                    alert('Invalid credentials.');
+                }
+            }
+
+            function handleCreateAccount() {
+                const name = document.getElementById('register-name')?.value;
+                const dob = document.getElementById('register-dob')?.value;
+                const email = document.getElementById('register-email')?.value;
+                const password = document.getElementById('register-password')?.value;
+                if (!name || !dob || !email || !password) {
+                    alert('Please fill all fields.');
+                    return;
+                }
+                alert('Account created successfully! Please log in.');
+                showScreen('login-screen');
+            }
+
+            function setupAllQuestions() {
+                allQuestions = [];
+                const { phq9, gad7, pss } = assessmentData;
+                phq9.questions.forEach((q, i) => allQuestions.push({ test: 'phq9', name: phq9-q${i}, text: q, options: phq9.options }));
+                gad7.questions.forEach((q, i) => allQuestions.push({ test: 'gad7', name: gad7-q${i}, text: q, options: gad7.options }));
+                pss.questions.forEach((q, i) => allQuestions.push({ test: 'pss', name: pss-q${i}, text: q, options: pss.options, reverse: pss.reverseScore.includes(i) }));
+            }
+
+            function startAssessment() {
+                currentQuestionIndex = 0;
+                userAnswers = {};
+                renderCurrentQuestion();
+                showScreen('assessment-screen');
+            }
+
+            function renderCurrentQuestion() {
+                if (currentQuestionIndex < 0 || currentQuestionIndex >= allQuestions.length) return;
+                const question = allQuestions[currentQuestionIndex];
+                const container = document.getElementById('assessment-question-container');
+                let optionsHTML = '<div class="options-group">';
+                question.options.forEach(opt => {
+                    const id = ${question.name}-opt${opt.value};
+                    const isChecked = userAnswers[question.name] === opt.value;
+                    optionsHTML += <input type="radio" id="${id}" name="${question.name}" value="${opt.value}" ${isChecked ? 'checked' : ''} required><label for="${id}">${opt.text}</label>;
+                });
+                optionsHTML += '</div>';
+                container.innerHTML = <div class="question-card"><p>${question.text}</p>${optionsHTML}</div>;
+                updateAssessmentNav();
+            }
+
+            function updateAssessmentNav() {
+                const progressText = document.getElementById('progress-text');
+                const progressBar = document.getElementById('progress-bar');
+                const prevBtn = document.getElementById('prev-question-btn');
+                const nextBtn = document.getElementById('next-question-btn');
+                const progressPercent = ((currentQuestionIndex + 1) / allQuestions.length) * 100;
+                progressBar.style.width = ${progressPercent}%;
+                progressText.textContent = Question ${currentQuestionIndex + 1} of ${allQuestions.length};
+                prevBtn.disabled = currentQuestionIndex === 0;
+                nextBtn.textContent = (currentQuestionIndex === allQuestions.length - 1) ? 'See My Results' : 'Next';
+            }
+
+            function saveCurrentAnswer() {
+                const currentQuestion = allQuestions[currentQuestionIndex];
+                const selectedOption = document.querySelector(input[name="${currentQuestion.name}"]:checked);
+                if (selectedOption) {
+                    userAnswers[currentQuestion.name] = parseInt(selectedOption.value);
+                    return true;
+                }
+                return false;
+            }
+
+            function calculateScores() {
+                let scores = { phq9: 0, gad7: 0, pss: 0 };
+                allQuestions.forEach(q => {
+                    let value = userAnswers[q.name] || 0;
+                    if (q.test === 'pss' && q.reverse) {
+                        value = 4 - value;
+                    }
+                    scores[q.test] += value;
+                });
+                saveAssessmentResult(scores);
+                displayResults(scores);
+            }
+            
+            function saveAssessmentResult(scores) {
+                let history = JSON.parse(localStorage.getItem('assessmentHistory')) || [];
+                history.push({ date: new Date().toISOString().split('T')[0], scores });
+                localStorage.setItem('assessmentHistory', JSON.stringify(history));
+            }
+
+            function displayResults(scores) {
+                const getInterpretation = (test, score) => {
+                    if (test === 'phq9') {
+                        if (score <= 4) return "Minimal depression"; if (score <= 9) return "Mild depression"; if (score <= 14) return "Moderate depression"; if (score <= 19) return "Moderately severe depression"; return "Severe depression";
+                    }
+                    if (test === 'gad7') {
+                        if (score <= 4) return "Minimal anxiety"; if (score <= 9) return "Mild anxiety"; if (score <= 14) return "Moderate anxiety"; return "Severe anxiety";
+                    }
+                    if (test === 'pss') {
+                        if (score <= 13) return "Low perceived stress"; if (score <= 26) return "Moderate perceived stress"; return "High perceived stress";
+                    }
+                };
+                document.getElementById('phq9-results').innerHTML = <h2>Depression (PHQ-9)</h2><p class="score">${scores.phq9}</p><p class="interpretation">${getInterpretation('phq9', scores.phq9)}</p>;
+                document.getElementById('gad7-results').innerHTML = <h2>Anxiety (GAD-7)</h2><p class="score">${scores.gad7}</p><p class="interpretation">${getInterpretation('gad7', scores.gad7)}</p>;
+                document.getElementById('pss-results').innerHTML = <h2>Stress (PSS-10)</h2><p class="score">${scores.pss}</p><p class="interpretation">${getInterpretation('pss', scores.pss)}</p>;
+                showScreen('results-screen');
+            }
+
+            function renderProgressChart() {
+                const history = JSON.parse(localStorage.getItem('assessmentHistory')) || [];
+                const chartEl = document.getElementById('progress-chart');
+                const promptEl = document.getElementById('progress-prompt');
+                if (history.length === 0) {
+                    chartEl.style.display = 'none';
+                    promptEl.style.display = 'block';
+                    return;
+                }
+                chartEl.style.display = 'block';
+                promptEl.style.display = 'none';
+                const labels = history.map(item => new Date(item.date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+                const phq9Data = history.map(item => item.scores.phq9);
+                const gad7Data = history.map(item => item.scores.gad7);
+                const pssData = history.map(item => item.scores.pss);
+                const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary');
+                const gridColor = getComputedStyle(document.body).getPropertyValue('--border');
+                if (progressChart) progressChart.destroy();
+                progressChart = new Chart(chartEl.getContext('2d'), {
+                    type: 'line',
+                    data: {
+                        labels,
+                        datasets: [
+                            { label: 'Depression (PHQ-9)', data: phq9Data, borderColor: '#FF6384', tension: 0.1 },
+                            { label: 'Anxiety (GAD-7)', data: gad7Data, borderColor: '#36A2EB', tension: 0.1 },
+                            { label: 'Stress (PSS-10)', data: pssData, borderColor: '#FFCE56', tension: 0.1 }
+                        ]
+                    },
+                    options: {
+                        scales: { y: { beginAtZero: true, ticks: { color: textColor }, grid: { color: gridColor } }, x: { ticks: { color: textColor }, grid: { color: gridColor } } },
+                        plugins: { legend: { labels: { color: textColor } } }
+                    }
+                });
+            }
+
+            function initializeApp() {
+                window.addEventListener('resize', setAppHeight);
+                setAppHeight();
+                setupAllQuestions();
+                applyTheme(localStorage.getItem('theme') || 'dark');
+                showScreen(currentScreen);
+                setTimeout(() => showToast(), 500);
+
+                // Add all event listeners
+                document.getElementById('login-btn')?.addEventListener('click', handleLogin);
+                document.getElementById('go-to-register-btn')?.addEventListener('click', () => showScreen('register-screen'));
+                document.getElementById('create-account-btn')?.addEventListener('click', handleCreateAccount);
+                document.getElementById('back-to-login-btn')?.addEventListener('click', () => showScreen('login-screen'));
+                document.getElementById('guest-login-btn')?.addEventListener('click', () => { showScreen('demo-chat-screen'); addMessage('demo-chat-messages', 'ai', "Welcome to the demo chat."); });
+                document.getElementById('logout-btn')?.addEventListener('click', () => showScreen('login-screen'));
+                document.getElementById('demo-chat-login-btn')?.addEventListener('click', () => showScreen('login-screen'));
+                document.getElementById('demo-send-btn')?.addEventListener('click', () => handleSendMessage('demo'));
+                document.getElementById('demo-message-input')?.addEventListener('keypress', e => { if (e.key === 'Enter') handleSendMessage('demo'); });
+                document.getElementById('theme-toggle-global')?.addEventListener('click', () => applyTheme(currentTheme === 'dark' ? 'light' : 'dark'));
+                document.getElementById('go-to-therapist-chat-btn')?.addEventListener('click', () => { showScreen('therapist-chat-screen'); addMessage('therapist-chat-messages', 'ai', "Welcome back."); });
+                document.getElementById('therapist-chat-home-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+                document.getElementById('therapist-send-btn')?.addEventListener('click', () => handleSendMessage('therapist'));
+                document.getElementById('therapist-message-input')?.addEventListener('keypress', e => { if (e.key === 'Enter') handleSendMessage('therapist'); });
+                document.querySelectorAll('#demo-chat-screen .quick-btn').forEach(btn => btn.addEventListener('click', () => handleQuickMessage('demo', btn.dataset.message)));
+                document.querySelectorAll('#therapist-chat-screen .quick-btn').forEach(btn => btn.addEventListener('click', () => handleQuickMessage('therapist', btn.dataset.message)));
+                document.getElementById('emergency-btn')?.addEventListener('click', () => showModal('emergency-modal'));
+                document.getElementById('emergency-modal-close-btn')?.addEventListener('click', hideModals);
+                document.getElementById('limit-modal-login-btn')?.addEventListener('click', () => { hideModals(); showScreen('login-screen'); });
+                document.getElementById('limit-modal-close-btn')?.addEventListener('click', hideModals);
+                document.getElementById('grant-permissions-btn')?.addEventListener('click', () => {
+                    console.log('Permissions granted:', {
+                        location: document.getElementById('location-permission').checked,
+                        microphone: document.getElementById('microphone-permission').checked,
+                        notifications: document.getElementById('notifications-permission').checked
+                    });
+                    hideModals(); showScreen('dashboard-screen');
+                });
+                document.getElementById('skip-permissions-btn')?.addEventListener('click', () => { console.log('Permissions skipped.'); hideModals(); showScreen('dashboard-screen'); });
+                document.getElementById('go-to-assessment-btn')?.addEventListener('click', startAssessment);
+                document.getElementById('assessment-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+                document.getElementById('results-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+                document.getElementById('go-to-resources-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+                document.getElementById('resources-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+                document.getElementById('go-to-progress-btn')?.addEventListener('click', () => { renderProgressChart(); showScreen('progress-screen'); });
+                document.getElementById('progress-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+                document.getElementById('prev-question-btn')?.addEventListener('click', () => {
+                    saveCurrentAnswer();
+                    if (currentQuestionIndex > 0) {
+                        currentQuestionIndex--;
+                        renderCurrentQuestion();
+                    }
+                });
+                document.getElementById('next-question-btn')?.addEventListener('click', () => {
+                    if (saveCurrentAnswer()) {
+                        if (currentQuestionIndex < allQuestions.length - 1) {
+                            currentQuestionIndex++;
+                            renderCurrentQuestion();
+                        } else {
+                            calculateScores();
+                        }
+                    } else {
+                        alert('Please select an answer to continue.');
+                    }
+                });
+            }
+            
+            initializeApp();
+        });
+    </script>
+</body>
+</html>

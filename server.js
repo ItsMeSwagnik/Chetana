@@ -162,18 +162,27 @@ app.post('/api/assessments', async (req, res) => {
   }
 });
 
-app.get('/api/assessments/:userId', async (req, res) => {
+app.get('/api/assessments', async (req, res) => {
+  console.log('📊 GET /api/assessments called with query:', req.query);
   try {
-    const { userId } = req.params;
+    const { userId } = req.query;
     
+    if (!userId) {
+      console.log('❌ Missing userId parameter');
+      return res.status(400).json({ error: 'userId parameter required' });
+    }
+    
+    console.log('🔍 Fetching assessments for user:', userId);
     const result = await pool.query(
-      'SELECT * FROM assessments WHERE user_id = $1 ORDER BY assessment_date',
+      'SELECT * FROM assessments WHERE user_id = $1 ORDER BY assessment_date DESC, created_at DESC',
       [userId]
     );
     
+    console.log('✅ Found', result.rows.length, 'assessments for user', userId);
     res.json({ assessments: result.rows });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to fetch assessments' });
+    console.error('❌ Assessment fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch assessments: ' + err.message });
   }
 });
 
@@ -199,13 +208,20 @@ app.get('/api/admin/users', async (req, res) => {
   }
 });
 
-app.delete('/api/admin/users/:userId', async (req, res) => {
+app.delete('/api/admin/users', async (req, res) => {
   try {
-    const { userId } = req.params;
+    const { userId } = req.query;
+    
+    if (!userId) {
+      return res.status(400).json({ error: 'userId parameter required' });
+    }
+    
     await pool.query('DELETE FROM users WHERE id = $1', [userId]);
+    console.log('User deleted:', userId);
     res.json({ success: true });
   } catch (err) {
-    res.status(500).json({ error: 'Failed to delete user' });
+    console.error('Delete user error:', err);
+    res.status(500).json({ error: 'Failed to delete user: ' + err.message });
   }
 });
 
@@ -227,6 +243,12 @@ app.post('/api/init-db', async (req, res) => {
   } catch (err) {
     res.status(500).json({ error: 'Database initialization failed: ' + err.message });
   }
+});
+
+// Catch-all route for debugging
+app.use('*', (req, res) => {
+  console.log('🔴 Route not found:', req.method, req.originalUrl);
+  res.status(404).json({ error: `Route ${req.method} ${req.originalUrl} not found` });
 });
 
 // Error handling middleware

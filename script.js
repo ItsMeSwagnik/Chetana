@@ -561,13 +561,27 @@ document.addEventListener('DOMContentLoaded', () => {
     async function loadAdminPanel() {
         try {
             const response = await fetch(`${API_BASE}/api/admin/users`);
-            const data = await response.json();
             
-            // Count only non-admin users
-            const regularUsers = data.users.filter(user => !user.isadmin);
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const responseText = await response.text();
+            let data;
+            
+            try {
+                data = JSON.parse(responseText);
+            } catch (parseErr) {
+                console.error('Admin API returned HTML:', responseText.substring(0, 200));
+                throw new Error('Admin API returned invalid response');
+            }
+            
+            // Handle missing or invalid data
+            const users = data.users || [];
+            const regularUsers = users.filter(user => !user.isadmin);
             
             document.getElementById('total-users').textContent = regularUsers.length;
-            document.getElementById('total-assessments').textContent = data.totalAssessments;
+            document.getElementById('total-assessments').textContent = data.totalAssessments || 0;
             
             // Add recent assessments info if element exists
             const recentAssessmentsEl = document.getElementById('recent-assessments');
@@ -578,29 +592,35 @@ document.addEventListener('DOMContentLoaded', () => {
             const usersList = document.getElementById('users-list');
             usersList.innerHTML = '';
             
+            if (regularUsers.length === 0) {
+                usersList.innerHTML = '<p>No users found.</p>';
+                return;
+            }
+            
             regularUsers.forEach(user => {
-                
                 const userCard = document.createElement('div');
                 userCard.className = 'user-card';
                 userCard.innerHTML = `
                     <div class="user-header">
                         <div>
-                            <div class="user-name">${user.name}</div>
-                            <div class="user-email">${user.email}</div>
+                            <div class="user-name">${user.name || 'Unknown'}</div>
+                            <div class="user-email">${user.email || 'No email'}</div>
                         </div>
+                        <button class="view-reports-btn" onclick="viewUserReports(${user.id}, '${user.name || 'User'}')">View Reports</button>
                         <button class="delete-user-btn" onclick="deleteUser(${user.id})">Delete</button>
                     </div>
                     <div class="user-details">
                         <div>DOB: ${user.dob || 'N/A'}</div>
-                        <div>Assessments: ${user.assessment_count}</div>
+                        <div>Assessments: ${user.assessment_count || 0}</div>
                         <div>Last Assessment: ${user.last_assessment ? new Date(user.last_assessment).toLocaleDateString() : 'Never'}</div>
-                        <div>Joined: ${new Date(user.created_at).toLocaleDateString()}</div>
+                        <div>Joined: ${user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}</div>
                     </div>
                 `;
                 usersList.appendChild(userCard);
             });
         } catch (err) {
             console.error('Failed to load admin data:', err);
+            document.getElementById('users-list').innerHTML = `<p>Error loading admin data: ${err.message}</p>`;
         }
     }
     
@@ -615,7 +635,123 @@ document.addEventListener('DOMContentLoaded', () => {
         }
     }
     
+    async function viewUserReports(userId, userName) {
+        try {
+            console.log('Loading reports for user:', userId, userName);
+            const response = await fetch(`${API_BASE}/api/assessments?userId=${userId}`);
+            console.log('Response status:', response.status);
+            
+            const responseText = await response.text();
+            console.log('Raw response:', responseText);
+            
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch (parseErr) {
+                console.error('JSON parse error:', parseErr);
+                console.error('Response was HTML, likely 404 or server error');
+                throw new Error('API endpoint not found or server error');
+            }
+            
+            console.log('Parsed data:', data);
+            
+            if (data.assessments && data.assessments.length > 0) {
+                displayUserReports(userId, userName, data.assessments);
+                showScreen('user-reports-screen');
+            } else {
+                alert(`${userName} has no assessment reports yet.`);
+            }
+        } catch (err) {
+            console.error('Failed to load user reports:', err);
+            alert('Failed to load user reports: ' + err.message);
+        }
+    }
+    
+    function displayUserReports(userId, userName, assessments) {
+        console.log('Displaying reports for:', userName, 'with', assessments.length, 'assessments');
+        
+        // Update screen title
+        const titleEl = document.getElementById('user-reports-title');
+        if (titleEl) titleEl.textContent = `${userName}'s Assessment Reports`;
+        
+        // Display latest assessment results
+        const latest = assessments[0];
+        if (latest) {
+            displayUserResults({
+                phq9: latest.phq9_score || 0,
+                gad7: latest.gad7_score || 0,
+                pss: latest.pss_score || 0
+            });
+            
+            // Render progress chart
+            renderUserProgressChart(assessments);
+        } else {
+            console.error('No assessment data found');
+        }
+    }
+    
+    function displayUserResults(scores) {
+        const getInterpretation = (test, score) => {
+            if (test === 'phq9') {
+                if (score <= 4) return "Minimal depression"; 
+                if (score <= 9) return "Mild depression"; 
+                if (score <= 14) return "Moderate depression"; 
+                if (score <= 19) return "Moderately severe depression"; 
+                return "Severe depression";
+            }
+            if (test === 'gad7') {
+                if (score <= 4) return "Minimal anxiety"; 
+                if (score <= 9) return "Mild anxiety"; 
+                if (score <= 14) return "Moderate anxiety"; 
+                return "Severe anxiety";
+            }
+            if (test === 'pss') {
+                if (score <= 13) return "Low perceived stress"; 
+                if (score <= 26) return "Moderate perceived stress"; 
+                return "High perceived stress";
+            }
+        };
+        
+        document.getElementById('user-phq9-results').innerHTML = `<h2>Depression (PHQ-9)</h2><p class="score">${scores.phq9}</p><p class="interpretation">${getInterpretation('phq9', scores.phq9)}</p>`;
+        document.getElementById('user-gad7-results').innerHTML = `<h2>Anxiety (GAD-7)</h2><p class="score">${scores.gad7}</p><p class="interpretation">${getInterpretation('gad7', scores.gad7)}</p>`;
+        document.getElementById('user-pss-results').innerHTML = `<h2>Stress (PSS-10)</h2><p class="score">${scores.pss}</p><p class="interpretation">${getInterpretation('pss', scores.pss)}</p>`;
+    }
+    
+    function renderUserProgressChart(history) {
+        const chartEl = document.getElementById('user-progress-chart');
+        
+        const labels = history.map(item => new Date(item.assessment_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
+        const phq9Data = history.map(item => item.phq9_score);
+        const gad7Data = history.map(item => item.gad7_score);
+        const pssData = history.map(item => item.pss_score);
+        
+        const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary');
+        const gridColor = getComputedStyle(document.body).getPropertyValue('--border');
+        
+        if (window.userProgressChart) window.userProgressChart.destroy();
+        
+        window.userProgressChart = new Chart(chartEl.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    { label: 'Depression (PHQ-9)', data: phq9Data, borderColor: '#FF6384', tension: 0.1 },
+                    { label: 'Anxiety (GAD-7)', data: gad7Data, borderColor: '#36A2EB', tension: 0.1 },
+                    { label: 'Stress (PSS-10)', data: pssData, borderColor: '#FFCE56', tension: 0.1 }
+                ]
+            },
+            options: {
+                scales: { 
+                    y: { beginAtZero: true, ticks: { color: textColor }, grid: { color: gridColor } }, 
+                    x: { ticks: { color: textColor }, grid: { color: gridColor } } 
+                },
+                plugins: { legend: { labels: { color: textColor } } }
+            }
+        });
+    }
+    
     window.deleteUser = deleteUser;
+    window.viewUserReports = viewUserReports;
 
     function initializeApp() {
         window.addEventListener('resize', setAppHeight);
@@ -649,6 +785,7 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('profile-theme-toggle').textContent = currentTheme === 'dark' ? 'Dark' : 'Light';
         });
         document.getElementById('admin-logout-btn')?.addEventListener('click', () => showScreen('login-screen'));
+        document.getElementById('user-reports-back-btn')?.addEventListener('click', () => showScreen('admin-screen'));
         document.getElementById('demo-chat-login-btn')?.addEventListener('click', () => showScreen('login-screen'));
         document.getElementById('demo-send-btn')?.addEventListener('click', () => handleSendMessage('demo'));
         document.getElementById('demo-message-input')?.addEventListener('keypress', e => { 

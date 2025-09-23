@@ -125,6 +125,27 @@
         </div>
     </div>
 
+    <div id="user-reports-screen" class="screen">
+        <header class="page-header">
+            <div class="header-side-panel"><button id="user-reports-back-btn" class="back-btn">🏠</button></div>
+            <h2 class="header-title" id="user-reports-title">User Assessment Reports</h2>
+            <div class="header-controls"></div>
+        </header>
+        <div class="page-content">
+            <div class="page-section">
+                <h2>Latest Assessment Results</h2>
+                <p style="color: var(--text-secondary);">This is not a diagnosis. Please consult a healthcare professional for a formal evaluation.</p>
+                <div id="user-phq9-results" class="score-card"></div>
+                <div id="user-gad7-results" class="score-card"></div>
+                <div id="user-pss-results" class="score-card"></div>
+            </div>
+            <div class="page-section">
+                <h2>Progress History</h2>
+                <canvas id="user-progress-chart"></canvas>
+            </div>
+        </div>
+    </div>
+
     <div id="demo-chat-screen" class="screen">
         <div class="chat-wrapper">
             <header class="page-header">

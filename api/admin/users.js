@@ -27,36 +27,54 @@ module.exports = async function handler(req, res) {
     const pool = createPool();
     
     if (req.method === 'GET') {
-      const usersResult = await pool.query(`
-        SELECT u.*, 
-               COUNT(a.id) as assessment_count,
-               MAX(a.created_at) as last_assessment
-        FROM users u 
-        LEFT JOIN assessments a ON u.id = a.user_id 
-        GROUP BY u.id 
-        ORDER BY u.created_at DESC
-      `);
+      let usersResult;
+      try {
+        usersResult = await pool.query(`
+          SELECT u.*, 
+                 COUNT(a.id) as assessment_count,
+                 MAX(a.created_at) as last_assessment
+          FROM users u 
+          LEFT JOIN assessments a ON u.id = a.user_id 
+          GROUP BY u.id 
+          ORDER BY u.created_at DESC
+        `);
+      } catch (err) {
+        // Fallback to simple user query
+        console.log('Complex query failed, using simple query:', err.message);
+        usersResult = await pool.query('SELECT * FROM users ORDER BY created_at DESC');
+        // Add assessment_count as 0 for each user
+        usersResult.rows = usersResult.rows.map(user => ({ ...user, assessment_count: 0 }));
+      }
       
-      const totalAssessments = await pool.query('SELECT COUNT(*) FROM assessments');
-      let recentAssessments;
+      let totalAssessments;
+      try {
+        totalAssessments = await pool.query('SELECT COUNT(*) FROM assessments');
+      } catch (err) {
+        totalAssessments = { rows: [{ count: '0' }] };
+      }
+      
+      let recentAssessments = { rows: [{ count: '0' }] };
       try {
         recentAssessments = await pool.query(`
           SELECT COUNT(*) FROM assessments 
           WHERE created_at >= NOW() - INTERVAL '7 days'
         `);
       } catch (err) {
-        // Fallback if created_at column has issues
-        recentAssessments = await pool.query(`
-          SELECT COUNT(*) FROM assessments 
-          WHERE assessment_date >= CURRENT_DATE - INTERVAL '7 days'
-        `);
+        try {
+          recentAssessments = await pool.query(`
+            SELECT COUNT(*) FROM assessments 
+            WHERE assessment_date >= CURRENT_DATE - INTERVAL '7 days'
+          `);
+        } catch (err2) {
+          // Keep default value
+        }
       }
       
       res.json({ 
-        users: usersResult.rows,
-        totalUsers: usersResult.rows.length,
-        totalAssessments: parseInt(totalAssessments.rows[0].count),
-        recentAssessments: parseInt(recentAssessments.rows[0].count)
+        users: usersResult.rows || [],
+        totalUsers: (usersResult.rows || []).length,
+        totalAssessments: parseInt(totalAssessments.rows[0].count) || 0,
+        recentAssessments: parseInt(recentAssessments.rows[0].count) || 0
       });
     } else if (req.method === 'DELETE') {
       const { userId } = req.query;

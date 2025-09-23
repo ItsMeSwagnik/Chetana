@@ -50,12 +50,26 @@ module.exports = async function handler(req, res) {
     } else if (req.method === 'GET') {
       const { userId } = req.query;
       
-      const result = await pool.query(
-        'SELECT * FROM assessments WHERE user_id = $1 ORDER BY assessment_date DESC, created_at DESC',
-        [userId]
-      );
+      if (!userId) {
+        return res.status(400).json({ error: 'userId parameter required' });
+      }
       
-      res.json({ assessments: result.rows });
+      let result;
+      try {
+        result = await pool.query(
+          'SELECT * FROM assessments WHERE user_id = $1 ORDER BY created_at DESC',
+          [userId]
+        );
+      } catch (err) {
+        // Fallback query if created_at column has issues
+        result = await pool.query(
+          'SELECT * FROM assessments WHERE user_id = $1 ORDER BY assessment_date DESC',
+          [userId]
+        );
+      }
+      
+      console.log('📊 Found', result.rows.length, 'assessments for user', userId);
+      res.json({ assessments: result.rows || [] });
     } else {
       res.status(405).json({ error: 'Method not allowed' });
     }

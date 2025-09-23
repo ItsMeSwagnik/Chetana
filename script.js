@@ -207,8 +207,17 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('📡 Frontend: API response status:', response.status);
             console.log('📡 Frontend: API response headers:', Object.fromEntries(response.headers.entries()));
             
-            const data = await response.json();
-            console.log('📦 Frontend: API response data:', data);
+            const responseText = await response.text();
+            console.log('📦 Frontend: Raw response:', responseText);
+            
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch (parseErr) {
+                console.error('🔴 Frontend: JSON parse error:', parseErr);
+                throw new Error('Server returned invalid response: ' + responseText.substring(0, 100));
+            }
+            console.log('📦 Frontend: Parsed response data:', data);
             
             if (data.success) {
                 console.log('✅ Frontend: Login successful');
@@ -280,8 +289,17 @@ document.addEventListener('DOMContentLoaded', () => {
             
             console.log('📡 Frontend: Registration response status:', response.status);
             
-            const data = await response.json();
-            console.log('📦 Frontend: Registration response data:', data);
+            const responseText = await response.text();
+            console.log('📦 Frontend: Raw registration response:', responseText);
+            
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch (parseErr) {
+                console.error('🔴 Frontend: Registration JSON parse error:', parseErr);
+                throw new Error('Server returned invalid response: ' + responseText.substring(0, 100));
+            }
+            console.log('📦 Frontend: Parsed registration data:', data);
             
             if (data.success) {
                 console.log('✅ Frontend: Registration successful');

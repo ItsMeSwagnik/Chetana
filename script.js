@@ -178,11 +178,16 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleLogin() {
+        console.log('🔐 Frontend: Login attempt started');
+        
         const email = document.getElementById('login-email').value.trim();
         const password = document.getElementById('login-password').value.trim();
         const loginBtn = document.getElementById('login-btn');
         
+        console.log('📝 Frontend: Login data:', { email, hasPassword: !!password });
+        
         if (!email || !password) {
+            console.log('❌ Frontend: Missing credentials');
             alert('Please enter email and password.');
             return;
         }
@@ -191,29 +196,45 @@ document.addEventListener('DOMContentLoaded', () => {
         loginBtn.classList.add('loading');
         
         try {
+            console.log('🌐 Frontend: Making API request to:', `${API_BASE}/api/login`);
+            
             const response = await fetch(`${API_BASE}/api/login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password })
             });
             
+            console.log('📡 Frontend: API response status:', response.status);
+            console.log('📡 Frontend: API response headers:', Object.fromEntries(response.headers.entries()));
+            
             const data = await response.json();
+            console.log('📦 Frontend: API response data:', data);
             
             if (data.success) {
+                console.log('✅ Frontend: Login successful');
                 localStorage.setItem('token', data.token);
                 
                 if (data.isAdmin) {
+                    console.log('👑 Frontend: Admin login detected');
                     loadAdminPanel();
                     showScreen('admin-screen');
                 } else {
+                    console.log('👤 Frontend: Regular user login');
                     localStorage.setItem('currentUser', JSON.stringify(data.user));
                     updateWelcomeMessage(data.user.name);
                     showModal('permissions-modal');
                 }
             } else {
+                console.log('❌ Frontend: Login failed:', data.error);
                 alert(data.error || 'Login failed');
             }
         } catch (err) {
+            console.error('🔴 Frontend: Login error details:', {
+                message: err.message,
+                stack: err.stack,
+                name: err.name,
+                timestamp: new Date().toISOString()
+            });
             alert('Connection error. Please try again.');
         } finally {
             loginBtn.innerHTML = 'Login';
@@ -222,19 +243,25 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     async function handleCreateAccount() {
+        console.log('📝 Frontend: Registration attempt started');
+        
         const name = document.getElementById('register-name')?.value.trim();
         const dob = document.getElementById('register-dob')?.value;
         const email = document.getElementById('register-email')?.value.trim();
         const password = document.getElementById('register-password')?.value.trim();
         const createBtn = document.getElementById('create-account-btn');
         
+        console.log('📝 Frontend: Registration data:', { name, dob, email, hasPassword: !!password });
+        
         if (!name || !dob || !email || !password) {
+            console.log('❌ Frontend: Missing registration fields');
             alert('Please fill all fields.');
             return;
         }
         
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
         if (!emailRegex.test(email)) {
+            console.log('❌ Frontend: Invalid email format');
             alert('Please enter a valid email address.');
             return;
         }
@@ -243,21 +270,29 @@ document.addEventListener('DOMContentLoaded', () => {
         createBtn.classList.add('loading');
         
         try {
+            console.log('🌐 Frontend: Making registration API request');
+            
             const response = await fetch(`${API_BASE}/api/register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, email, password, dob })
             });
             
+            console.log('📡 Frontend: Registration response status:', response.status);
+            
             const data = await response.json();
+            console.log('📦 Frontend: Registration response data:', data);
             
             if (data.success) {
+                console.log('✅ Frontend: Registration successful');
                 alert('Account created successfully! Please log in.');
                 showScreen('login-screen');
             } else {
+                console.log('❌ Frontend: Registration failed:', data.error);
                 alert(data.error || 'Registration failed');
             }
         } catch (err) {
+            console.error('🔴 Frontend: Registration error:', err);
             alert('Connection error. Please try again.');
         } finally {
             createBtn.innerHTML = 'Create Account';

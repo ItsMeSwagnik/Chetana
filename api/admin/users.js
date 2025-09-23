@@ -5,7 +5,12 @@ const pool = new Pool({
   ssl: { rejectUnauthorized: false }
 });
 
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
+  console.log('👥 Admin Users API called:', {
+    method: req.method,
+    query: req.query,
+    timestamp: new Date().toISOString()
+  });
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, DELETE, OPTIONS');

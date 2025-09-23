@@ -1,9 +1,12 @@
 const { Pool } = require('pg');
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
+// Create pool instance per request for serverless
+function createPool() {
+  return new Pool({
+    connectionString: process.env.DATABASE_URL,
+    ssl: { rejectUnauthorized: false }
+  });
+}
 
 module.exports = async function handler(req, res) {
   console.log('👥 Admin Users API called:', {
@@ -21,6 +24,8 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    const pool = createPool();
+    
     if (req.method === 'GET') {
       const usersResult = await pool.query(`
         SELECT u.*, 

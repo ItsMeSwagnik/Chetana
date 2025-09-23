@@ -14,11 +14,10 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  let pool;
   try {
-    pool = new Pool({
+    const pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+      ssl: { rejectUnauthorized: false }
     });
     
     await pool.query(`
@@ -65,9 +64,5 @@ module.exports = async function handler(req, res) {
     res.json({ success: true, message: 'Database initialized with default admin and assessment tracking' });
   } catch (err) {
     res.status(500).json({ error: 'Database initialization failed: ' + err.message });
-  } finally {
-    if (pool) {
-      await pool.end();
-    }
   }
 }

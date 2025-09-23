@@ -200,6 +200,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.setItem('currentUser', JSON.stringify(user));
                 updateWelcomeMessage(user.name);
                 showModal('permissions-modal');
+            } else if (email === 'admin@chetana.com' && password === 'admin123') {
+                loadAdminPanel();
+                showScreen('admin-screen');
             } else {
                 alert('Invalid credentials. Please check your email and password.');
             }
@@ -446,6 +449,57 @@ document.addEventListener('DOMContentLoaded', () => {
         showScreen('login-screen');
     }
 
+    function loadAdminPanel() {
+        const users = JSON.parse(localStorage.getItem('registeredUsers')) || [];
+        const totalUsers = users.length;
+        let totalAssessments = 0;
+        
+        users.forEach(user => {
+            const userHistory = JSON.parse(localStorage.getItem(`assessmentHistory_${user.email}`)) || [];
+            totalAssessments += userHistory.length;
+        });
+        
+        document.getElementById('total-users').textContent = totalUsers;
+        document.getElementById('total-assessments').textContent = totalAssessments;
+        
+        const usersList = document.getElementById('users-list');
+        usersList.innerHTML = '';
+        
+        users.forEach((user, index) => {
+            const userHistory = JSON.parse(localStorage.getItem(`assessmentHistory_${user.email}`)) || [];
+            const userCard = document.createElement('div');
+            userCard.className = 'user-card';
+            userCard.innerHTML = `
+                <div class="user-header">
+                    <div>
+                        <div class="user-name">${user.name}</div>
+                        <div class="user-email">${user.email}</div>
+                    </div>
+                    <button class="delete-user-btn" onclick="deleteUser('${user.email}')">Delete</button>
+                </div>
+                <div class="user-details">
+                    <div>DOB: ${user.dob}</div>
+                    <div>Assessments: ${userHistory.length}</div>
+                    <div>Joined: ${new Date(user.createdAt).toLocaleDateString()}</div>
+                    <div>Last Active: ${userHistory.length > 0 ? new Date(userHistory[userHistory.length - 1].date).toLocaleDateString() : 'Never'}</div>
+                </div>
+            `;
+            usersList.appendChild(userCard);
+        });
+    }
+    
+    function deleteUser(email) {
+        if (confirm(`Are you sure you want to delete user: ${email}?`)) {
+            let users = JSON.parse(localStorage.getItem('registeredUsers')) || [];
+            users = users.filter(user => user.email !== email);
+            localStorage.setItem('registeredUsers', JSON.stringify(users));
+            localStorage.removeItem(`assessmentHistory_${email}`);
+            loadAdminPanel();
+        }
+    }
+    
+    window.deleteUser = deleteUser;
+
     function initializeApp() {
         window.addEventListener('resize', setAppHeight);
         setAppHeight();
@@ -477,6 +531,7 @@ document.addEventListener('DOMContentLoaded', () => {
             applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
             document.getElementById('profile-theme-toggle').textContent = currentTheme === 'dark' ? 'Dark' : 'Light';
         });
+        document.getElementById('admin-logout-btn')?.addEventListener('click', () => showScreen('login-screen'));
         document.getElementById('demo-chat-login-btn')?.addEventListener('click', () => showScreen('login-screen'));
         document.getElementById('demo-send-btn')?.addEventListener('click', () => handleSendMessage('demo'));
         document.getElementById('demo-message-input')?.addEventListener('keypress', e => { 

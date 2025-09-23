@@ -891,6 +891,87 @@ input[type="email"], input[type="password"], input[type="text"], input[type="dat
   color: white !important;
 }
 
+.admin-stats {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  background: var(--surface);
+  padding: 1.5rem;
+  border-radius: var(--radius-base);
+  text-align: center;
+  border: 1px solid var(--border);
+}
+
+.stat-card h3 {
+  font-size: 2rem;
+  margin: 0;
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+}
+
+.stat-card p {
+  margin: 0.5rem 0 0 0;
+  color: var(--text-secondary);
+}
+
+.users-section h3 {
+  margin: 0 0 1rem 0;
+  color: var(--text-primary);
+}
+
+.users-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.user-card {
+  background: var(--surface);
+  padding: 1rem;
+  border-radius: var(--radius-base);
+  border: 1px solid var(--border);
+}
+
+.user-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.user-name {
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.user-email {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.user-details {
+  display: grid;
+  grid-template-columns: repeat(2, 1fr);
+  gap: 0.5rem;
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.delete-user-btn {
+  background: var(--danger);
+  color: white;
+  border: none;
+  padding: 0.3rem 0.8rem;
+  border-radius: 15px;
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
 @media (min-width: 768px) { 
   .dashboard-main { 
     grid-template-columns: repeat(2, 1fr); 

@@ -489,7 +489,12 @@
                 messageDiv.className = `message ${sender}-message`;
                 messageDiv.innerHTML = `<div class="message-bubble">${text}</div><div class="message-time">${time}</div>`;
                 chatMessages.appendChild(messageDiv);
-                chatMessages.scrollTop = chatMessages.scrollHeight;
+                
+                // Auto-scroll to bottom
+                const container = chatMessages.parentElement;
+                if (container) {
+                    container.scrollTop = container.scrollHeight;
+                }
             }
             
             function handleQuickMessage(type, message) {

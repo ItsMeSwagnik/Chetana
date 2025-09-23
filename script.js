@@ -408,7 +408,7 @@ document.addEventListener('DOMContentLoaded', () => {
         const promptEl = document.getElementById('progress-prompt');
         
         try {
-            const response = await fetch(`${API_BASE}/api/assessments/${currentUser.id}`);
+            const response = await fetch(`${API_BASE}/api/assessments?userId=${currentUser.id}`);
             const data = await response.json();
             const history = data.assessments || [];
             
@@ -528,7 +528,7 @@ document.addEventListener('DOMContentLoaded', () => {
     async function deleteUser(userId) {
         if (confirm('Are you sure you want to delete this user?')) {
             try {
-                await fetch(`${API_BASE}/api/admin/users/${userId}`, { method: 'DELETE' });
+                await fetch(`${API_BASE}/api/admin/users?userId=${userId}`, { method: 'DELETE' });
                 loadAdminPanel();
             } catch (err) {
                 alert('Failed to delete user');

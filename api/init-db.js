@@ -1,15 +1,6 @@
 const { Pool } = require('pg');
 
-const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
-});
-
 module.exports = async function handler(req, res) {
-  console.log('📊 Init DB API called:', {
-    method: req.method,
-    timestamp: new Date().toISOString()
-  });
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -19,16 +10,16 @@ module.exports = async function handler(req, res) {
     return res.status(200).end();
   }
   
-  if (req.method !== 'POST') {
+  if (req.method !== 'POST' && req.method !== 'GET') {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  let pool;
   try {
-    console.log('Initializing database...');
-    
-    // Test connection
-    await pool.query('SELECT NOW()');
-    console.log('Database connected successfully');
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+    });
     
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -37,6 +28,7 @@ module.exports = async function handler(req, res) {
         email VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
         dob DATE,
+        isadmin BOOLEAN DEFAULT FALSE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
@@ -53,10 +45,22 @@ module.exports = async function handler(req, res) {
       )
     `);
     
-    console.log('Database tables initialized successfully');
-    res.json({ success: true, message: 'Database initialized successfully' });
+    // Create default admin user
+    const bcrypt = require('bcrypt');
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+    
+    await pool.query(`
+      INSERT INTO users (name, email, password, isadmin) 
+      VALUES ('Admin', 'admin@chetana.com', $1, true)
+      ON CONFLICT (email) DO NOTHING
+    `, [hashedPassword]);
+    
+    res.json({ success: true, message: 'Database initialized with default admin' });
   } catch (err) {
-    console.error('Database initialization error:', err);
     res.status(500).json({ error: 'Database initialization failed: ' + err.message });
+  } finally {
+    if (pool) {
+      await pool.end();
+    }
   }
 }

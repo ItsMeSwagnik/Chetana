@@ -24,12 +24,6 @@ module.exports = async function handler(req, res) {
       return res.status(400).json({ error: 'Email and password required' });
     }
     
-    // Admin check
-    if (email === 'admin@chetana.com' && password === 'admin123') {
-      const token = jwt.sign({ isAdmin: true }, process.env.JWT_SECRET || 'fallback_secret');
-      return res.json({ success: true, isAdmin: true, token });
-    }
-    
     // Test user login
     if (email === 'test@test.com' && password === '123456') {
       const token = jwt.sign({ userId: 999 }, process.env.JWT_SECRET || 'fallback_secret');
@@ -59,12 +53,22 @@ module.exports = async function handler(req, res) {
       return res.status(401).json({ error: 'Invalid credentials' });
     }
     
-    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || 'fallback_secret');
-    res.json({ 
-      success: true, 
-      token, 
-      user: { id: user.id, name: user.name, email: user.email } 
-    });
+    const token = jwt.sign({ userId: user.id, isAdmin: user.isadmin }, process.env.JWT_SECRET || 'fallback_secret');
+    
+    if (user.isadmin) {
+      res.json({ 
+        success: true, 
+        isAdmin: true,
+        token, 
+        user: { id: user.id, name: user.name, email: user.email } 
+      });
+    } else {
+      res.json({ 
+        success: true, 
+        token, 
+        user: { id: user.id, name: user.name, email: user.email } 
+      });
+    }
     
   } catch (err) {
     res.status(500).json({ error: 'Login failed: ' + err.message });

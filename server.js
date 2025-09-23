@@ -209,6 +209,26 @@ app.delete('/api/admin/users/:userId', async (req, res) => {
   }
 });
 
+app.post('/api/init-db', async (req, res) => {
+  try {
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS isadmin BOOLEAN DEFAULT FALSE
+    `);
+    
+    const hashedPassword = await bcrypt.hash('admin123', 10);
+    
+    await pool.query(`
+      INSERT INTO users (name, email, password, isadmin) 
+      VALUES ('Admin', 'admin@chetana.com', $1, true)
+      ON CONFLICT (email) DO NOTHING
+    `, [hashedPassword]);
+    
+    res.json({ success: true, message: 'Database initialized with default admin' });
+  } catch (err) {
+    res.status(500).json({ error: 'Database initialization failed: ' + err.message });
+  }
+});
+
 // Error handling middleware
 app.use((err, req, res, next) => {
   console.error('Unhandled error:', err);

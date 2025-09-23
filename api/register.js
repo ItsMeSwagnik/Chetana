@@ -17,7 +17,7 @@ module.exports = async function handler(req, res) {
 
   let pool;
   try {
-    const { name, email, password, dob } = req.body || {};
+    const { name, email, password, dob, isAdmin } = req.body || {};
     
     if (!name || !email || !password) {
       return res.status(400).json({ error: 'Missing required fields' });
@@ -40,8 +40,8 @@ module.exports = async function handler(req, res) {
     
     // Insert user into database
     const result = await pool.query(
-      'INSERT INTO users (name, email, password, dob) VALUES ($1, $2, $3, $4) RETURNING id, name, email',
-      [name, email, hashedPassword, dob]
+      'INSERT INTO users (name, email, password, dob, isadmin) VALUES ($1, $2, $3, $4, $5) RETURNING id, name, email, isadmin',
+      [name, email, hashedPassword, dob, isAdmin || false]
     );
     
     res.json({ success: true, user: result.rows[0] });

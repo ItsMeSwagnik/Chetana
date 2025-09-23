@@ -548,13 +548,17 @@ document.addEventListener('DOMContentLoaded', () => {
             const response = await fetch(`${API_BASE}/api/admin/users`);
             const data = await response.json();
             
-            document.getElementById('total-users').textContent = data.totalUsers;
+            // Count only non-admin users
+            const regularUsers = data.users.filter(user => !user.isadmin);
+            
+            document.getElementById('total-users').textContent = regularUsers.length;
             document.getElementById('total-assessments').textContent = data.totalAssessments;
             
             const usersList = document.getElementById('users-list');
             usersList.innerHTML = '';
             
-            data.users.forEach(user => {
+            regularUsers.forEach(user => {
+                
                 const userCard = document.createElement('div');
                 userCard.className = 'user-card';
                 userCard.innerHTML = `

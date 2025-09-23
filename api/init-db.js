@@ -40,10 +40,17 @@ module.exports = async function handler(req, res) {
         phq9_score INTEGER,
         gad7_score INTEGER,
         pss_score INTEGER,
+        responses JSONB,
         assessment_date DATE DEFAULT CURRENT_DATE,
         created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
+    
+    // Add responses column if it doesn't exist (for existing databases)
+    await pool.query(`
+      ALTER TABLE assessments 
+      ADD COLUMN IF NOT EXISTS responses JSONB
+    `).catch(() => {});
     
     // Create default admin user
     const bcrypt = require('bcrypt');
@@ -55,7 +62,7 @@ module.exports = async function handler(req, res) {
       ON CONFLICT (email) DO NOTHING
     `, [hashedPassword]);
     
-    res.json({ success: true, message: 'Database initialized with default admin' });
+    res.json({ success: true, message: 'Database initialized with default admin and assessment tracking' });
   } catch (err) {
     res.status(500).json({ error: 'Database initialization failed: ' + err.message });
   } finally {

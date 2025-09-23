@@ -15,7 +15,6 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  let pool;
   try {
     const { name, email, password, dob, isAdmin } = req.body || {};
     
@@ -30,9 +29,9 @@ module.exports = async function handler(req, res) {
     }
     
     // Initialize database connection
-    pool = new Pool({
+    const pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+      ssl: { rejectUnauthorized: false }
     });
     
     // Hash password
@@ -51,10 +50,6 @@ module.exports = async function handler(req, res) {
       res.status(400).json({ error: 'Email already exists' });
     } else {
       res.status(500).json({ error: 'Registration failed: ' + err.message });
-    }
-  } finally {
-    if (pool) {
-      await pool.end();
     }
   }
 }

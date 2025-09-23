@@ -16,7 +16,6 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
-  let pool;
   try {
     const { email, password } = req.body || {};
     
@@ -35,9 +34,9 @@ module.exports = async function handler(req, res) {
     }
     
     // Database connection
-    pool = new Pool({
+    const pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+      ssl: { rejectUnauthorized: false }
     });
     
     const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
@@ -72,9 +71,5 @@ module.exports = async function handler(req, res) {
     
   } catch (err) {
     res.status(500).json({ error: 'Login failed: ' + err.message });
-  } finally {
-    if (pool) {
-      await pool.end();
-    }
   }
 }

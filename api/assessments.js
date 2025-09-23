@@ -23,19 +23,30 @@ module.exports = async function handler(req, res) {
 
   try {
     if (req.method === 'POST') {
-      const { userId, phq9, gad7, pss } = req.body;
+      const { userId, phq9, gad7, pss, responses } = req.body;
       
-      const result = await pool.query(
-        'INSERT INTO assessments (user_id, phq9_score, gad7_score, pss_score) VALUES ($1, $2, $3, $4) RETURNING *',
-        [userId, phq9, gad7, pss]
-      );
+      // Try with responses column first, fallback without it
+      let result;
+      try {
+        result = await pool.query(
+          'INSERT INTO assessments (user_id, phq9_score, gad7_score, pss_score, responses) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+          [userId, phq9, gad7, pss, JSON.stringify(responses || {})]
+        );
+      } catch (err) {
+        // Fallback if responses column doesn't exist
+        result = await pool.query(
+          'INSERT INTO assessments (user_id, phq9_score, gad7_score, pss_score) VALUES ($1, $2, $3, $4) RETURNING *',
+          [userId, phq9, gad7, pss]
+        );
+      }
       
+      console.log('✅ Assessment saved:', { userId, scores: { phq9, gad7, pss }, timestamp: new Date().toISOString() });
       res.json({ success: true, assessment: result.rows[0] });
     } else if (req.method === 'GET') {
       const { userId } = req.query;
       
       const result = await pool.query(
-        'SELECT * FROM assessments WHERE user_id = $1 ORDER BY assessment_date',
+        'SELECT * FROM assessments WHERE user_id = $1 ORDER BY assessment_date DESC, created_at DESC',
         [userId]
       );
       

@@ -23,7 +23,9 @@ module.exports = async function handler(req, res) {
   try {
     if (req.method === 'GET') {
       const usersResult = await pool.query(`
-        SELECT u.*, COUNT(a.id) as assessment_count 
+        SELECT u.*, 
+               COUNT(a.id) as assessment_count,
+               MAX(a.created_at) as last_assessment
         FROM users u 
         LEFT JOIN assessments a ON u.id = a.user_id 
         GROUP BY u.id 
@@ -31,11 +33,25 @@ module.exports = async function handler(req, res) {
       `);
       
       const totalAssessments = await pool.query('SELECT COUNT(*) FROM assessments');
+      let recentAssessments;
+      try {
+        recentAssessments = await pool.query(`
+          SELECT COUNT(*) FROM assessments 
+          WHERE created_at >= NOW() - INTERVAL '7 days'
+        `);
+      } catch (err) {
+        // Fallback if created_at column has issues
+        recentAssessments = await pool.query(`
+          SELECT COUNT(*) FROM assessments 
+          WHERE assessment_date >= CURRENT_DATE - INTERVAL '7 days'
+        `);
+      }
       
       res.json({ 
         users: usersResult.rows,
         totalUsers: usersResult.rows.length,
-        totalAssessments: parseInt(totalAssessments.rows[0].count)
+        totalAssessments: parseInt(totalAssessments.rows[0].count),
+        recentAssessments: parseInt(recentAssessments.rows[0].count)
       });
     } else if (req.method === 'DELETE') {
       const { userId } = req.query;

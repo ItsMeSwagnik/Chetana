@@ -329,6 +329,7 @@ document.addEventListener('DOMContentLoaded', () => {
     function startAssessment() {
         currentQuestionIndex = 0;
         userAnswers = {};
+        console.log('📝 Starting new assessment at:', new Date().toISOString());
         renderCurrentQuestion();
         showScreen('assessment-screen');
     }
@@ -384,6 +385,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         setTimeout(() => {
             let scores = { phq9: 0, gad7: 0, pss: 0 };
+            console.log('📋 User answers:', userAnswers);
+            
             allQuestions.forEach(q => {
                 let value = userAnswers[q.name] || 0;
                 if (q.test === 'pss' && q.reverse) {
@@ -391,6 +394,8 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 scores[q.test] += value;
             });
+            
+            console.log('📊 Calculated scores:', scores);
             saveAssessmentResult(scores);
             displayResults(scores);
         }, 2500);
@@ -401,16 +406,26 @@ document.addEventListener('DOMContentLoaded', () => {
         if (!currentUser) return;
         
         try {
-            await fetch(`${API_BASE}/api/assessments`, {
+            console.log('💾 Saving assessment result:', { scores, responses: userAnswers });
+            
+            const response = await fetch(`${API_BASE}/api/assessments`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({
                     userId: currentUser.id,
                     phq9: scores.phq9,
                     gad7: scores.gad7,
-                    pss: scores.pss
+                    pss: scores.pss,
+                    responses: userAnswers
                 })
             });
+            
+            const result = await response.json();
+            if (result.success) {
+                console.log('✅ Assessment saved successfully');
+            } else {
+                console.error('❌ Failed to save assessment:', result.error);
+            }
         } catch (err) {
             console.error('Failed to save assessment:', err);
         }
@@ -554,6 +569,12 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('total-users').textContent = regularUsers.length;
             document.getElementById('total-assessments').textContent = data.totalAssessments;
             
+            // Add recent assessments info if element exists
+            const recentAssessmentsEl = document.getElementById('recent-assessments');
+            if (recentAssessmentsEl && data.recentAssessments !== undefined) {
+                recentAssessmentsEl.textContent = data.recentAssessments;
+            }
+            
             const usersList = document.getElementById('users-list');
             usersList.innerHTML = '';
             
@@ -572,6 +593,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     <div class="user-details">
                         <div>DOB: ${user.dob || 'N/A'}</div>
                         <div>Assessments: ${user.assessment_count}</div>
+                        <div>Last Assessment: ${user.last_assessment ? new Date(user.last_assessment).toLocaleDateString() : 'Never'}</div>
                         <div>Joined: ${new Date(user.created_at).toLocaleDateString()}</div>
                     </div>
                 `;

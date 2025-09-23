@@ -1,10 +1,8 @@
-module.exports = async function handler(req, res) {
-  console.log('🔐 Login API called:', {
-    method: req.method,
-    hasBody: !!req.body,
-    timestamp: new Date().toISOString()
-  });
+const bcrypt = require('bcrypt');
+const jwt = require('jsonwebtoken');
+const { Pool } = require('pg');
 
+module.exports = async function handler(req, res) {
   // Enable CORS
   res.setHeader('Access-Control-Allow-Origin', '*');
   res.setHeader('Access-Control-Allow-Methods', 'POST, OPTIONS');
@@ -18,32 +16,22 @@ module.exports = async function handler(req, res) {
     return res.status(405).json({ error: 'Method not allowed' });
   }
 
+  let pool;
   try {
-    console.log('📝 Environment check:', {
-      hasDbUrl: !!process.env.DATABASE_URL,
-      hasJwtSecret: !!process.env.JWT_SECRET
-    });
-
     const { email, password } = req.body || {};
-    console.log('📝 Login attempt:', { email, hasPassword: !!password });
     
     if (!email || !password) {
-      console.log('❌ Missing credentials');
       return res.status(400).json({ error: 'Email and password required' });
     }
     
     // Admin check
     if (email === 'admin@chetana.com' && password === 'admin123') {
-      console.log('👑 Admin login successful');
-      const jwt = require('jsonwebtoken');
       const token = jwt.sign({ isAdmin: true }, process.env.JWT_SECRET || 'fallback_secret');
       return res.json({ success: true, isAdmin: true, token });
     }
     
     // Test user login
     if (email === 'test@test.com' && password === '123456') {
-      console.log('🧪 Test user login successful');
-      const jwt = require('jsonwebtoken');
       const token = jwt.sign({ userId: 999 }, process.env.JWT_SECRET || 'fallback_secret');
       return res.json({ 
         success: true, 
@@ -52,22 +40,37 @@ module.exports = async function handler(req, res) {
       });
     }
     
-    // For now, return test user for any other login attempt
-    console.log('🔄 Fallback to test user for:', email);
-    const jwt = require('jsonwebtoken');
-    const token = jwt.sign({ userId: 999 }, process.env.JWT_SECRET || 'fallback_secret');
-    return res.json({ 
+    // Database connection
+    pool = new Pool({
+      connectionString: process.env.DATABASE_URL,
+      ssl: process.env.DATABASE_URL ? { rejectUnauthorized: false } : false
+    });
+    
+    const result = await pool.query('SELECT * FROM users WHERE email = $1', [email]);
+    
+    if (result.rows.length === 0) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    const user = result.rows[0];
+    const validPassword = await bcrypt.compare(password, user.password);
+    
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Invalid credentials' });
+    }
+    
+    const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET || 'fallback_secret');
+    res.json({ 
       success: true, 
       token, 
-      user: { id: 999, name: 'Demo User', email: email } 
+      user: { id: user.id, name: user.name, email: user.email } 
     });
     
   } catch (err) {
-    console.error('🔴 Login error:', {
-      message: err.message,
-      stack: err.stack,
-      timestamp: new Date().toISOString()
-    });
     res.status(500).json({ error: 'Login failed: ' + err.message });
+  } finally {
+    if (pool) {
+      await pool.end();
+    }
   }
 }

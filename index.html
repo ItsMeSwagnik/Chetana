@@ -142,7 +142,7 @@
     <div id="login-screen" class="screen auth-screen active">
         <div class="auth-container">
             <div class="logo-section"><h1 class="logo">चेtanā</h1><p class="tagline">Awakening Minds, Nurturing Wellbeing</p></div>
-            <form class="auth-form">
+            <form class="auth-form" onsubmit="return false;">
                 <div class="form-group"><div class="input-group"><span class="input-icon">📧</span><input id="login-email" type="email" placeholder="Email / Username" required /></div></div>
                 <div class="form-group"><div class="input-group"><span class="input-icon">🔒</span><input id="login-password" type="password" placeholder="Password" required /></div></div>
                 <button type="button" id="login-btn" class="btn btn--primary">Login</button>
@@ -531,24 +531,38 @@
             }
 
             function handleLogin() {
-                const email = document.getElementById('login-email').value;
-                const password = document.getElementById('login-password').value;
-                if (email === 'user@example.com' && password === 'password123') {
+                const email = document.getElementById('login-email').value.trim();
+                const password = document.getElementById('login-password').value.trim();
+                if (!email || !password) {
+                    alert('Please enter email and password.');
+                    return;
+                }
+                const users = JSON.parse(localStorage.getItem('registeredUsers')) || [];
+                const user = users.find(u => u.email === email && u.password === password);
+                if (user) {
+                    localStorage.setItem('currentUser', JSON.stringify(user));
                     showModal('permissions-modal');
                 } else {
-                    alert('Invalid credentials.');
+                    alert('Invalid credentials. Please register first.');
                 }
             }
 
             function handleCreateAccount() {
-                const name = document.getElementById('register-name')?.value;
+                const name = document.getElementById('register-name')?.value?.trim();
                 const dob = document.getElementById('register-dob')?.value;
-                const email = document.getElementById('register-email')?.value;
-                const password = document.getElementById('register-password')?.value;
+                const email = document.getElementById('register-email')?.value?.trim();
+                const password = document.getElementById('register-password')?.value?.trim();
                 if (!name || !dob || !email || !password) {
                     alert('Please fill all fields.');
                     return;
                 }
+                const users = JSON.parse(localStorage.getItem('registeredUsers')) || [];
+                if (users.find(u => u.email === email)) {
+                    alert('Email already registered. Please login.');
+                    return;
+                }
+                users.push({ name, email, password, dob });
+                localStorage.setItem('registeredUsers', JSON.stringify(users));
                 alert('Account created successfully! Please log in.');
                 showScreen('login-screen');
             }

@@ -10,7 +10,7 @@ document.addEventListener('DOMContentLoaded', () => {
     let progressChart;
     
     // API Base URL
-    const API_BASE = 'http://localhost:3000';
+    const API_BASE = '';
     
     // --- DATA & CONFIG ---
     const dummyAiResponses = [
@@ -417,39 +417,43 @@ document.addEventListener('DOMContentLoaded', () => {
                 promptEl.style.display = 'block';
                 return;
             }
-        chartEl.style.display = 'block';
-        promptEl.style.display = 'none';
+            
+            chartEl.style.display = 'block';
+            promptEl.style.display = 'none';
+            
             const labels = history.map(item => new Date(item.assessment_date).toLocaleDateString('en-US', { month: 'short', day: 'numeric' }));
             const phq9Data = history.map(item => item.phq9_score);
             const gad7Data = history.map(item => item.gad7_score);
             const pssData = history.map(item => item.pss_score);
+            
+            const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary');
+            const gridColor = getComputedStyle(document.body).getPropertyValue('--border');
+            
+            if (progressChart) progressChart.destroy();
+            
+            progressChart = new Chart(chartEl.getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels,
+                    datasets: [
+                        { label: 'Depression (PHQ-9)', data: phq9Data, borderColor: '#FF6384', tension: 0.1 },
+                        { label: 'Anxiety (GAD-7)', data: gad7Data, borderColor: '#36A2EB', tension: 0.1 },
+                        { label: 'Stress (PSS-10)', data: pssData, borderColor: '#FFCE56', tension: 0.1 }
+                    ]
+                },
+                options: {
+                    scales: { 
+                        y: { beginAtZero: true, ticks: { color: textColor }, grid: { color: gridColor } }, 
+                        x: { ticks: { color: textColor }, grid: { color: gridColor } } 
+                    },
+                    plugins: { legend: { labels: { color: textColor } } }
+                }
+            });
         } catch (err) {
             console.error('Failed to load progress data:', err);
             chartEl.style.display = 'none';
             promptEl.style.display = 'block';
-            return;
         }
-        const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary');
-        const gridColor = getComputedStyle(document.body).getPropertyValue('--border');
-        if (progressChart) progressChart.destroy();
-        progressChart = new Chart(chartEl.getContext('2d'), {
-            type: 'line',
-            data: {
-                labels,
-                datasets: [
-                    { label: 'Depression (PHQ-9)', data: phq9Data, borderColor: '#FF6384', tension: 0.1 },
-                    { label: 'Anxiety (GAD-7)', data: gad7Data, borderColor: '#36A2EB', tension: 0.1 },
-                    { label: 'Stress (PSS-10)', data: pssData, borderColor: '#FFCE56', tension: 0.1 }
-                ]
-            },
-            options: {
-                scales: { 
-                    y: { beginAtZero: true, ticks: { color: textColor }, grid: { color: gridColor } }, 
-                    x: { ticks: { color: textColor }, grid: { color: gridColor } } 
-                },
-                plugins: { legend: { labels: { color: textColor } } }
-            }
-        });
     }
 
     function updateWelcomeMessage(username) {
@@ -482,6 +486,7 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function logout() {
         localStorage.removeItem('currentUser');
+        localStorage.removeItem('token');
         showScreen('login-screen');
     }
 

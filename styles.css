@@ -17,7 +17,7 @@
   --secondary-color: #6BCF7F;
   --accent-color: #1a202c;
   --text-primary: #f7fafc;
-  --text-secondary: #a0aec0;
+  --text-secondary: #cbd5e0;
   --background: #1a202c;
   --surface: #2d3748;
   --border: #4a5568;
@@ -2500,7 +2500,7 @@ input[type="email"], input[type="password"], input[type="text"], input[type="dat
 
 .milestone-card.achieved {
   background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
-  color: white;
+  color: rgb(116, 130, 107);
   border-color: var(--primary-color);
   transform: translateY(-2px);
   box-shadow: 0 4px 12px rgba(135, 206, 235, 0.3);
@@ -2762,6 +2762,455 @@ input[type="email"], input[type="password"], input[type="text"], input[type="dat
   .resources-grid { 
     grid-template-columns: repeat(2, 1fr); 
   } 
+}
+
+/* Privacy Policy & Data Management Styles */
+.privacy-content {
+  max-width: 800px;
+  margin: 0 auto;
+  line-height: 1.6;
+}
+
+.privacy-content h3 {
+  color: var(--text-primary);
+  margin: 2rem 0 1rem 0;
+  font-size: 1.3rem;
+  border-bottom: 2px solid var(--primary-color);
+  padding-bottom: 0.5rem;
+}
+
+.privacy-header {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: 0.5rem;
+}
+
+.dpdp-compliance {
+  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  color: var(--text-secondary);
+  padding: 0.25rem 0.75rem;
+  border-radius: 15px;
+  font-size: 0.8rem;
+  font-weight: 600;
+  margin: 0;
+}
+
+.privacy-content p {
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+}
+
+.privacy-content ul {
+  color: var(--text-secondary);
+  padding-left: 1.5rem;
+  margin-bottom: 1.5rem;
+}
+
+.privacy-content li {
+  margin-bottom: 0.5rem;
+}
+
+.rights-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(250px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.right-card {
+  background: var(--surface);
+  padding: 1.5rem;
+  border-radius: var(--radius-base);
+  border: 1px solid var(--border);
+  text-align: center;
+  transition: transform 0.2s ease;
+}
+
+.right-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.right-card h4 {
+  margin: 0 0 0.5rem 0;
+  color: var(--text-primary);
+  font-size: 1.1rem;
+}
+
+.right-card p {
+  margin: 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.policy-footer {
+  background: var(--surface);
+  padding: 1.5rem;
+  border-radius: var(--radius-base);
+  margin-top: 2rem;
+  text-align: center;
+  border: 1px solid var(--border);
+}
+
+.policy-footer p {
+  margin: 0.5rem 0;
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.privacy-management {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.data-summary {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+  gap: 1rem;
+  margin: 1.5rem 0;
+}
+
+.data-item {
+  background: var(--surface);
+  padding: 1.5rem;
+  border-radius: var(--radius-base);
+  border: 1px solid var(--border);
+  display: flex;
+  align-items: center;
+  gap: 1rem;
+}
+
+.data-icon {
+  font-size: 2rem;
+  flex-shrink: 0;
+}
+
+.data-info {
+  flex-grow: 1;
+}
+
+.data-info strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.data-info small {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+}
+
+.consent-settings {
+  margin: 1.5rem 0;
+}
+
+.consent-item {
+  display: flex;
+  align-items: flex-start;
+  gap: 1rem;
+  background: var(--surface);
+  padding: 1.5rem;
+  border-radius: var(--radius-base);
+  border: 1px solid var(--border);
+  margin-bottom: 1rem;
+  cursor: pointer;
+  transition: border-color 0.2s ease;
+}
+
+.consent-item:hover {
+  border-color: var(--primary-color);
+}
+
+.consent-item input[type="checkbox"] {
+  margin: 0;
+  transform: scale(1.2);
+  accent-color: var(--primary-color);
+  flex-shrink: 0;
+}
+
+.consent-text {
+  flex-grow: 1;
+}
+
+.consent-text strong {
+  display: block;
+  color: var(--text-primary);
+  font-size: 1rem;
+  margin-bottom: 0.25rem;
+}
+
+.consent-text small {
+  color: var(--text-secondary);
+  font-size: 0.9rem;
+  line-height: 1.4;
+}
+
+.data-actions {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+  margin: 2rem 0;
+}
+
+.data-actions .btn {
+  width: 100%;
+  max-width: 300px;
+  margin: 0 auto;
+}
+
+.btn--danger {
+  background: var(--danger);
+  color: white;
+  border: 2px solid var(--danger);
+}
+
+.btn--danger:hover {
+  background: transparent;
+  color: var(--danger);
+  border-color: var(--danger);
+}
+
+.privacy-info {
+  background: var(--surface);
+  padding: 1.5rem;
+  border-radius: var(--radius-base);
+  border: 1px solid var(--border);
+  margin-top: 2rem;
+}
+
+.privacy-info h4 {
+  margin: 0 0 1rem 0;
+  color: var(--text-primary);
+}
+
+.privacy-info ul {
+  color: var(--text-secondary);
+  line-height: 1.6;
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.privacy-info li {
+  margin-bottom: 0.5rem;
+}
+
+/* Privacy consent in permissions modal */
+.privacy-consent {
+  margin-top: 1.5rem;
+  padding-top: 1.5rem;
+  border-top: 1px solid var(--border);
+}
+
+.privacy-item {
+  background: var(--background);
+  border: 2px solid var(--primary-color);
+}
+
+.privacy-item:hover {
+  border-color: var(--secondary-color);
+}
+
+/* Assessment consent */
+.assessment-consent {
+  background: var(--surface);
+  padding: 2rem;
+  border-radius: var(--radius-base);
+  border: 1px solid var(--border);
+  text-align: center;
+  margin-bottom: 2rem;
+}
+
+.assessment-consent h3 {
+  margin: 0 0 1rem 0;
+  color: var(--text-primary);
+}
+
+.assessment-consent p {
+  color: var(--text-secondary);
+  margin-bottom: 1.5rem;
+  line-height: 1.6;
+}
+
+.consent-checkbox {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  margin: 1.5rem 0;
+  text-align: left;
+}
+
+.consent-checkbox input[type="checkbox"] {
+  transform: scale(1.2);
+  accent-color: var(--primary-color);
+}
+
+.consent-checkbox span {
+  color: var(--text-primary);
+  line-height: 1.4;
+}
+
+/* Delete account modal */
+.delete-warning {
+  background: var(--surface);
+  padding: 1.5rem;
+  border-radius: var(--radius-base);
+  border-left: 4px solid var(--danger);
+  margin: 1.5rem 0;
+  text-align: left;
+}
+
+.delete-warning h4 {
+  margin: 0 0 1rem 0;
+  color: var(--danger);
+}
+
+.delete-warning ul {
+  color: var(--text-secondary);
+  margin: 0;
+  padding-left: 1.5rem;
+}
+
+.delete-warning li {
+  margin-bottom: 0.5rem;
+}
+
+.delete-confirmation {
+  margin: 1.5rem 0;
+}
+
+.delete-confirmation .consent-checkbox {
+  justify-content: flex-start;
+  text-align: left;
+}
+
+/* Mobile permissions modal fixes */
+@media (max-width: 768px) {
+  #permissions-modal .auth-container {
+    padding: 1rem;
+    margin: 0.5rem;
+    max-width: calc(100vw - 1rem);
+    max-height: calc(100vh - 1rem);
+    overflow-y: auto;
+  }
+  
+  #permissions-modal h2 {
+    font-size: 1.2rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  #permissions-modal p {
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+  }
+  
+  .permissions-list {
+    margin: 1rem 0;
+  }
+  
+  .permission-item {
+    padding: 0.75rem;
+    margin-bottom: 0.5rem;
+    flex-direction: row;
+    align-items: flex-start;
+  }
+  
+  .permission-item input[type="checkbox"] {
+    margin-right: 0.75rem;
+    margin-top: 0.25rem;
+    flex-shrink: 0;
+  }
+  
+  .permission-icon {
+    font-size: 1.2rem;
+    margin-right: 0.75rem;
+    flex-shrink: 0;
+  }
+  
+  .permission-text {
+    flex: 1;
+    min-width: 0;
+  }
+  
+  .permission-text strong {
+    font-size: 0.9rem;
+    line-height: 1.3;
+  }
+  
+  .permission-text small {
+    font-size: 0.8rem;
+    line-height: 1.2;
+  }
+  
+  .privacy-consent {
+    margin-top: 1rem;
+    padding-top: 1rem;
+  }
+  
+  .privacy-item {
+    padding: 0.75rem;
+  }
+  
+  .privacy-item .permission-text strong {
+    font-size: 0.85rem;
+  }
+  
+  .privacy-item .permission-text small {
+    font-size: 0.75rem;
+  }
+  
+  #permissions-modal .btn {
+    padding: 0.75rem 1rem;
+    font-size: 0.9rem;
+    margin-top: 0.5rem;
+  }
+}
+
+/* Responsive privacy styles */
+@media (max-width: 768px) {
+  .rights-grid {
+    grid-template-columns: 1fr;
+  }
+  
+  .data-summary {
+    grid-template-columns: 1fr;
+  }
+  
+  .data-item {
+    padding: 1rem;
+  }
+  
+  .consent-item {
+    padding: 1rem;
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+  }
+  
+  .consent-checkbox {
+    flex-direction: column;
+    align-items: flex-start;
+    gap: 0.75rem;
+    text-align: left;
+  }
+  
+  .assessment-consent {
+    padding: 1.5rem;
+  }
+  
+  .privacy-content {
+    padding: 0 0.5rem;
+  }
+  
+  .data-actions {
+    gap: 0.75rem;
+  }
+  
+  .data-actions .btn {
+    max-width: 100%;
+  }
 }
 
 @media (min-width: 1024px) { 

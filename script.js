@@ -436,11 +436,44 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function startAssessment() {
-        currentQuestionIndex = 0;
-        userAnswers = {};
-        console.log('📝 Starting new assessment at:', new Date().toISOString());
-        renderCurrentQuestion();
+        // Show consent screen first
+        document.getElementById('assessment-consent').style.display = 'block';
+        document.getElementById('assessment-content').style.display = 'none';
         showScreen('assessment-screen');
+    }
+    
+    async function loadDataPrivacyInfo() {
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        if (!currentUser || !currentUser.id) {
+            document.getElementById('assessment-count').textContent = 'Please log in';
+            document.getElementById('mood-count').textContent = 'Please log in';
+            document.getElementById('account-date').textContent = 'Please log in';
+            return;
+        }
+        
+        try {
+            // Load assessment count
+            const assessmentResponse = await fetch(`${API_BASE}/api/assessments?userId=${currentUser.id}`);
+            const assessmentData = await assessmentResponse.json();
+            const assessmentCount = assessmentData.assessments ? assessmentData.assessments.length : 0;
+            document.getElementById('assessment-count').textContent = `${assessmentCount} assessments completed`;
+            
+            // Load mood count
+            const moodResponse = await fetch(`${API_BASE}/api/moods?userId=${currentUser.id}`);
+            const moodData = await moodResponse.json();
+            const moodCount = moodData.success && moodData.moods ? moodData.moods.length : 0;
+            document.getElementById('mood-count').textContent = `${moodCount} mood entries recorded`;
+            
+            // Account creation date
+            const accountDate = currentUser.created_at ? new Date(currentUser.created_at).toLocaleDateString() : 'Unknown';
+            document.getElementById('account-date').textContent = accountDate;
+            
+        } catch (err) {
+            console.error('Failed to load data privacy info:', err);
+            document.getElementById('assessment-count').textContent = 'Error loading data';
+            document.getElementById('mood-count').textContent = 'Error loading data';
+            document.getElementById('account-date').textContent = 'Error loading data';
+        }
     }
 
     function renderCurrentQuestion() {
@@ -2760,6 +2793,167 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (typeof renderMoodChart === 'function') await renderMoodChart();
                 if (typeof renderMilestones === 'function') await renderMilestones();
             }, 200);
+        });
+        
+        // Privacy policy consent checkbox validation
+        document.getElementById('privacy-consent')?.addEventListener('change', (e) => {
+            const grantBtn = document.getElementById('grant-permissions-btn');
+            if (grantBtn) {
+                grantBtn.disabled = !e.target.checked;
+            }
+        });
+        
+        // Privacy policy links
+        document.getElementById('privacy-policy-link')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            hideModals();
+            showScreen('privacy-policy-screen');
+        });
+        
+        document.getElementById('assessment-privacy-link')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            showScreen('privacy-policy-screen');
+        });
+        
+        // Privacy policy back button
+        document.getElementById('privacy-back-btn')?.addEventListener('click', () => {
+            showScreen('dashboard-screen');
+        });
+        
+        // Data & Privacy management
+        document.getElementById('data-privacy-btn')?.addEventListener('click', () => {
+            loadDataPrivacyInfo();
+            showScreen('data-privacy-screen');
+        });
+        
+        document.getElementById('data-privacy-back-btn')?.addEventListener('click', () => {
+            showScreen('profile-screen');
+        });
+        
+        // Assessment consent validation
+        document.getElementById('assessment-data-consent')?.addEventListener('change', (e) => {
+            const startBtn = document.getElementById('start-assessment-btn');
+            if (startBtn) {
+                startBtn.disabled = !e.target.checked;
+            }
+        });
+        
+        // Start assessment after consent
+        document.getElementById('start-assessment-btn')?.addEventListener('click', () => {
+            const consentCheckbox = document.getElementById('assessment-data-consent');
+            if (consentCheckbox && consentCheckbox.checked) {
+                document.getElementById('assessment-consent').style.display = 'none';
+                document.getElementById('assessment-content').style.display = 'block';
+                setupAllQuestions();
+                currentQuestionIndex = 0;
+                userAnswers = {};
+                renderCurrentQuestion();
+            }
+        });
+        
+        // Data privacy actions
+        document.getElementById('export-all-data-btn')?.addEventListener('click', () => {
+            showModal('export-modal');
+        });
+        
+        document.getElementById('view-privacy-policy-btn')?.addEventListener('click', () => {
+            showScreen('privacy-policy-screen');
+        });
+        
+        document.getElementById('delete-account-btn')?.addEventListener('click', () => {
+            showModal('delete-account-modal');
+        });
+        
+        // Delete account confirmation
+        document.getElementById('delete-confirmation-checkbox')?.addEventListener('change', (e) => {
+            const confirmBtn = document.getElementById('confirm-delete-btn');
+            if (confirmBtn) {
+                confirmBtn.disabled = !e.target.checked;
+            }
+        });
+        
+        document.getElementById('confirm-delete-btn')?.addEventListener('click', async () => {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (!currentUser || !currentUser.id) {
+                alert('No user account found.');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/users/${currentUser.id}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('Your account and all data have been permanently deleted.');
+                    localStorage.clear();
+                    hideModals();
+                    showScreen('login-screen');
+                } else {
+                    throw new Error(result.error || 'Failed to delete account');
+                }
+            } catch (err) {
+                console.error('Failed to delete account:', err);
+                alert('Failed to delete account. Please try again or contact support.');
+            }
+        });
+        
+        document.getElementById('cancel-delete-btn')?.addEventListener('click', () => {
+            hideModals();
+        });
+        
+        // Consent management toggles
+        document.getElementById('health-data-consent')?.addEventListener('change', async (e) => {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (currentUser && currentUser.id) {
+                try {
+                    await fetch(`${API_BASE}/api/users/${currentUser.id}/consent`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            healthDataConsent: e.target.checked
+                        })
+                    });
+                } catch (err) {
+                    console.error('Failed to update consent:', err);
+                }
+            }
+        });
+        
+        document.getElementById('analytics-consent')?.addEventListener('change', async (e) => {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (currentUser && currentUser.id) {
+                try {
+                    await fetch(`${API_BASE}/api/users/${currentUser.id}/consent`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            analyticsConsent: e.target.checked
+                        })
+                    });
+                } catch (err) {
+                    console.error('Failed to update consent:', err);
+                }
+            }
+        });
+        
+        document.getElementById('research-consent')?.addEventListener('change', async (e) => {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (currentUser && currentUser.id) {
+                try {
+                    await fetch(`${API_BASE}/api/users/${currentUser.id}/consent`, {
+                        method: 'PUT',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            researchConsent: e.target.checked
+                        })
+                    });
+                } catch (err) {
+                    console.error('Failed to update consent:', err);
+                }
+            }
         });
         document.getElementById('go-to-assessment-btn')?.addEventListener('click', startAssessment);
         document.getElementById('assessment-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));

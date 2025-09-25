@@ -91,7 +91,7 @@
                     <span>🔔 Notifications</span>
                     <button class="setting-toggle">On</button>
                 </div>
-                <div class="setting-item">
+                <div class="setting-item" id="data-privacy-btn">
                     <span>📊 Data & Privacy</span>
                     <button class="setting-toggle">Manage</button>
                 </div>
@@ -205,16 +205,27 @@
             <div class="header-controls"></div>
         </header>
         <div class="page-content">
-            <div class="assessment-progress">
-                <div id="progress-text" class="progress-text">Question 1 of 26</div>
-                <div class="progress-bar-container">
-                    <div id="progress-bar" class="progress-bar"></div>
-                </div>
+            <div id="assessment-consent" class="assessment-consent">
+                <h3>🔒 Data Consent Required</h3>
+                <p>Before starting your assessment, please confirm your consent for data processing:</p>
+                <label class="consent-checkbox">
+                    <input type="checkbox" id="assessment-data-consent" required>
+                    <span>I consent to the storage and processing of my assessment responses as per the <a href="#" id="assessment-privacy-link" style="color: var(--primary-color); text-decoration: underline;">Privacy Policy</a></span>
+                </label>
+                <button id="start-assessment-btn" class="btn btn--primary" disabled>Start Assessment</button>
             </div>
-            <div id="assessment-question-container"></div>
-            <div class="assessment-nav">
-                <button type="button" id="prev-question-btn" class="btn btn--outline">Previous</button>
-                <button type="button" id="next-question-btn" class="btn btn--primary">Next</button>
+            <div id="assessment-content" style="display: none;">
+                <div class="assessment-progress">
+                    <div id="progress-text" class="progress-text">Question 1 of 26</div>
+                    <div class="progress-bar-container">
+                        <div id="progress-bar" class="progress-bar"></div>
+                    </div>
+                </div>
+                <div id="assessment-question-container"></div>
+                <div class="assessment-nav">
+                    <button type="button" id="prev-question-btn" class="btn btn--outline">Previous</button>
+                    <button type="button" id="next-question-btn" class="btn btn--primary">Next</button>
+                </div>
             </div>
         </div>
     </div>
@@ -449,7 +460,17 @@
                     </div>
                 </label>
              </div>
-             <button id="grant-permissions-btn" class="btn btn--primary">Allow</button>
+             <div class="privacy-consent">
+                <label class="permission-item privacy-item">
+                    <input type="checkbox" id="privacy-consent" required>
+                    <span class="permission-icon">🔒</span>
+                    <div class="permission-text">
+                        <strong>I agree to the <a href="#" id="privacy-policy-link" style="color: var(--primary-color); text-decoration: underline;">Privacy Policy & DPDP Act Compliance</a></strong>
+                        <small>Required to use the app and store your health data securely.</small>
+                    </div>
+                </label>
+             </div>
+             <button id="grant-permissions-btn" class="btn btn--primary" disabled>Allow</button>
              <button id="skip-permissions-btn" class="btn btn--outline">Maybe Later</button>
         </div>
     </div>
@@ -467,6 +488,30 @@
              <p style="text-align: center; color: var(--text-secondary);">If this is an emergency, please contact a helpline immediately.</p>
              <a href="tel:999" class="btn btn--primary">Call Emergency Services</a>
              <button id="emergency-modal-close-btn" class="btn btn--outline">Close</button>
+        </div>
+    </div>
+
+    <div id="delete-account-modal" class="modal">
+        <div class="auth-container">
+             <h2 style="text-align: center; color: var(--danger-color);">⚠️ Delete Account</h2>
+             <p style="text-align: center; color: var(--text-secondary);">This action is permanent and cannot be undone. All your data will be permanently deleted within 30 days.</p>
+             <div class="delete-warning">
+                <h4>What will be deleted:</h4>
+                <ul>
+                    <li>All assessment records and scores</li>
+                    <li>Mood tracking data and journal entries</li>
+                    <li>Account information and preferences</li>
+                    <li>Chat history and progress data</li>
+                </ul>
+             </div>
+             <div class="delete-confirmation">
+                <label class="consent-checkbox">
+                    <input type="checkbox" id="delete-confirmation-checkbox" required>
+                    <span>I understand this action is permanent and irreversible</span>
+                </label>
+             </div>
+             <button id="confirm-delete-btn" class="btn btn--danger" disabled>Permanently Delete Account</button>
+             <button id="cancel-delete-btn" class="btn btn--outline">Cancel</button>
         </div>
     </div>
 
@@ -696,6 +741,168 @@
                 <div class="journal-history">
                     <h4>Previous Entries:</h4>
                     <div id="journal-entries-list"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="privacy-policy-screen" class="screen">
+        <header class="page-header">
+            <div class="header-side-panel"><button id="privacy-back-btn" class="back-btn">🏠</button></div>
+            <h2 class="header-title">Privacy & Policy</h2>
+            <div class="header-controls"></div>
+        </header>
+        <div class="page-content">
+            <div class="privacy-content">
+                <div class="privacy-header">
+                    <h3>🔒 Your Privacy Matters</h3>
+                    <p class="dpdp-compliance">DPDP Act 2023 Compliant</p>
+                </div>
+                <p>चेtanā is committed to protecting your personal health information in compliance with India's Digital Personal Data Protection Act (DPDP) 2023.</p>
+                
+                <h3>📊 What Data We Collect</h3>
+                <ul>
+                    <li><strong>Assessment Scores:</strong> PHQ-9, GAD-7, and PSS-10 responses and calculated scores</li>
+                    <li><strong>Mood Logs:</strong> Daily mood ratings and journal entries</li>
+                    <li><strong>Account Information:</strong> Email address, name, and date of birth (if registered)</li>
+                    <li><strong>Usage Data:</strong> App interaction patterns for improving user experience</li>
+                </ul>
+
+                <h3>🌍 Where Your Data is Stored</h3>
+                <p>All data is securely stored in encrypted databases within India (Mumbai region) to comply with data localization requirements under DPDP Act.</p>
+
+                <h3>👥 Who Can Access Your Data</h3>
+                <ul>
+                    <li><strong>You:</strong> Full access to view, export, and delete your data</li>
+                    <li><strong>Licensed Clinicians:</strong> Only with your explicit consent for treatment purposes</li>
+                    <li><strong>Admin:</strong> Anonymized data for system maintenance and improvement</li>
+                    <li><strong>No Third Parties:</strong> We never sell or share your personal health data</li>
+                </ul>
+
+                <h3>⚙️ Your Rights Under DPDP Act</h3>
+                <div class="rights-grid">
+                    <div class="right-card">
+                        <h4>📝 Right to Information</h4>
+                        <p>Know what data we collect and how it's used</p>
+                    </div>
+                    <div class="right-card">
+                        <h4>📊 Right to Access</h4>
+                        <p>View and export all your stored data</p>
+                    </div>
+                    <div class="right-card">
+                        <h4>✏️ Right to Correction</h4>
+                        <p>Update or correct your personal information</p>
+                    </div>
+                    <div class="right-card">
+                        <h4>🗑️ Right to Erasure</h4>
+                        <p>Delete your account and all associated data</p>
+                    </div>
+                </div>
+
+                <h3>🗓️ Data Retention Policy</h3>
+                <ul>
+                    <li><strong>Active Accounts:</strong> Data retained as long as account is active</li>
+                    <li><strong>Inactive Accounts:</strong> Automatically deleted after 12 months of inactivity</li>
+                    <li><strong>Deleted Accounts:</strong> All data permanently removed within 30 days</li>
+                    <li><strong>Backup Data:</strong> Removed from backups within 90 days</li>
+                </ul>
+
+                <h3>🔐 Security Measures</h3>
+                <ul>
+                    <li>End-to-end encryption for all data transmission</li>
+                    <li>AES-256 encryption for data at rest</li>
+                    <li>Regular security audits and penetration testing</li>
+                    <li>Multi-factor authentication for admin access</li>
+                </ul>
+
+                <h3>📧 Contact Us</h3>
+                <p>For any privacy concerns or to exercise your rights:</p>
+                <ul>
+                    <li><strong>Data Protection Officer:</strong> privacy@chetana.com</li>
+                    <li><strong>Response Time:</strong> Within 72 hours as per DPDP Act</li>
+                </ul>
+
+                <div class="policy-footer">
+                    <p><strong>Last Updated:</strong> December 2024</p>
+                    <p><strong>Effective Date:</strong> In compliance with DPDP Act 2023</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="data-privacy-screen" class="screen">
+        <header class="page-header">
+            <div class="header-side-panel"><button id="data-privacy-back-btn" class="back-btn">🏠</button></div>
+            <h2 class="header-title">Data & Privacy Management</h2>
+            <div class="header-controls"></div>
+        </header>
+        <div class="page-content">
+            <div class="privacy-management">
+                <h3>📊 Your Data Overview</h3>
+                <div class="data-summary">
+                    <div class="data-item">
+                        <span class="data-icon">📊</span>
+                        <div class="data-info">
+                            <strong>Assessment Records</strong>
+                            <small id="assessment-count">Loading...</small>
+                        </div>
+                    </div>
+                    <div class="data-item">
+                        <span class="data-icon">😊</span>
+                        <div class="data-info">
+                            <strong>Mood Entries</strong>
+                            <small id="mood-count">Loading...</small>
+                        </div>
+                    </div>
+                    <div class="data-item">
+                        <span class="data-icon">📅</span>
+                        <div class="data-info">
+                            <strong>Account Created</strong>
+                            <small id="account-date">Loading...</small>
+                        </div>
+                    </div>
+                </div>
+
+                <h3>⚙️ Consent Management</h3>
+                <div class="consent-settings">
+                    <label class="consent-item">
+                        <input type="checkbox" id="health-data-consent" checked>
+                        <div class="consent-text">
+                            <strong>Health Data Collection</strong>
+                            <small>Allow collection and processing of assessment responses and mood data</small>
+                        </div>
+                    </label>
+                    <label class="consent-item">
+                        <input type="checkbox" id="analytics-consent">
+                        <div class="consent-text">
+                            <strong>Usage Analytics</strong>
+                            <small>Help improve the app by sharing anonymized usage patterns</small>
+                        </div>
+                    </label>
+                    <label class="consent-item">
+                        <input type="checkbox" id="research-consent">
+                        <div class="consent-text">
+                            <strong>Research Participation</strong>
+                            <small>Contribute anonymized data to mental health research (optional)</small>
+                        </div>
+                    </label>
+                </div>
+
+                <h3>📊 Data Actions</h3>
+                <div class="data-actions">
+                    <button id="export-all-data-btn" class="btn btn--primary">📊 Export All My Data</button>
+                    <button id="view-privacy-policy-btn" class="btn btn--outline">📜 View Privacy Policy</button>
+                    <button id="delete-account-btn" class="btn btn--danger">🗑️ Delete My Account</button>
+                </div>
+
+                <div class="privacy-info">
+                    <h4>🔒 Your Rights</h4>
+                    <ul>
+                        <li>You can withdraw consent at any time</li>
+                        <li>Data export includes all your stored information</li>
+                        <li>Account deletion is permanent and irreversible</li>
+                        <li>We respond to requests within 72 hours</li>
+                    </ul>
                 </div>
             </div>
         </div>

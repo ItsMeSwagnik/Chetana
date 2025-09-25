@@ -39,7 +39,11 @@ async function initDB() {
         email VARCHAR(255) UNIQUE NOT NULL,
         password VARCHAR(255) NOT NULL,
         dob DATE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+        health_data_consent BOOLEAN DEFAULT TRUE,
+        analytics_consent BOOLEAN DEFAULT FALSE,
+        research_consent BOOLEAN DEFAULT FALSE,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
       )
     `);
     
@@ -393,6 +397,23 @@ app.post('/api/init-db', async (req, res) => {
       ALTER TABLE users ADD COLUMN IF NOT EXISTS isadmin BOOLEAN DEFAULT FALSE
     `);
     
+    // Add consent columns for DPDP compliance
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS health_data_consent BOOLEAN DEFAULT TRUE
+    `);
+    
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS analytics_consent BOOLEAN DEFAULT FALSE
+    `);
+    
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS research_consent BOOLEAN DEFAULT FALSE
+    `);
+    
+    await pool.query(`
+      ALTER TABLE users ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    `);
+    
     const hashedPassword = await bcrypt.hash('admin123', 10);
     
     await pool.query(`
@@ -401,9 +422,110 @@ app.post('/api/init-db', async (req, res) => {
       ON CONFLICT (email) DO NOTHING
     `, [hashedPassword]);
     
-    res.json({ success: true, message: 'Database initialized with default admin' });
+    res.json({ success: true, message: 'Database initialized with default admin and DPDP compliance' });
   } catch (err) {
     res.status(500).json({ error: 'Database initialization failed: ' + err.message });
+  }
+});
+
+// User deletion endpoint for DPDP compliance
+app.delete('/api/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ success: false, error: 'Invalid user ID' });
+    }
+    
+    const client = await pool.connect();
+    
+    try {
+      await client.query('BEGIN');
+      
+      // Delete user data in order (foreign key constraints)
+      await client.query('DELETE FROM milestones WHERE user_id = $1', [id]);
+      await client.query('DELETE FROM mood_entries WHERE user_id = $1', [id]);
+      await client.query('DELETE FROM assessments WHERE user_id = $1', [id]);
+      await client.query('DELETE FROM users WHERE id = $1', [id]);
+      
+      await client.query('COMMIT');
+      
+      console.log(`✅ User ${id} and all associated data deleted successfully`);
+      res.json({ success: true, message: 'Account and all data deleted successfully' });
+      
+    } catch (err) {
+      await client.query('ROLLBACK');
+      throw err;
+    } finally {
+      client.release();
+    }
+    
+  } catch (err) {
+    console.error('❌ Delete user error:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to delete account. Please try again.' 
+    });
+  }
+});
+
+// Consent management endpoint for DPDP compliance
+app.put('/api/users/:id/consent', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { healthDataConsent, analyticsConsent, researchConsent } = req.body;
+    
+    if (!id || isNaN(parseInt(id))) {
+      return res.status(400).json({ success: false, error: 'Invalid user ID' });
+    }
+    
+    // Check if user exists
+    const userResult = await pool.query('SELECT id FROM users WHERE id = $1', [id]);
+    if (userResult.rows.length === 0) {
+      return res.status(404).json({ success: false, error: 'User not found' });
+    }
+    
+    // Update consent preferences
+    const updateFields = [];
+    const updateValues = [];
+    let paramCount = 1;
+    
+    if (healthDataConsent !== undefined) {
+      updateFields.push(`health_data_consent = $${paramCount}`);
+      updateValues.push(healthDataConsent);
+      paramCount++;
+    }
+    
+    if (analyticsConsent !== undefined) {
+      updateFields.push(`analytics_consent = $${paramCount}`);
+      updateValues.push(analyticsConsent);
+      paramCount++;
+    }
+    
+    if (researchConsent !== undefined) {
+      updateFields.push(`research_consent = $${paramCount}`);
+      updateValues.push(researchConsent);
+      paramCount++;
+    }
+    
+    if (updateFields.length === 0) {
+      return res.status(400).json({ success: false, error: 'No consent fields to update' });
+    }
+    
+    updateValues.push(id);
+    const query = `UPDATE users SET ${updateFields.join(', ')}, updated_at = CURRENT_TIMESTAMP WHERE id = $${paramCount}`;
+    
+    await pool.query(query, updateValues);
+    
+    console.log(`✅ Consent preferences updated for user ${id}`);
+    res.json({ success: true, message: 'Consent preferences updated successfully' });
+    
+  } catch (err) {
+    console.error('❌ Update consent error:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Failed to update consent preferences. Please try again.' 
+    });
   }
 });
 

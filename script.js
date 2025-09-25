@@ -996,6 +996,456 @@ document.addEventListener('DOMContentLoaded', () => {
     window.viewUserReports = viewUserReports;
     window.cancelRequest = cancelRequest;
     window.resetTherapists = resetTherapists;
+    
+    // Wellness Features
+    function initWellnessFeatures() {
+        // Breathing Exercise
+        let breathingInterval;
+        document.getElementById('start-breathing')?.addEventListener('click', () => {
+            const circle = document.getElementById('breathing-circle');
+            const text = document.getElementById('breathing-text');
+            const startBtn = document.getElementById('start-breathing');
+            const stopBtn = document.getElementById('stop-breathing');
+            
+            startBtn.style.display = 'none';
+            stopBtn.style.display = 'inline-block';
+            
+            let phase = 0; // 0=inhale, 1=hold, 2=exhale
+            let count = 0;
+            
+            breathingInterval = setInterval(() => {
+                if (phase === 0) { // Inhale
+                    circle.className = 'breathing-circle inhale';
+                    text.textContent = `Inhale ${4-count}`;
+                    if (++count >= 4) { phase = 1; count = 0; }
+                } else if (phase === 1) { // Hold
+                    circle.className = 'breathing-circle hold';
+                    text.textContent = `Hold ${7-count}`;
+                    if (++count >= 7) { phase = 2; count = 0; }
+                } else { // Exhale
+                    circle.className = 'breathing-circle exhale';
+                    text.textContent = `Exhale ${8-count}`;
+                    if (++count >= 8) { phase = 0; count = 0; }
+                }
+            }, 1000);
+        });
+        
+        document.getElementById('stop-breathing')?.addEventListener('click', () => {
+            clearInterval(breathingInterval);
+            document.getElementById('breathing-circle').className = 'breathing-circle';
+            document.getElementById('breathing-text').textContent = 'Ready to begin?';
+            document.getElementById('start-breathing').style.display = 'inline-block';
+            document.getElementById('stop-breathing').style.display = 'none';
+        });
+        
+        // Meditation Timer
+        let meditationInterval;
+        let meditationTime = 600; // 10 minutes
+        document.getElementById('start-meditation')?.addEventListener('click', () => {
+            const timerText = document.getElementById('timer-text');
+            const startBtn = document.getElementById('start-meditation');
+            const pauseBtn = document.getElementById('pause-meditation');
+            const stopBtn = document.getElementById('stop-meditation');
+            
+            startBtn.style.display = 'none';
+            pauseBtn.style.display = 'inline-block';
+            stopBtn.style.display = 'inline-block';
+            
+            meditationInterval = setInterval(() => {
+                meditationTime--;
+                const mins = Math.floor(meditationTime / 60);
+                const secs = meditationTime % 60;
+                timerText.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+                
+                if (meditationTime <= 0) {
+                    clearInterval(meditationInterval);
+                    // Play notification sound
+                    const audioContext = new (window.AudioContext || window.webkitAudioContext)();
+                    const oscillator = audioContext.createOscillator();
+                    const gainNode = audioContext.createGain();
+                    oscillator.connect(gainNode);
+                    gainNode.connect(audioContext.destination);
+                    oscillator.frequency.setValueAtTime(800, audioContext.currentTime);
+                    oscillator.type = 'sine';
+                    gainNode.gain.setValueAtTime(0.3, audioContext.currentTime);
+                    gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 1);
+                    oscillator.start(audioContext.currentTime);
+                    oscillator.stop(audioContext.currentTime + 1);
+                    alert('🧘 Meditation complete! Well done!');
+                    document.getElementById('start-meditation').style.display = 'inline-block';
+                    pauseBtn.style.display = 'none';
+                    stopBtn.style.display = 'none';
+                    meditationTime = 600;
+                    timerText.textContent = '10:00';
+                }
+            }, 1000);
+        });
+        
+        document.getElementById('stop-meditation')?.addEventListener('click', () => {
+            clearInterval(meditationInterval);
+            meditationTime = 600;
+            document.getElementById('timer-text').textContent = '10:00';
+            document.getElementById('start-meditation').style.display = 'inline-block';
+            document.getElementById('pause-meditation').style.display = 'none';
+            document.getElementById('stop-meditation').style.display = 'none';
+        });
+        
+        // Journal functionality
+        document.querySelectorAll('.prompt-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const prompt = btn.dataset.prompt;
+                const textarea = document.getElementById('journal-text');
+                textarea.value = prompt + '\n\n';
+                textarea.focus();
+            });
+        });
+        
+        // Behavioral Activation - Activity Ideas functionality
+        document.querySelectorAll('.activity-tag').forEach(tag => {
+            tag.addEventListener('click', () => {
+                const activity = tag.textContent;
+                const activeSlot = document.querySelector('.activity-slot:focus');
+                if (activeSlot) {
+                    activeSlot.textContent = activity;
+                    activeSlot.blur();
+                } else {
+                    // Find first empty slot
+                    const emptySlot = document.querySelector('.activity-slot[contenteditable="true"]:not([data-filled])');
+                    if (emptySlot) {
+                        emptySlot.textContent = activity;
+                        emptySlot.setAttribute('data-filled', 'true');
+                    }
+                }
+            });
+        });
+        
+        // Activity planner slots functionality
+        document.querySelectorAll('.activity-slot').forEach(slot => {
+            slot.addEventListener('focus', () => {
+                if (slot.textContent === 'Add activity...') {
+                    slot.textContent = '';
+                }
+            });
+            
+            slot.addEventListener('blur', () => {
+                if (slot.textContent.trim() === '') {
+                    slot.textContent = 'Add activity...';
+                    slot.removeAttribute('data-filled');
+                } else {
+                    slot.setAttribute('data-filled', 'true');
+                }
+            });
+            
+            slot.addEventListener('input', () => {
+                if (slot.textContent.trim() !== '') {
+                    slot.setAttribute('data-filled', 'true');
+                }
+            });
+        });
+        
+        document.getElementById('save-entry')?.addEventListener('click', () => {
+            const text = document.getElementById('journal-text').value;
+            if (text.trim()) {
+                const entries = JSON.parse(localStorage.getItem('journalEntries') || '[]');
+                entries.unshift({ date: new Date().toLocaleDateString(), text });
+                localStorage.setItem('journalEntries', JSON.stringify(entries));
+                loadJournalEntries();
+                alert('Entry saved!');
+            }
+        });
+        
+        document.getElementById('clear-entry')?.addEventListener('click', () => {
+            document.getElementById('journal-text').value = '';
+        });
+        
+        document.querySelectorAll('.mood-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+                btn.classList.add('selected');
+                localStorage.setItem('todayMood', btn.dataset.mood);
+            });
+        });
+        
+        function loadJournalEntries() {
+            const entries = JSON.parse(localStorage.getItem('journalEntries') || '[]');
+            const list = document.getElementById('journal-entries-list');
+            list.innerHTML = entries.slice(0, 5).map((entry, index) => 
+                `<div class="journal-entry-item">
+                    <div class="entry-header">
+                        <div class="entry-date">${entry.date}</div>
+                        <button class="delete-entry-btn" onclick="deleteJournalEntry(${index})">Delete</button>
+                    </div>
+                    <div class="entry-text">${entry.text.substring(0, 100)}...</div>
+                </div>`
+            ).join('');
+        }
+        
+        window.deleteJournalEntry = function(index) {
+            if (confirm('Delete this journal entry?')) {
+                const entries = JSON.parse(localStorage.getItem('journalEntries') || '[]');
+                entries.splice(index, 1);
+                localStorage.setItem('journalEntries', JSON.stringify(entries));
+                loadJournalEntries();
+            }
+        }
+        
+        // Environment selector with auto video and audio switching
+        document.querySelectorAll('.env-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                switchEnvironment(btn.dataset.env);
+            });
+        });
+        
+        // Audio and Video Management
+        let currentAudio = null;
+        let currentVideo = null;
+        let relaxTimer = null;
+        let isPlaying = false;
+        let audioType = 'html5'; // 'html5' or 'webaudio'
+        
+        function switchEnvironment(envType) {
+            // Update button states
+            document.querySelectorAll('.env-btn').forEach(b => b.classList.remove('active'));
+            document.querySelector(`[data-env="${envType}"]`).classList.add('active');
+            
+            // Switch video scenes
+            document.querySelectorAll('.environment-scene').forEach(s => {
+                s.classList.remove('active');
+                const video = s.querySelector('.environment-video');
+                if (video) {
+                    video.pause();
+                    video.currentTime = 0;
+                }
+            });
+            
+            const activeScene = document.querySelector(`.${envType}-scene`);
+            if (activeScene) {
+                activeScene.classList.add('active');
+                const video = activeScene.querySelector('.environment-video');
+                if (video) {
+                    currentVideo = video;
+                    // Start video if audio is playing
+                    if (isPlaying) {
+                        setTimeout(() => {
+                            video.play().catch(() => {});
+                        }, 100);
+                    }
+                }
+            }
+            
+            // Auto-switch audio if playing
+            if (isPlaying) {
+                setTimeout(() => playEnvironmentAudio(envType), 50);
+            }
+        }
+        
+        function stopCurrentAudio() {
+            if (currentAudio) {
+                if (audioType === 'html5' && currentAudio.pause) {
+                    currentAudio.pause();
+                    currentAudio.currentTime = 0;
+                } else if (audioType === 'webaudio' && currentAudio.stop) {
+                    currentAudio.stop();
+                }
+                currentAudio = null;
+            }
+        }
+        
+        function playEnvironmentAudio(envType = null) {
+            const activeEnv = envType || document.querySelector('.env-btn.active')?.dataset.env || 'forest';
+            
+            // Stop current audio
+            stopCurrentAudio();
+            
+            // Get new audio element
+            const audioElement = document.getElementById(`${activeEnv}-audio`);
+            
+            if (audioElement && audioElement.canPlayType && audioElement.canPlayType('audio/mpeg')) {
+                audioType = 'html5';
+                currentAudio = audioElement;
+                
+                // Set volume from slider
+                const volume = document.getElementById('volume-slider').value / 100;
+                currentAudio.volume = volume;
+                
+                // Play audio with error handling
+                currentAudio.play().catch(() => {
+                    console.log('Audio not available for', activeEnv);
+                });
+            } else {
+                console.log('Audio not available for', activeEnv);
+            }
+            
+            // Start video if available
+            if (currentVideo) {
+                setTimeout(() => {
+                    currentVideo.play().catch(() => {});
+                }, 100);
+            }
+        }
+        
+
+        
+        function stopEnvironmentAudio() {
+            stopCurrentAudio();
+            
+            if (currentVideo) {
+                currentVideo.pause();
+                currentVideo.currentTime = 0;
+            }
+        }
+        
+        // Play/Stop button handlers
+        document.getElementById('play-audio')?.addEventListener('click', async () => {
+            document.getElementById('play-audio').style.display = 'none';
+            document.getElementById('stop-audio').style.display = 'inline-block';
+            isPlaying = true;
+            
+            // Enable audio context on user interaction
+            try {
+                if (window.AudioContext || window.webkitAudioContext) {
+                    const ctx = new (window.AudioContext || window.webkitAudioContext)();
+                    if (ctx.state === 'suspended') {
+                        await ctx.resume();
+                    }
+                    ctx.close();
+                }
+            } catch(e) {}
+            
+            playEnvironmentAudio();
+        });
+        
+        document.getElementById('stop-audio')?.addEventListener('click', () => {
+            document.getElementById('stop-audio').style.display = 'none';
+            document.getElementById('play-audio').style.display = 'inline-block';
+            isPlaying = false;
+            stopEnvironmentAudio();
+        });
+        
+        // Volume control with real-time updates
+        document.getElementById('volume-slider')?.addEventListener('input', (e) => {
+            const volume = e.target.value / 100;
+            
+            if (currentAudio) {
+                if (audioType === 'html5' && currentAudio.volume !== undefined) {
+                    currentAudio.volume = volume;
+                } else if (audioType === 'webaudio' && currentAudio.gainNode) {
+                    try {
+                        currentAudio.gainNode.gain.setValueAtTime(volume * 0.1, currentAudio.audioContext.currentTime);
+                    } catch(e) {}
+                }
+            }
+        });
+        
+        // Initialize first environment
+        switchEnvironment('forest');
+        
+        // Save activity planner data
+        function saveActivityPlanner() {
+            const plannerData = {};
+            document.querySelectorAll('.day-column').forEach(dayCol => {
+                const day = dayCol.querySelector('h4').textContent;
+                const activities = [];
+                dayCol.querySelectorAll('.activity-slot').forEach(slot => {
+                    const activity = slot.textContent.trim();
+                    if (activity && activity !== 'Add activity...') {
+                        activities.push(activity);
+                    }
+                });
+                plannerData[day] = activities;
+            });
+            localStorage.setItem('activityPlanner', JSON.stringify(plannerData));
+        }
+        
+        // Load activity planner data
+        function loadActivityPlanner() {
+            const saved = localStorage.getItem('activityPlanner');
+            if (saved) {
+                const plannerData = JSON.parse(saved);
+                document.querySelectorAll('.day-column').forEach(dayCol => {
+                    const day = dayCol.querySelector('h4').textContent;
+                    const slots = dayCol.querySelectorAll('.activity-slot');
+                    const activities = plannerData[day] || [];
+                    
+                    slots.forEach((slot, index) => {
+                        if (activities[index]) {
+                            slot.textContent = activities[index];
+                            slot.setAttribute('data-filled', 'true');
+                        }
+                    });
+                });
+            }
+        }
+        
+        // Auto-save planner on changes
+        document.addEventListener('input', (e) => {
+            if (e.target.classList.contains('activity-slot')) {
+                setTimeout(saveActivityPlanner, 500);
+            }
+        });
+        
+        // Load saved planner data on page load
+        loadActivityPlanner();
+        
+        // Relaxation timer functionality
+        document.querySelectorAll('.timer-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                document.querySelectorAll('.timer-btn').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const minutes = parseInt(btn.dataset.time);
+                
+                if (relaxTimer) {
+                    clearInterval(relaxTimer);
+                }
+                
+                let timeLeft = minutes * 60;
+                const display = document.getElementById('relax-timer-display');
+                
+                relaxTimer = setInterval(() => {
+                    const mins = Math.floor(timeLeft / 60);
+                    const secs = timeLeft % 60;
+                    display.textContent = `${mins}:${secs.toString().padStart(2, '0')}`;
+                    
+                    if (timeLeft <= 0) {
+                        clearInterval(relaxTimer);
+                        alert('🧘 Relaxation time complete!');
+                        document.querySelectorAll('.timer-btn').forEach(b => b.classList.remove('active'));
+                        display.textContent = '00:00';
+                    }
+                    timeLeft--;
+                }, 1000);
+            });
+        });
+        
+        // Load journal entries on init
+        loadJournalEntries();
+        
+        // Initialize activity planner
+        loadActivityPlanner();
+        
+        // Handle video loading states
+        document.querySelectorAll('.environment-video').forEach(video => {
+            const loadingDiv = video.nextElementSibling;
+            
+            video.addEventListener('loadstart', () => {
+                if (loadingDiv && loadingDiv.classList.contains('video-loading')) {
+                    loadingDiv.style.display = 'flex';
+                }
+            });
+            
+            video.addEventListener('canplay', () => {
+                if (loadingDiv && loadingDiv.classList.contains('video-loading')) {
+                    loadingDiv.style.display = 'none';
+                }
+            });
+            
+            video.addEventListener('error', () => {
+                if (loadingDiv && loadingDiv.classList.contains('video-loading')) {
+                    loadingDiv.innerHTML = '<p>Video not available</p>';
+                }
+            });
+        });
+    }
 
     function initializeApp() {
         window.addEventListener('resize', setAppHeight);
@@ -1082,6 +1532,43 @@ document.addEventListener('DOMContentLoaded', () => {
         });
         document.getElementById('go-to-resources-btn')?.addEventListener('click', () => showScreen('resources-screen'));
         document.getElementById('resources-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        
+        // Wellness resource event listeners
+        document.getElementById('understanding-depression-btn')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            showScreen('understanding-depression-screen');
+        });
+        document.getElementById('behavioral-activation-btn')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            showScreen('behavioral-activation-screen');
+        });
+        document.getElementById('breathing-exercise-btn')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            showScreen('breathing-exercise-screen');
+        });
+        document.getElementById('mindfulness-meditation-btn')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            showScreen('mindfulness-meditation-screen');
+        });
+        document.getElementById('writing-journal-btn')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            showScreen('writing-journal-screen');
+        });
+        document.getElementById('relax-environment-btn')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            showScreen('relax-environment-screen');
+        });
+        
+        // Back buttons for wellness screens
+        document.getElementById('depression-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('behavioral-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('breathing-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('mindfulness-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('journal-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('relax-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        
+        // Wellness functionality
+        initWellnessFeatures();
         document.getElementById('go-to-progress-btn')?.addEventListener('click', () => { 
             renderProgressChart(); 
             showScreen('progress-screen'); 

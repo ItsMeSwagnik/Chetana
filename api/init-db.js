@@ -15,10 +15,18 @@ module.exports = async function handler(req, res) {
   }
 
   try {
+    console.log('Attempting database connection...');
     const pool = new Pool({
       connectionString: process.env.DATABASE_URL,
-      ssl: { rejectUnauthorized: false }
+      ssl: { rejectUnauthorized: false },
+      connectionTimeoutMillis: 10000,
+      idleTimeoutMillis: 30000,
+      max: 10
     });
+    
+    // Test connection
+    await pool.query('SELECT NOW()');
+    console.log('Database connection successful');
     
     await pool.query(`
       CREATE TABLE IF NOT EXISTS users (
@@ -62,7 +70,12 @@ module.exports = async function handler(req, res) {
     `, [hashedPassword]);
     
     res.json({ success: true, message: 'Database initialized with default admin and assessment tracking' });
+    await pool.end();
   } catch (err) {
-    res.status(500).json({ error: 'Database initialization failed: ' + err.message });
+    console.error('Database error:', err);
+    res.status(500).json({ 
+      error: 'Database initialization failed: ' + err.message,
+      details: err.code || 'Unknown error'
+    });
   }
 }

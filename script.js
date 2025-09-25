@@ -61,6 +61,13 @@ document.addEventListener('DOMContentLoaded', () => {
         screens.forEach(screen => screen.classList.toggle('active', screen.id === screenId));
         const activeScreen = document.querySelector('.screen.active');
         if (activeScreen) activeScreen.scrollTop = 0;
+        
+        // Load data when showing progress screen
+        if (screenId === 'progress-screen') {
+            if (typeof renderMoodChart === 'function') renderMoodChart();
+            if (typeof renderMilestones === 'function') renderMilestones();
+            if (typeof checkMilestones === 'function') checkMilestones();
+        }
     }
 
     function showModal(modalId) { 
@@ -621,10 +628,6 @@ document.addEventListener('DOMContentLoaded', () => {
                     localStorage.setItem('currentUser', JSON.stringify(data.user));
                     updateWelcomeMessage(data.user.name);
                     showScreen('dashboard-screen');
-                    // Re-initialize progress dashboard with restored user data
-                    setTimeout(async () => {
-                        await initProgressDashboard();
-                    }, 200);
                 }
             }
         } catch (err) {
@@ -1507,7 +1510,25 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('💾 Saving mood:', { userId: currentUser?.id, date: today, mood: moodValue });
             console.log('💾 Current user object:', currentUser);
             
-            // Save to database if user is logged in
+            // Always save to localStorage first
+            const localMoods = JSON.parse(localStorage.getItem('moodHistory') || '[]');
+            const existingIndex = localMoods.findIndex(m => m.date === today);
+            
+            if (existingIndex >= 0) {
+                localMoods[existingIndex].mood = moodValue;
+            } else {
+                localMoods.unshift({ date: today, mood: moodValue });
+            }
+            
+            // Keep only last 30 days
+            if (localMoods.length > 30) {
+                localMoods.splice(30);
+            }
+            
+            localStorage.setItem('moodHistory', JSON.stringify(localMoods));
+            console.log('✅ Mood saved to localStorage');
+            
+            // Also save to database if user is logged in
             if (currentUser && currentUser.id) {
                 try {
                     console.log('🌐 Making mood API request...');
@@ -1527,7 +1548,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     if (result.success) {
                         alert('Mood saved successfully! 😊');
-                        console.log('✅ Mood saved to database');
+                        console.log('✅ Mood saved to both localStorage and database');
                     } else {
                         throw new Error(result.error || 'Failed to save mood');
                     }
@@ -1536,13 +1557,15 @@ document.addEventListener('DOMContentLoaded', () => {
                     alert('Mood saved locally (offline mode)');
                 }
             } else {
-                console.log('⚠️ No user logged in, saving locally only');
-                alert('Mood saved locally (offline mode)');
+                console.log('⚠️ No user logged in, saved locally only');
+                alert('Mood saved locally');
             }
             
-            // No longer saving to localStorage - database only
-            await renderMoodChart();
-            await checkMilestones();
+            setTimeout(async () => {
+                await renderMoodChart();
+                await renderMilestones();
+                await checkMilestones();
+            }, 500);
         });
         
         // Render mood trend chart
@@ -1575,7 +1598,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            // Always fetch from database if user is logged in (no localStorage fallback)
+            // Get data from both localStorage and database
+            let dbMoods = [];
+            let localMoods = JSON.parse(localStorage.getItem('moodHistory') || '[]');
+            
+            // Fetch from database if user is logged in
             if (currentUser && currentUser.id) {
                 try {
                     console.log('📊 Chart: Fetching mood data from database...');
@@ -1584,24 +1611,36 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log('📊 Chart: Database mood data:', data);
                     
                     if (data.success && data.moods && data.moods.length > 0) {
-                        moodHistory = data.moods.map(m => ({
-                            date: new Date(m.mood_date).toDateString(),
+                        dbMoods = data.moods.map(m => ({
+                            date: m.mood_date,
                             mood: m.mood_rating
                         }));
-                        console.log('📊 Chart: Processed mood history:', moodHistory);
-                    } else {
-                        console.log('📊 Chart: No mood data found in database');
-                        moodHistory = []; // Ensure empty array for logged-in users with no data
+                        console.log('📊 Chart: Database mood history:', dbMoods);
                     }
                 } catch (err) {
-                    console.error('📊 Chart: Failed to fetch mood data:', err);
-                    moodHistory = []; // Ensure empty array on error for logged-in users
+                    console.error('📊 Chart: Failed to fetch mood data from database:', err);
                 }
-            } else {
-                // For guest users, show empty state
-                console.log('📊 Chart: No user logged in, showing empty state');
-                moodHistory = [];
             }
+            
+            // Merge localStorage and database data, prioritizing database for logged-in users
+            const moodMap = new Map();
+            
+            // Add localStorage data first
+            localMoods.forEach(mood => {
+                moodMap.set(mood.date, mood.mood);
+            });
+            
+            // Override with database data if available
+            dbMoods.forEach(mood => {
+                moodMap.set(mood.date, mood.mood);
+            });
+            
+            // Convert back to array and sort by date
+            moodHistory = Array.from(moodMap.entries())
+                .map(([date, mood]) => ({ date: new Date(date).toDateString(), mood }))
+                .sort((a, b) => new Date(b.date) - new Date(a.date));
+            
+            console.log('📊 Chart: Final merged mood history:', moodHistory);
             
             ctx.clearRect(0, 0, canvas.width, canvas.height);
             
@@ -1731,29 +1770,37 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            // Only proceed if user is logged in - no localStorage fallback
-            if (!currentUser || !currentUser.id) {
-                console.log('No user logged in, skipping milestone check');
-                return;
+            // Get data from both localStorage and database
+            let localAssessments = JSON.parse(localStorage.getItem('assessmentHistory') || '[]');
+            let localMoods = JSON.parse(localStorage.getItem('moodHistory') || '[]');
+            
+            // Fetch from database if user is logged in
+            if (currentUser && currentUser.id) {
+                try {
+                    // Fetch assessments from database
+                    const assessmentResponse = await fetch(`${API_BASE}/api/assessments?userId=${currentUser.id}`);
+                    const assessmentData = await assessmentResponse.json();
+                    if (assessmentData.assessments) {
+                        assessments = assessmentData.assessments;
+                    }
+                    
+                    // Fetch mood data from database
+                    const moodResponse = await fetch(`${API_BASE}/api/moods?userId=${currentUser.id}`);
+                    const moodData = await moodResponse.json();
+                    if (moodData.success && moodData.moods) {
+                        moodHistory = moodData.moods;
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch data for milestones:', err);
+                }
             }
             
-            try {
-                // Fetch assessments from database
-                const assessmentResponse = await fetch(`${API_BASE}/api/assessments?userId=${currentUser.id}`);
-                const assessmentData = await assessmentResponse.json();
-                if (assessmentData.assessments) {
-                    assessments = assessmentData.assessments;
-                }
-                
-                // Fetch mood data from database
-                const moodResponse = await fetch(`${API_BASE}/api/moods?userId=${currentUser.id}`);
-                const moodData = await moodResponse.json();
-                if (moodData.success && moodData.moods) {
-                    moodHistory = moodData.moods;
-                }
-            } catch (err) {
-                console.error('Failed to fetch data for milestones:', err);
-                return;
+            // Use localStorage data if database data is not available
+            if (assessments.length === 0 && localAssessments.length > 0) {
+                assessments = localAssessments;
+            }
+            if (moodHistory.length === 0 && localMoods.length > 0) {
+                moodHistory = localMoods;
             }
             
             // Get existing milestones from database
@@ -1844,27 +1891,42 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            // Save new milestones to database only
+            // Save new milestones to both localStorage and database
             if (newMilestones.length > 0) {
-                for (const milestone of newMilestones) {
-                    try {
-                        const response = await fetch(`${API_BASE}/api/milestones`, {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({
-                                userId: currentUser.id,
-                                milestoneId: milestone.id,
-                                icon: milestone.icon,
-                                title: milestone.title,
-                                description: milestone.description,
-                                achievedDate: milestone.date
-                            })
-                        });
-                        if (!response.ok) {
-                            console.error('Failed to save milestone to database');
+                // Save to localStorage first
+                const localMilestones = JSON.parse(localStorage.getItem('milestones') || '[]');
+                newMilestones.forEach(milestone => {
+                    if (!localMilestones.find(m => m.id === milestone.id)) {
+                        localMilestones.push(milestone);
+                    }
+                });
+                localStorage.setItem('milestones', JSON.stringify(localMilestones));
+                console.log('✅ Milestones saved to localStorage');
+                
+                // Also save to database if user is logged in
+                if (currentUser && currentUser.id) {
+                    for (const milestone of newMilestones) {
+                        try {
+                            const response = await fetch(`${API_BASE}/api/milestones`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    userId: currentUser.id,
+                                    milestoneId: milestone.id,
+                                    icon: milestone.icon,
+                                    title: milestone.title,
+                                    description: milestone.description,
+                                    achievedDate: milestone.date
+                                })
+                            });
+                            if (!response.ok) {
+                                console.error('Failed to save milestone to database');
+                            } else {
+                                console.log('✅ Milestone saved to database:', milestone.title);
+                            }
+                        } catch (err) {
+                            console.error('Error saving milestone to database:', err);
                         }
-                    } catch (err) {
-                        console.error('Error saving milestone:', err);
                     }
                 }
             }
@@ -1898,14 +1960,18 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
             
-            // Always fetch from database if user is logged in (no localStorage fallback)
+            // Get data from both localStorage and database
+            let dbMilestones = [];
+            let localMilestones = JSON.parse(localStorage.getItem('milestones') || '[]');
+            
+            // Fetch from database if user is logged in
             if (currentUser && currentUser.id) {
                 try {
                     const response = await fetch(`${API_BASE}/api/milestones?userId=${currentUser.id}`);
                     if (response.ok) {
                         const data = await response.json();
                         if (data.success && data.milestones) {
-                            milestones = data.milestones.map(m => ({
+                            dbMilestones = data.milestones.map(m => ({
                                 id: m.milestone_id,
                                 icon: m.icon,
                                 title: m.title,
@@ -1913,23 +1979,30 @@ document.addEventListener('DOMContentLoaded', () => {
                                 date: new Date(m.achieved_date).toLocaleDateString(),
                                 achieved: true
                             }));
-                        } else {
-                            console.log('No milestones found in database');
-                            milestones = []; // Ensure empty array for logged-in users with no data
                         }
-                    } else {
-                        console.error('Failed to fetch milestones from database');
-                        milestones = []; // Ensure empty array on error for logged-in users
                     }
                 } catch (err) {
                     console.error('Milestones API error:', err);
-                    milestones = []; // Ensure empty array on error for logged-in users
                 }
-            } else {
-                // For guest users, show empty state
-                console.log('No user logged in, showing empty milestones state');
-                milestones = [];
             }
+            
+            // Merge localStorage and database data, prioritizing database for logged-in users
+            const milestoneMap = new Map();
+            
+            // Add localStorage data first
+            localMilestones.forEach(milestone => {
+                milestoneMap.set(milestone.id, milestone);
+            });
+            
+            // Override with database data if available
+            dbMilestones.forEach(milestone => {
+                milestoneMap.set(milestone.id, milestone);
+            });
+            
+            // Convert back to array
+            milestones = Array.from(milestoneMap.values());
+            
+            console.log('Final merged milestones:', milestones);
             
             if (milestones.length === 0) {
                 container.innerHTML = '<p class="section-prompt">Complete assessments to unlock milestones!</p>';
@@ -2613,8 +2686,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Initialize activity planner
         loadActivityPlanner();
         
-        // Initialize progress dashboard
-        initProgressDashboard();
+
         
         // Handle video loading states
         document.querySelectorAll('.environment-video').forEach(video => {

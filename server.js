@@ -11,7 +11,9 @@ const port = process.env.PORT || 3000;
 // Database connection
 const pool = new Pool({
   connectionString: process.env.DATABASE_URL,
-  ssl: { rejectUnauthorized: false }
+  ssl: { rejectUnauthorized: false },
+  connectionTimeoutMillis: 5000,
+  idleTimeoutMillis: 30000
 });
 
 // Middleware
@@ -24,8 +26,10 @@ async function initDB() {
   try {
     console.log('Connecting to database...');
     
-    // Test connection
-    await pool.query('SELECT NOW()');
+    // Test connection with timeout
+    const client = await pool.connect();
+    await client.query('SELECT NOW()');
+    client.release();
     console.log('Database connected successfully');
     
     await pool.query(`

@@ -64,11 +64,42 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Load data when showing progress screen
         if (screenId === 'progress-screen') {
-            setTimeout(() => {
-                if (typeof renderMoodChart === 'function') renderMoodChart();
-                if (typeof renderMilestones === 'function') renderMilestones();
-                if (typeof checkMilestones === 'function') checkMilestones();
-            }, 100);
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (currentUser && currentUser.id) {
+                console.log('📊 Loading progress screen data for user:', currentUser.id);
+                setTimeout(async () => {
+                    try {
+                        console.log('📊 Starting mood chart render...');
+                        if (typeof renderMoodChart === 'function') {
+                            await renderMoodChart();
+                            console.log('📊 Mood chart render completed');
+                        } else {
+                            console.error('❌ renderMoodChart function not found');
+                        }
+                        
+                        console.log('🏆 Starting milestones check...');
+                        if (typeof checkMilestones === 'function') {
+                            await checkMilestones();
+                            console.log('🏆 Milestones check completed');
+                        } else {
+                            console.error('❌ checkMilestones function not found');
+                        }
+                        
+                        console.log('🏆 Starting milestones render...');
+                        if (typeof renderMilestones === 'function') {
+                            await renderMilestones();
+                            console.log('🏆 Milestones render completed');
+                        } else {
+                            console.error('❌ renderMilestones function not found');
+                        }
+                    } catch (err) {
+                        console.error('❌ Error loading progress data:', err);
+                        console.error('❌ Error stack:', err.stack);
+                    }
+                }, 100);
+            } else {
+                console.log('⚠️ No user found for progress screen');
+            }
         }
     }
 
@@ -255,6 +286,56 @@ document.addEventListener('DOMContentLoaded', () => {
                     console.log('👤 Frontend: Regular user login');
                     localStorage.setItem('currentUser', JSON.stringify(data.user));
                     updateWelcomeMessage(data.user.name);
+                    
+                    // Load mood chart and milestones immediately after login
+                    setTimeout(async () => {
+                        // Load today's mood first
+                        const moodSlider = document.getElementById('mood-slider');
+                        if (moodSlider) {
+                            const loadTodaysMood = async () => {
+                                try {
+                                    console.log('😊 Loading today\'s mood for user:', data.user.id);
+                                    const today = new Date().toISOString().split('T')[0];
+                                    const response = await fetch(`${API_BASE}/api/moods?userId=${data.user.id}`);
+                                    const moodData = await response.json();
+                                    if (moodData.success && moodData.moods && moodData.moods.length > 0) {
+                                        const todaysMood = moodData.moods.find(m => {
+                                            const moodDate = new Date(m.mood_date).toISOString().split('T')[0];
+                                            return moodDate === today;
+                                        });
+                                        if (todaysMood) {
+                                            moodSlider.value = todaysMood.mood_rating;
+                                            const moodData = {
+                                                1: { emoji: '😢', text: 'Very Low' },
+                                                2: { emoji: '😞', text: 'Low' },
+                                                3: { emoji: '😔', text: 'Poor' },
+                                                4: { emoji: '😕', text: 'Below Average' },
+                                                5: { emoji: '😐', text: 'Neutral' },
+                                                6: { emoji: '🙂', text: 'Okay' },
+                                                7: { emoji: '😊', text: 'Good' },
+                                                8: { emoji: '😄', text: 'Great' },
+                                                9: { emoji: '😁', text: 'Excellent' },
+                                                10: { emoji: '🤩', text: 'Amazing' }
+                                            };
+                                            const mood = moodData[todaysMood.mood_rating];
+                                            const moodEmoji = document.getElementById('current-mood-emoji');
+                                            const moodText = document.getElementById('current-mood-text');
+                                            if (moodEmoji) moodEmoji.textContent = mood.emoji;
+                                            if (moodText) moodText.textContent = mood.text;
+                                        }
+                                    }
+                                } catch (err) {
+                                    console.error('😊 Failed to load today\'s mood:', err);
+                                }
+                            };
+                            await loadTodaysMood();
+                        }
+                        
+                        if (typeof renderMoodChart === 'function') await renderMoodChart();
+                        if (typeof checkMilestones === 'function') await checkMilestones();
+                        if (typeof renderMilestones === 'function') await renderMilestones();
+                    }, 500);
+                    
                     showModal('permissions-modal');
                 }
             } else {
@@ -453,21 +534,10 @@ document.addEventListener('DOMContentLoaded', () => {
             if (result.success) {
                 console.log('✅ Assessment saved successfully');
                 
-                // Save to local storage for milestones
-                const assessmentHistory = JSON.parse(localStorage.getItem('assessmentHistory') || '[]');
-                assessmentHistory.unshift({
-                    date: new Date().toLocaleDateString(),
-                    phq9: scores.phq9,
-                    gad7: scores.gad7,
-                    pss: scores.pss
-                });
-                
-                // Keep only last 10 assessments
-                if (assessmentHistory.length > 10) {
-                    assessmentHistory.splice(10);
-                }
-                
-                localStorage.setItem('assessmentHistory', JSON.stringify(assessmentHistory));
+                // Check and update milestones after assessment
+                setTimeout(async () => {
+                    if (typeof checkMilestones === 'function') await checkMilestones();
+                }, 1000);
             } else {
                 console.error('❌ Failed to save assessment:', result.error);
             }
@@ -1061,6 +1131,356 @@ document.addEventListener('DOMContentLoaded', () => {
     window.cancelRequest = cancelRequest;
     window.resetTherapists = resetTherapists;
     
+    // Global functions for mood tracking and milestones
+    async function renderMoodChart() {
+        const canvas = document.getElementById('mood-chart');
+        if (!canvas) return;
+        
+        const ctx = canvas.getContext('2d');
+        let moodHistory = [];
+        
+        // Get current user
+        let currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        if (!currentUser) {
+            console.log('No user found for mood chart');
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-secondary');
+            ctx.font = '16px Poppins';
+            ctx.textAlign = 'center';
+            ctx.fillText('Please log in to view mood data', canvas.width / 2, canvas.height / 2);
+            return;
+        }
+        
+        // Fetch mood data from database
+        if (currentUser && currentUser.id) {
+            try {
+                console.log('📊 Chart: Fetching mood data for user:', currentUser.id);
+                const response = await fetch(`${API_BASE}/api/moods?userId=${currentUser.id}`);
+                const data = await response.json();
+                console.log('📊 Chart: Database response:', data);
+                
+                if (data.success && data.moods && data.moods.length > 0) {
+                    moodHistory = data.moods.map(m => ({
+                        date: new Date(m.mood_date).toLocaleDateString(),
+                        mood: m.mood_rating
+                    })).sort((a, b) => new Date(b.date) - new Date(a.date));
+                    console.log('📊 Chart: Processed mood history:', moodHistory);
+                } else {
+                    console.log('📊 Chart: No mood data found in database response');
+                    moodHistory = [];
+                }
+            } catch (err) {
+                console.error('📊 Chart: Failed to fetch mood data:', err);
+                moodHistory = [];
+            }
+        } else {
+            console.log('📊 Chart: No user ID available');
+            moodHistory = [];
+        }
+        
+        console.log('📊 Chart: Rendering chart with', moodHistory.length, 'mood entries');
+        
+        // Ensure canvas is visible and properly sized
+        if (canvas) {
+            canvas.style.display = 'block';
+            canvas.width = 400;
+            canvas.height = 200;
+        }
+        
+        ctx.clearRect(0, 0, canvas.width, canvas.height);
+        
+        if (moodHistory.length === 0) {
+            console.log('📊 Chart: No mood data to display');
+            ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-secondary');
+            ctx.font = '16px Poppins';
+            ctx.textAlign = 'center';
+            ctx.fillText('No mood data recorded yet', canvas.width / 2, canvas.height / 2);
+            ctx.fillText('Save your first mood to see trends!', canvas.width / 2, canvas.height / 2 + 25);
+            updateMoodStats([]);
+            return;
+        }
+        
+        // Get last 7 days
+        const last7Days = moodHistory.slice(0, 7).reverse();
+        console.log('📊 Chart: Last 7 days data:', last7Days);
+        
+        if (last7Days.length === 0) {
+            console.log('📊 Chart: No data in last 7 days');
+            updateMoodStats([]);
+            return;
+        }
+        
+        // Draw grid
+        ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--border');
+        ctx.lineWidth = 1;
+        
+        for (let i = 1; i <= 10; i++) {
+            const y = (canvas.height - 40) - ((i - 1) * (canvas.height - 80) / 9);
+            ctx.beginPath();
+            ctx.moveTo(40, y);
+            ctx.lineTo(canvas.width - 20, y);
+            ctx.stroke();
+        }
+        
+        // Draw mood line and points
+        if (last7Days.length > 0) {
+            ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--primary-color');
+            ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--primary-color');
+            
+            if (last7Days.length > 1) {
+                ctx.lineWidth = 3;
+                ctx.beginPath();
+                
+                last7Days.forEach((entry, index) => {
+                    const x = 40 + (index * (canvas.width - 60) / (last7Days.length - 1));
+                    const y = (canvas.height - 40) - ((entry.mood - 1) * (canvas.height - 80) / 9);
+                    
+                    if (index === 0) {
+                        ctx.moveTo(x, y);
+                    } else {
+                        ctx.lineTo(x, y);
+                    }
+                });
+                
+                ctx.stroke();
+            }
+            
+            // Draw points
+            last7Days.forEach((entry, index) => {
+                const x = last7Days.length === 1 ? canvas.width / 2 : 40 + (index * (canvas.width - 60) / (last7Days.length - 1));
+                const y = (canvas.height - 40) - ((entry.mood - 1) * (canvas.height - 80) / 9);
+                
+                ctx.beginPath();
+                ctx.arc(x, y, 4, 0, 2 * Math.PI);
+                ctx.fill();
+            });
+        }
+        
+        updateMoodStats(last7Days);
+        console.log('📊 Chart: Chart rendering completed');
+    }
+    
+    async function renderMilestones() {
+        const container = document.getElementById('milestones-container');
+        if (!container) return;
+        
+        let milestones = [];
+        
+        // Get current user
+        let currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        if (!currentUser) {
+            console.log('No user found for milestones');
+            container.innerHTML = '<p class="section-prompt">Please log in to view milestones!</p>';
+            return;
+        }
+        
+        // Fetch milestones from database
+        if (currentUser && currentUser.id) {
+            try {
+                console.log('🏆 Fetching milestones for user:', currentUser.id);
+                const response = await fetch(`${API_BASE}/api/milestones?userId=${currentUser.id}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    console.log('🏆 Database milestones response:', data);
+                    if (data.success && data.milestones) {
+                        console.log('🏆 Raw milestones from DB:', data.milestones);
+                        if (data.milestones.length > 0) {
+                            milestones = data.milestones.map(m => ({
+                                id: m.milestone_id,
+                                icon: m.icon,
+                                title: m.title,
+                                description: m.description,
+                                date: new Date(m.achieved_date).toLocaleDateString(),
+                                achieved: true
+                            }));
+                            console.log('🏆 Processed milestones:', milestones);
+                        }
+                    } else {
+                        console.log('🏆 No milestones found in database or API error');
+                    }
+                }
+            } catch (err) {
+                console.error('🏆 Milestones API error:', err);
+            }
+        } else {
+            console.log('🏆 No user ID available for milestones');
+        }
+        
+        console.log('🏆 Final milestones to render:', milestones.length);
+        console.log('🏆 Container element found:', !!container);
+        
+        if (milestones.length === 0) {
+            container.innerHTML = '<p class="section-prompt">Complete assessments to unlock milestones!</p>';
+            console.log('🏆 No milestones, showing prompt');
+            return;
+        }
+        
+        const milestonesHTML = milestones.map(milestone => `
+            <div class="milestone-card achieved" style="border: 2px solid #4CAF50; padding: 15px; margin: 10px 0; border-radius: 8px; background: rgba(76, 175, 80, 0.1);">
+                <div style="font-size: 24px; margin-bottom: 10px;">${milestone.icon}</div>
+                <div>
+                    <h3 style="color: #4CAF50; margin: 0 0 5px 0;">${milestone.title}</h3>
+                    <p style="margin: 0 0 5px 0;">${milestone.description}</p>
+                    <p style="font-size: 12px; color: #666; margin: 0;">Achieved on ${milestone.date}</p>
+                </div>
+            </div>
+        `).join('');
+        
+        console.log('🏆 Generated HTML length:', milestonesHTML.length);
+        container.innerHTML = milestonesHTML;
+        console.log('🏆 Milestones HTML set successfully');
+    }
+    
+    function updateMoodStats(moodData) {
+        const avgElement = document.getElementById('avg-mood');
+        const trendElement = document.getElementById('mood-trend');
+        
+        if (!avgElement || !trendElement) return;
+        
+        if (!moodData || moodData.length === 0) {
+            avgElement.textContent = '-';
+            trendElement.textContent = 'No data yet';
+            trendElement.style.color = getComputedStyle(document.body).getPropertyValue('--text-secondary');
+            return;
+        }
+        
+        // Calculate average
+        const average = moodData.reduce((sum, entry) => sum + entry.mood, 0) / moodData.length;
+        avgElement.textContent = average.toFixed(1);
+        
+        // Calculate trend
+        if (moodData.length < 2) {
+            trendElement.textContent = 'Stable';
+        } else {
+            const first = moodData[0].mood;
+            const last = moodData[moodData.length - 1].mood;
+            const diff = last - first;
+            
+            if (diff > 0.5) {
+                trendElement.textContent = '📈 Improving';
+                trendElement.style.color = '#2ed573';
+            } else if (diff < -0.5) {
+                trendElement.textContent = '📉 Declining';
+                trendElement.style.color = '#ff4757';
+            } else {
+                trendElement.textContent = '➡️ Stable';
+                trendElement.style.color = getComputedStyle(document.body).getPropertyValue('--text-primary');
+            }
+        }
+    }
+    
+    async function checkMilestones() {
+        let assessments = [];
+        let moodHistory = [];
+        
+        // Get current user
+        let currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        if (!currentUser) {
+            console.log('No user found, skipping milestone check');
+            return;
+        }
+        
+        // Fetch data from database
+        if (currentUser && currentUser.id) {
+            try {
+                console.log('🏆 Fetching data for milestone check, user:', currentUser.id);
+                
+                // Fetch assessments from database
+                const assessmentResponse = await fetch(`${API_BASE}/api/assessments?userId=${currentUser.id}`);
+                const assessmentData = await assessmentResponse.json();
+                console.log('🏆 Assessment data for milestones:', assessmentData);
+                if (assessmentData.assessments && assessmentData.assessments.length > 0) {
+                    assessments = assessmentData.assessments;
+                }
+                
+                // Fetch mood data from database
+                const moodResponse = await fetch(`${API_BASE}/api/moods?userId=${currentUser.id}`);
+                const moodData = await moodResponse.json();
+                console.log('🏆 Mood data for milestones:', moodData);
+                if (moodData.success && moodData.moods && moodData.moods.length > 0) {
+                    moodHistory = moodData.moods;
+                }
+            } catch (err) {
+                console.error('🏆 Failed to fetch data for milestones:', err);
+                return;
+            }
+        }
+        
+        // Get existing milestones from database
+        let existingMilestones = [];
+        try {
+            const milestonesResponse = await fetch(`${API_BASE}/api/milestones?userId=${currentUser.id}`);
+            if (milestonesResponse.ok) {
+                const milestonesData = await milestonesResponse.json();
+                if (milestonesData.success && milestonesData.milestones) {
+                    existingMilestones = milestonesData.milestones;
+                }
+            }
+        } catch (err) {
+            console.error('Failed to fetch existing milestones:', err);
+        }
+        
+        // Check for new milestones against existing ones
+        const newMilestones = [];
+        
+        // First assessment milestone
+        if (assessments.length >= 1 && !existingMilestones.find(m => m.milestone_id === 'first_assessment')) {
+            newMilestones.push({
+                id: 'first_assessment',
+                icon: '🎯',
+                title: 'First Step Taken',
+                description: 'Completed your first mental health assessment',
+                date: new Date().toLocaleDateString(),
+                achieved: true
+            });
+        }
+        
+        // First mood entry milestone
+        if (moodHistory.length >= 1 && !existingMilestones.find(m => m.milestone_id === 'first_mood')) {
+            newMilestones.push({
+                id: 'first_mood',
+                icon: '😊',
+                title: 'Mood Tracking Started',
+                description: 'Recorded your first mood entry',
+                date: new Date().toLocaleDateString(),
+                achieved: true
+            });
+        }
+        
+        // Save new milestones to database
+        if (newMilestones.length > 0) {
+            console.log('🏆 Saving', newMilestones.length, 'new milestones to database');
+            
+            for (const milestone of newMilestones) {
+                try {
+                    const response = await fetch(`${API_BASE}/api/milestones`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            userId: currentUser.id,
+                            milestoneId: milestone.id,
+                            icon: milestone.icon,
+                            title: milestone.title,
+                            description: milestone.description,
+                            achievedDate: milestone.date
+                        })
+                    });
+                    if (response.ok) {
+                        console.log('✅ Milestone saved to database:', milestone.title);
+                    } else {
+                        console.error('❌ Failed to save milestone to database:', milestone.title);
+                    }
+                } catch (err) {
+                    console.error('❌ Error saving milestone to database:', err);
+                }
+            }
+        }
+        
+        if (newMilestones.length > 0) {
+            await renderMilestones();
+        }
+    }
+    
     // Wellness Features
     function initWellnessFeatures() {
         // Breathing Exercise
@@ -1485,22 +1905,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 const currentUser = JSON.parse(localStorage.getItem('currentUser'));
                 if (currentUser && currentUser.id) {
                     try {
+                        console.log('😊 Loading today\'s mood for user:', currentUser.id);
                         const today = new Date().toISOString().split('T')[0];
                         const response = await fetch(`${API_BASE}/api/moods?userId=${currentUser.id}`);
                         const data = await response.json();
-                        if (data.success && data.moods) {
-                            const todaysMood = data.moods.find(m => m.mood_date === today);
+                        console.log('😊 Today\'s mood response:', data);
+                        if (data.success && data.moods && data.moods.length > 0) {
+                            const todaysMood = data.moods.find(m => {
+                                const moodDate = new Date(m.mood_date).toISOString().split('T')[0];
+                                return moodDate === today;
+                            });
+                            console.log('😊 Today\'s mood found:', todaysMood);
                             if (todaysMood) {
                                 moodSlider.value = todaysMood.mood_rating;
                                 updateMoodDisplay(todaysMood.mood_rating);
+                                console.log('😊 Mood slider updated to:', todaysMood.mood_rating);
                             }
                         }
                     } catch (err) {
-                        console.error('Failed to load today\'s mood:', err);
+                        console.error('😊 Failed to load today\'s mood:', err);
                     }
                 }
             };
-            loadTodaysMood();
+            
+            // loadTodaysMood will be called after login
         }
         
         // Save mood functionality
@@ -1509,523 +1937,49 @@ document.addEventListener('DOMContentLoaded', () => {
             const today = new Date().toISOString().split('T')[0];
             const moodValue = parseInt(moodSlider.value);
             
-            console.log('💾 Saving mood:', { userId: currentUser?.id, date: today, mood: moodValue });
-            console.log('💾 Current user object:', currentUser);
-            
-            // Always save to localStorage first
-            const localMoods = JSON.parse(localStorage.getItem('moodHistory') || '[]');
-            const existingIndex = localMoods.findIndex(m => m.date === today);
-            
-            if (existingIndex >= 0) {
-                localMoods[existingIndex].mood = moodValue;
-            } else {
-                localMoods.unshift({ date: today, mood: moodValue });
-            }
-            
-            // Keep only last 30 days
-            if (localMoods.length > 30) {
-                localMoods.splice(30);
-            }
-            
-            localStorage.setItem('moodHistory', JSON.stringify(localMoods));
-            console.log('✅ Mood saved to localStorage');
-            
-            // Also save to database if user is logged in
-            if (currentUser && currentUser.id) {
-                try {
-                    console.log('🌐 Making mood API request...');
-                    const response = await fetch(`${API_BASE}/api/moods`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            userId: currentUser.id,
-                            moodDate: today,
-                            moodRating: moodValue
-                        })
-                    });
-                    
-                    console.log('📡 Mood API response status:', response.status);
-                    const result = await response.json();
-                    console.log('📦 Mood API result:', result);
-                    
-                    if (result.success) {
-                        alert('Mood saved successfully! 😊');
-                        console.log('✅ Mood saved to both localStorage and database');
-                    } else {
-                        throw new Error(result.error || 'Failed to save mood');
-                    }
-                } catch (err) {
-                    console.error('❌ Failed to save mood to database:', err);
-                    alert('Mood saved locally (offline mode)');
-                }
-            } else {
-                console.log('⚠️ No user logged in, saved locally only');
-                alert('Mood saved locally');
-            }
-            
-            renderMoodChart();
-            renderMilestones();
-            checkMilestones();
-        });
-        
-        // Render mood trend chart
-        async function renderMoodChart() {
-            const canvas = document.getElementById('mood-chart');
-            if (!canvas) return;
-            
-            const ctx = canvas.getContext('2d');
-            let moodHistory = [];
-            
-            // Always try to get current user (including token restoration)
-            let currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            const token = localStorage.getItem('token');
-            
-            // If no user but token exists, try to restore user
-            if (!currentUser && token) {
-                try {
-                    const payload = JSON.parse(atob(token.split('.')[1]));
-                    if (payload.userId) {
-                        const userResponse = await fetch(`${API_BASE}/api/users/${payload.userId}`);
-                        const userData = await userResponse.json();
-                        if (userData.success) {
-                            currentUser = userData.user;
-                            localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                            updateWelcomeMessage(currentUser.name);
-                        }
-                    }
-                } catch (err) {
-                    console.error('Failed to restore user for mood chart:', err);
-                }
-            }
-            
-            // Get data from both localStorage and database
-            let dbMoods = [];
-            let localMoods = JSON.parse(localStorage.getItem('moodHistory') || '[]');
-            
-            // Fetch from database if user is logged in
-            if (currentUser && currentUser.id) {
-                try {
-                    console.log('📊 Chart: Fetching mood data from database...');
-                    const response = await fetch(`${API_BASE}/api/moods?userId=${currentUser.id}`);
-                    const data = await response.json();
-                    console.log('📊 Chart: Database mood data:', data);
-                    
-                    if (data.success && data.moods && data.moods.length > 0) {
-                        dbMoods = data.moods.map(m => ({
-                            date: m.mood_date,
-                            mood: m.mood_rating
-                        }));
-                        console.log('📊 Chart: Database mood history:', dbMoods);
-                    }
-                } catch (err) {
-                    console.error('📊 Chart: Failed to fetch mood data from database:', err);
-                }
-            }
-            
-            // Merge localStorage and database data, prioritizing database for logged-in users
-            const moodMap = new Map();
-            
-            // Add localStorage data first
-            localMoods.forEach(mood => {
-                moodMap.set(mood.date, mood.mood);
-            });
-            
-            // Override with database data if available
-            dbMoods.forEach(mood => {
-                moodMap.set(mood.date, mood.mood);
-            });
-            
-            // Convert back to array and sort by date
-            moodHistory = Array.from(moodMap.entries())
-                .map(([date, mood]) => ({ date: new Date(date).toDateString(), mood }))
-                .sort((a, b) => new Date(b.date) - new Date(a.date));
-            
-            console.log('📊 Chart: Final merged mood history:', moodHistory);
-            
-            ctx.clearRect(0, 0, canvas.width, canvas.height);
-            
-            if (moodHistory.length === 0) {
-                ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-secondary');
-                ctx.font = '16px Poppins';
-                ctx.textAlign = 'center';
-                ctx.fillText('No mood data recorded yet', canvas.width / 2, canvas.height / 2);
-                ctx.fillText('Save your first mood to see trends!', canvas.width / 2, canvas.height / 2 + 25);
-                updateMoodStats([]);
+            if (!currentUser || !currentUser.id) {
+                alert('Please log in to save your mood.');
                 return;
             }
             
-            // Get last 7 days
-            const last7Days = moodHistory.slice(0, 7).reverse();
+            console.log('💾 Saving mood:', { userId: currentUser.id, date: today, mood: moodValue });
             
-            // Draw grid
-            ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--border');
-            ctx.lineWidth = 1;
-            
-            for (let i = 1; i <= 10; i++) {
-                const y = (canvas.height - 40) - ((i - 1) * (canvas.height - 80) / 9);
-                ctx.beginPath();
-                ctx.moveTo(40, y);
-                ctx.lineTo(canvas.width - 20, y);
-                ctx.stroke();
-            }
-            
-            // Draw mood line and points
-            if (last7Days.length > 0) {
-                ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--primary-color');
-                ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--primary-color');
-                
-                if (last7Days.length > 1) {
-                    ctx.lineWidth = 3;
-                    ctx.beginPath();
-                    
-                    last7Days.forEach((entry, index) => {
-                        const x = 40 + (index * (canvas.width - 60) / (last7Days.length - 1));
-                        const y = (canvas.height - 40) - ((entry.mood - 1) * (canvas.height - 80) / 9);
-                        
-                        if (index === 0) {
-                            ctx.moveTo(x, y);
-                        } else {
-                            ctx.lineTo(x, y);
-                        }
-                    });
-                    
-                    ctx.stroke();
-                }
-                
-                // Draw points
-                last7Days.forEach((entry, index) => {
-                    const x = last7Days.length === 1 ? canvas.width / 2 : 40 + (index * (canvas.width - 60) / (last7Days.length - 1));
-                    const y = (canvas.height - 40) - ((entry.mood - 1) * (canvas.height - 80) / 9);
-                    
-                    ctx.beginPath();
-                    ctx.arc(x, y, 4, 0, 2 * Math.PI);
-                    ctx.fill();
-                });
-            }
-            
-            updateMoodStats(last7Days);
-        }
-        
-        function updateMoodStats(moodData) {
-            const avgElement = document.getElementById('avg-mood');
-            const trendElement = document.getElementById('mood-trend');
-            
-            if (!avgElement || !trendElement) return;
-            
-            if (!moodData || moodData.length === 0) {
-                avgElement.textContent = '-';
-                trendElement.textContent = 'No data yet';
-                trendElement.style.color = getComputedStyle(document.body).getPropertyValue('--text-secondary');
-                return;
-            }
-            
-            // Calculate average
-            const average = moodData.reduce((sum, entry) => sum + entry.mood, 0) / moodData.length;
-            avgElement.textContent = average.toFixed(1);
-            
-            // Calculate trend
-            if (moodData.length < 2) {
-                trendElement.textContent = 'Stable';
-            } else {
-                const first = moodData[0].mood;
-                const last = moodData[moodData.length - 1].mood;
-                const diff = last - first;
-                
-                if (diff > 0.5) {
-                    trendElement.textContent = '📈 Improving';
-                    trendElement.style.color = '#2ed573';
-                } else if (diff < -0.5) {
-                    trendElement.textContent = '📉 Declining';
-                    trendElement.style.color = '#ff4757';
-                } else {
-                    trendElement.textContent = '➡️ Stable';
-                    trendElement.style.color = getComputedStyle(document.body).getPropertyValue('--text-primary');
-                }
-            }
-        }
-        
-        // Milestones system
-        async function checkMilestones() {
-            let assessments = [];
-            let moodHistory = [];
-            
-            // Always try to get current user (including token restoration)
-            let currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            if (!currentUser) {
-                console.log('No user found, skipping milestone check');
-                return;
-            }
-            const token = localStorage.getItem('token');
-            
-            // If no user but token exists, try to restore user
-            if (!currentUser && token) {
-                try {
-                    const payload = JSON.parse(atob(token.split('.')[1]));
-                    if (payload.userId) {
-                        const userResponse = await fetch(`${API_BASE}/api/users/${payload.userId}`);
-                        const userData = await userResponse.json();
-                        if (userData.success) {
-                            currentUser = userData.user;
-                            localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                        }
-                    }
-                } catch (err) {
-                    console.error('Failed to restore user for milestones:', err);
-                }
-            }
-            
-            // Get data from both localStorage and database
-            let localAssessments = JSON.parse(localStorage.getItem('assessmentHistory') || '[]');
-            let localMoods = JSON.parse(localStorage.getItem('moodHistory') || '[]');
-            
-            // Fetch from database if user is logged in
-            if (currentUser && currentUser.id) {
-                try {
-                    // Fetch assessments from database
-                    const assessmentResponse = await fetch(`${API_BASE}/api/assessments?userId=${currentUser.id}`);
-                    const assessmentData = await assessmentResponse.json();
-                    if (assessmentData.assessments) {
-                        assessments = assessmentData.assessments;
-                    }
-                    
-                    // Fetch mood data from database
-                    const moodResponse = await fetch(`${API_BASE}/api/moods?userId=${currentUser.id}`);
-                    const moodData = await moodResponse.json();
-                    if (moodData.success && moodData.moods) {
-                        moodHistory = moodData.moods;
-                    }
-                } catch (err) {
-                    console.error('Failed to fetch data for milestones:', err);
-                }
-            }
-            
-            // Use localStorage data if database data is not available
-            if (assessments.length === 0 && localAssessments.length > 0) {
-                assessments = localAssessments;
-            }
-            if (moodHistory.length === 0 && localMoods.length > 0) {
-                moodHistory = localMoods;
-            }
-            
-            // Get existing milestones from database
-            let existingMilestones = [];
             try {
-                const milestonesResponse = await fetch(`${API_BASE}/api/milestones?userId=${currentUser.id}`);
-                if (milestonesResponse.ok) {
-                    const milestonesData = await milestonesResponse.json();
-                    if (milestonesData.success && milestonesData.milestones) {
-                        existingMilestones = milestonesData.milestones;
-                    }
+                const response = await fetch(`${API_BASE}/api/moods`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUser.id,
+                        moodDate: today,
+                        moodRating: moodValue
+                    })
+                });
+                
+                const result = await response.json();
+                console.log('📦 Mood save result:', result);
+                
+                if (result.success) {
+                    alert('Mood saved successfully! 😊');
+                    console.log('✅ Mood saved to database');
+                    
+                    // Refresh mood chart only
+                    await renderMoodChart();
+                } else {
+                    throw new Error(result.error || 'Failed to save mood');
                 }
             } catch (err) {
-                console.error('Failed to fetch existing milestones:', err);
+                console.error('❌ Failed to save mood:', err);
+                alert('Failed to save mood. Please try again.');
             }
-
-            
-            // Check for new milestones against existing ones
-            const newMilestones = [];
-            
-            // First assessment milestone
-            if (assessments.length >= 1 && !existingMilestones.find(m => m.milestone_id === 'first_assessment')) {
-                newMilestones.push({
-                    id: 'first_assessment',
-                    icon: '🎯',
-                    title: 'First Step Taken',
-                    description: 'Completed your first mental health assessment',
-                    date: new Date().toLocaleDateString(),
-                    achieved: true
-                });
-            }
-            
-            // First mood entry milestone
-            if (moodHistory.length >= 1 && !existingMilestones.find(m => m.milestone_id === 'first_mood')) {
-                newMilestones.push({
-                    id: 'first_mood',
-                    icon: '😊',
-                    title: 'Mood Tracking Started',
-                    description: 'Recorded your first mood entry',
-                    date: new Date().toLocaleDateString(),
-                    achieved: true
-                });
-            }
-            
-            // Mood tracking milestone (7 days)
-            if (moodHistory.length >= 7 && !existingMilestones.find(m => m.milestone_id === 'mood_week')) {
-                newMilestones.push({
-                    id: 'mood_week',
-                    icon: '📈',
-                    title: 'Mood Tracker Champion',
-                    description: 'Tracked your mood for 7 days',
-                    date: new Date().toLocaleDateString(),
-                    achieved: true
-                });
-            }
-            
-            // Assessment consistency milestone
-            if (assessments.length >= 3 && !existingMilestones.find(m => m.milestone_id === 'assessment_consistency')) {
-                newMilestones.push({
-                    id: 'assessment_consistency',
-                    icon: '📋',
-                    title: 'Consistent Tracker',
-                    description: 'Completed 3 mental health assessments',
-                    date: new Date().toLocaleDateString(),
-                    achieved: true
-                });
-            }
-            
-            // Improvement milestone (only for assessments)
-            if (assessments.length >= 2) {
-                const latest = assessments[0];
-                const previous = assessments[1];
-                
-                const improvements = [];
-                if ((latest.phq9_score || latest.phq9) < (previous.phq9_score || previous.phq9)) improvements.push('Depression');
-                if ((latest.gad7_score || latest.gad7) < (previous.gad7_score || previous.gad7)) improvements.push('Anxiety');
-                if ((latest.pss_score || latest.pss) < (previous.pss_score || previous.pss)) improvements.push('Stress');
-                
-                if (improvements.length > 0 && !existingMilestones.find(m => m.milestone_id === 'improvement')) {
-                    newMilestones.push({
-                        id: 'improvement',
-                        icon: '🌟',
-                        title: 'Progress Made',
-                        description: `Improved in: ${improvements.join(', ')}`,
-                        date: new Date().toLocaleDateString(),
-                        achieved: true
-                    });
-                }
-            }
-            
-            // Save new milestones to both localStorage and database
-            if (newMilestones.length > 0) {
-                // Save to localStorage first
-                const localMilestones = JSON.parse(localStorage.getItem('milestones') || '[]');
-                newMilestones.forEach(milestone => {
-                    if (!localMilestones.find(m => m.id === milestone.id)) {
-                        localMilestones.push(milestone);
-                    }
-                });
-                localStorage.setItem('milestones', JSON.stringify(localMilestones));
-                console.log('✅ Milestones saved to localStorage');
-                
-                // Also save to database if user is logged in
-                if (currentUser && currentUser.id) {
-                    for (const milestone of newMilestones) {
-                        try {
-                            const response = await fetch(`${API_BASE}/api/milestones`, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    userId: currentUser.id,
-                                    milestoneId: milestone.id,
-                                    icon: milestone.icon,
-                                    title: milestone.title,
-                                    description: milestone.description,
-                                    achievedDate: milestone.date
-                                })
-                            });
-                            if (!response.ok) {
-                                console.error('Failed to save milestone to database');
-                            } else {
-                                console.log('✅ Milestone saved to database:', milestone.title);
-                            }
-                        } catch (err) {
-                            console.error('Error saving milestone to database:', err);
-                        }
-                    }
-                } else {
-                    console.log('No user logged in, milestones saved to localStorage only');
-                }
-            }
-            await renderMilestones();
-        }
+        });
         
-        async function renderMilestones() {
-            const container = document.getElementById('milestones-container');
-            if (!container) return;
-            
-            let milestones = [];
-            
-            // Try to get current user (including token restoration)
-            let currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            const token = localStorage.getItem('token');
-            
-            // If no user but token exists, try to restore user
-            if (!currentUser && token) {
-                try {
-                    const payload = JSON.parse(atob(token.split('.')[1]));
-                    if (payload.userId) {
-                        const userResponse = await fetch(`${API_BASE}/api/users/${payload.userId}`);
-                        const userData = await userResponse.json();
-                        if (userData.success) {
-                            currentUser = userData.user;
-                            localStorage.setItem('currentUser', JSON.stringify(currentUser));
-                        }
-                    }
-                } catch (err) {
-                    console.error('Failed to restore user for milestones:', err);
-                }
-            }
-            
-            // Get data from both localStorage and database
-            let dbMilestones = [];
-            let localMilestones = JSON.parse(localStorage.getItem('milestones') || '[]');
-            
-            // Fetch from database if user is logged in
-            if (currentUser && currentUser.id) {
-                try {
-                    const response = await fetch(`${API_BASE}/api/milestones?userId=${currentUser.id}`);
-                    if (response.ok) {
-                        const data = await response.json();
-                        if (data.success && data.milestones) {
-                            dbMilestones = data.milestones.map(m => ({
-                                id: m.milestone_id,
-                                icon: m.icon,
-                                title: m.title,
-                                description: m.description,
-                                date: new Date(m.achieved_date).toLocaleDateString(),
-                                achieved: true
-                            }));
-                        }
-                    }
-                } catch (err) {
-                    console.error('Milestones API error:', err);
-                }
-            }
-            
-            // Merge localStorage and database data, prioritizing database for logged-in users
-            const milestoneMap = new Map();
-            
-            // Add localStorage data first
-            localMilestones.forEach(milestone => {
-                milestoneMap.set(milestone.id, milestone);
-            });
-            
-            // Override with database data if available
-            dbMilestones.forEach(milestone => {
-                milestoneMap.set(milestone.id, milestone);
-            });
-            
-            // Convert back to array
-            milestones = Array.from(milestoneMap.values());
-            
-            console.log('Final merged milestones:', milestones);
-            
-            if (milestones.length === 0) {
-                container.innerHTML = '<p class="section-prompt">Complete assessments to unlock milestones!</p>';
-                return;
-            }
-            
-            container.innerHTML = milestones.map(milestone => `
-                <div class="milestone-card ${milestone.achieved ? 'achieved' : ''}">
-                    <div class="milestone-icon">${milestone.icon}</div>
-                    <div class="milestone-content">
-                        <h3 class="milestone-title">${milestone.title}</h3>
-                        <p class="milestone-description">${milestone.description}</p>
-                        ${milestone.achieved ? `<p class="milestone-date">Achieved on ${milestone.date}</p>` : ''}
-                    </div>
-                </div>
-            `).join('');
-        }
+        // renderMoodChart moved to global scope
+        
+        // updateMoodStats moved to global scope
+        
+        // checkMilestones moved to global scope
+        
+        // renderMilestones moved to global scope
         
         // Export functionality
         document.getElementById('export-progress-btn')?.addEventListener('click', () => {
@@ -2320,10 +2274,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     doc.setFontSize(10);
                     doc.setFont('helvetica', 'bold');
                     doc.setTextColor(135, 206, 235);
-                    doc.text('Chetana', 20, pageHeight - 15);
+
                     doc.setFont('helvetica', 'normal');
                     doc.setTextColor(100, 100, 100);
-                    doc.text(' - Awakening Minds, Nurturing Wellbeing', 55, pageHeight - 15);
+                    doc.text('Chetana - Awakening Minds, Nurturing Wellbeing', 55, pageHeight - 15);
                     doc.text(`Page ${pageNum}`, doc.internal.pageSize.width - 30, pageHeight - 15);
                     doc.setTextColor(0, 0, 0);
                 }
@@ -2644,17 +2598,7 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         });
         
-        // Initialize progress dashboard
-        async function initProgressDashboard() {
-            console.log('🚀 Initializing progress dashboard...');
-            await renderMoodChart();
-            await checkMilestones();
-            await renderMilestones();
-            console.log('✅ Progress dashboard initialized');
-        }
-        
-        // Initialize on page load
-        initProgressDashboard();
+
         
         // Relaxation timer functionality
         document.querySelectorAll('.timer-btn').forEach(btn => {
@@ -2727,6 +2671,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Check if user is already logged in or can be restored from token
         if (checkCurrentUser()) {
             showScreen('dashboard-screen');
+            // Load mood chart and milestones for existing user
+            setTimeout(async () => {
+                if (typeof renderMoodChart === 'function') await renderMoodChart();
+                if (typeof checkMilestones === 'function') await checkMilestones();
+                if (typeof renderMilestones === 'function') await renderMilestones();
+            }, 1000);
         } else {
             const token = localStorage.getItem('token');
             if (token) {
@@ -2785,7 +2735,7 @@ document.addEventListener('DOMContentLoaded', () => {
             showScreen('login-screen'); 
         });
         document.getElementById('limit-modal-close-btn')?.addEventListener('click', hideModals);
-        document.getElementById('grant-permissions-btn')?.addEventListener('click', () => {
+        document.getElementById('grant-permissions-btn')?.addEventListener('click', async () => {
             console.log('Permissions granted:', {
                 location: document.getElementById('location-permission').checked,
                 microphone: document.getElementById('microphone-permission').checked,
@@ -2793,11 +2743,23 @@ document.addEventListener('DOMContentLoaded', () => {
             });
             hideModals(); 
             showScreen('dashboard-screen');
+            
+            // Load mood chart and milestones after reaching dashboard
+            setTimeout(async () => {
+                if (typeof renderMoodChart === 'function') await renderMoodChart();
+                if (typeof renderMilestones === 'function') await renderMilestones();
+            }, 200);
         });
-        document.getElementById('skip-permissions-btn')?.addEventListener('click', () => { 
+        document.getElementById('skip-permissions-btn')?.addEventListener('click', async () => { 
             console.log('Permissions skipped.'); 
             hideModals(); 
-            showScreen('dashboard-screen'); 
+            showScreen('dashboard-screen');
+            
+            // Load mood chart and milestones after reaching dashboard
+            setTimeout(async () => {
+                if (typeof renderMoodChart === 'function') await renderMoodChart();
+                if (typeof renderMilestones === 'function') await renderMilestones();
+            }, 200);
         });
         document.getElementById('go-to-assessment-btn')?.addEventListener('click', startAssessment);
         document.getElementById('assessment-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
@@ -2845,14 +2807,27 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Wellness functionality
         initWellnessFeatures();
-        document.getElementById('go-to-progress-btn')?.addEventListener('click', () => { 
-            renderProgressChart(); 
-            showScreen('progress-screen');
-            setTimeout(() => {
-                if (typeof renderMoodChart === 'function') renderMoodChart();
-                if (typeof renderMilestones === 'function') renderMilestones();
-                if (typeof checkMilestones === 'function') checkMilestones();
-            }, 50);
+        document.getElementById('go-to-progress-btn')?.addEventListener('click', async () => { 
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (currentUser && currentUser.id) {
+                console.log('📊 Go to progress clicked for user:', currentUser.id);
+                await renderProgressChart(); 
+                showScreen('progress-screen');
+                
+                // Force load mood chart and milestones immediately
+                setTimeout(async () => {
+                    console.log('📊 Force loading mood chart and milestones...');
+                    try {
+                        await renderMoodChart();
+                        await renderMilestones();
+                        console.log('📊 Force loading completed');
+                    } catch (err) {
+                        console.error('❌ Force loading error:', err);
+                    }
+                }, 200);
+            } else {
+                alert('Please log in to view your progress.');
+            }
         });
         document.getElementById('progress-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
         document.getElementById('go-to-booking-btn')?.addEventListener('click', () => {

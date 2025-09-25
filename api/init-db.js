@@ -59,6 +59,54 @@ module.exports = async function handler(req, res) {
       ADD COLUMN IF NOT EXISTS responses JSONB
     `).catch(() => {});
     
+    // Create forum tables
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS forum_users (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        anonymous_username VARCHAR(20) UNIQUE NOT NULL,
+        aura_points INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS forum_posts (
+        id SERIAL PRIMARY KEY,
+        title VARCHAR(255) NOT NULL,
+        content TEXT NOT NULL,
+        community VARCHAR(50) NOT NULL,
+        author_username VARCHAR(20) NOT NULL,
+        upvotes INTEGER DEFAULT 0,
+        downvotes INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS forum_comments (
+        id SERIAL PRIMARY KEY,
+        post_id INTEGER REFERENCES forum_posts(id) ON DELETE CASCADE,
+        content TEXT NOT NULL,
+        author_username VARCHAR(20) NOT NULL,
+        upvotes INTEGER DEFAULT 0,
+        downvotes INTEGER DEFAULT 0,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+      )
+    `);
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS forum_votes (
+        id SERIAL PRIMARY KEY,
+        voter_username VARCHAR(20) NOT NULL,
+        target_type VARCHAR(10) NOT NULL,
+        target_id INTEGER NOT NULL,
+        vote_type VARCHAR(10) NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(voter_username, target_type, target_id)
+      )
+    `);
+    
     // Create default admin user
     const bcrypt = require('bcryptjs');
     const hashedPassword = await bcrypt.hash('admin123', 10);
@@ -69,7 +117,7 @@ module.exports = async function handler(req, res) {
       ON CONFLICT (email) DO NOTHING
     `, [hashedPassword]);
     
-    res.json({ success: true, message: 'Database initialized with default admin and assessment tracking' });
+    res.json({ success: true, message: 'Database initialized with forum tables, default admin and assessment tracking' });
     await pool.end();
   } catch (err) {
     console.error('Database error:', err);

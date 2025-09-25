@@ -529,6 +529,182 @@ app.put('/api/users/:id/consent', async (req, res) => {
   }
 });
 
+// Forum API endpoints
+app.get('/api/forum/user', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID required' });
+    }
+    
+    // Generate unique username
+    const randomCode = Math.random().toString(36).substring(2, 8);
+    const username = `u/${randomCode}`;
+    
+    res.json({
+      success: true,
+      username: username,
+      auraPoints: 0
+    });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to get forum user' });
+  }
+});
+
+app.get('/api/forum/stats', async (req, res) => {
+  try {
+    const stats = {
+      depression: Math.floor(Math.random() * 100) + 50,
+      anxiety: Math.floor(Math.random() * 80) + 40,
+      stress: Math.floor(Math.random() * 60) + 30
+    };
+    res.json(stats);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch stats' });
+  }
+});
+
+app.post('/api/forum/join', async (req, res) => {
+  try {
+    const { community, action } = req.body;
+    console.log(`User ${action}ed community: ${community}`);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to join/leave community' });
+  }
+});
+
+app.get('/api/forum/posts', async (req, res) => {
+  try {
+    const { community } = req.query;
+    const samplePosts = [
+      {
+        id: 1,
+        title: "Feeling overwhelmed lately",
+        content: "I've been struggling with work stress and it's affecting my sleep. Anyone else going through something similar?",
+        author: "u/anonymous123",
+        created_at: new Date().toISOString(),
+        votes: 5,
+        comment_count: 3
+      },
+      {
+        id: 2,
+        title: "Small wins today",
+        content: "Managed to go for a walk and call a friend. It's not much but it feels good to take these small steps.",
+        author: "u/hopeful456",
+        created_at: new Date(Date.now() - 86400000).toISOString(),
+        votes: 12,
+        comment_count: 7
+      }
+    ];
+    res.json(samplePosts);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch posts' });
+  }
+});
+
+app.post('/api/forum/posts', async (req, res) => {
+  try {
+    const { title, content, community, author } = req.body;
+    const newPost = {
+      id: Date.now(),
+      title,
+      content,
+      author,
+      community,
+      created_at: new Date().toISOString(),
+      votes: 0,
+      comment_count: 0
+    };
+    console.log('New post created:', newPost);
+    res.json({ success: true, post: newPost });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create post' });
+  }
+});
+
+app.get('/api/forum/posts/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    const post = {
+      id: parseInt(id),
+      title: "Sample Post",
+      content: "This is a sample post content for demonstration.",
+      author: "u/sample",
+      created_at: new Date().toISOString(),
+      votes: 3
+    };
+    res.json(post);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch post' });
+  }
+});
+
+app.get('/api/forum/comments', async (req, res) => {
+  try {
+    const { postId } = req.query;
+    const sampleComments = [
+      {
+        id: 1,
+        content: "I can relate to this. Thanks for sharing.",
+        author: "u/supporter",
+        created_at: new Date().toISOString(),
+        votes: 2,
+        parent_id: null
+      },
+      {
+        id: 2,
+        content: "You're not alone in this journey.",
+        author: "u/friend",
+        created_at: new Date(Date.now() - 3600000).toISOString(),
+        votes: 4,
+        parent_id: null
+      }
+    ];
+    res.json(sampleComments);
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to fetch comments' });
+  }
+});
+
+app.post('/api/forum/comments', async (req, res) => {
+  try {
+    const { content, postId, author } = req.body;
+    const newComment = {
+      id: Date.now(),
+      content,
+      author,
+      postId: parseInt(postId),
+      created_at: new Date().toISOString(),
+      votes: 0
+    };
+    console.log('New comment created:', newComment);
+    res.json({ success: true, comment: newComment });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to create comment' });
+  }
+});
+
+app.post('/api/forum/vote', async (req, res) => {
+  try {
+    const { postId, type, author } = req.body;
+    console.log(`${author} ${type}d post ${postId}`);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to vote' });
+  }
+});
+
+app.post('/api/forum/vote-comment', async (req, res) => {
+  try {
+    const { commentId, type, author } = req.body;
+    console.log(`${author} ${type}d comment ${commentId}`);
+    res.json({ success: true });
+  } catch (err) {
+    res.status(500).json({ error: 'Failed to vote on comment' });
+  }
+});
+
 // Catch-all route for debugging
 app.use('*', (req, res) => {
   console.log('🔴 Route not found:', req.method, req.originalUrl);

@@ -3213,6 +3213,353 @@ input[type="email"], input[type="password"], input[type="text"], input[type="dat
   }
 }
 
+/* Forum Styles */
+.forum-header {
+  background: var(--surface);
+  padding: 1rem;
+  border-radius: var(--radius-base);
+  margin-bottom: 1.5rem;
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.user-info {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.username {
+  font-weight: 600;
+  color: var(--primary-color);
+}
+
+.aura-points {
+  background: var(--primary-color);
+  color: white;
+  padding: 0.25rem 0.75rem;
+  border-radius: 15px;
+  font-size: 0.8rem;
+}
+
+.communities-list {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.community-card {
+  background: var(--surface);
+  padding: 1.5rem;
+  border-radius: var(--radius-base);
+  border: 1px solid var(--border);
+  cursor: pointer;
+  transition: transform 0.2s ease;
+}
+
+.community-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+.community-card h3 {
+  margin: 0 0 0.5rem 0;
+  color: var(--text-primary);
+}
+
+.community-card p {
+  margin: 0 0 1rem 0;
+  color: var(--text-secondary);
+}
+
+.community-stats {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+}
+
+.member-count {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.join-btn {
+  background: var(--primary-color);
+  color: white;
+  border: none;
+  padding: 0.5rem 1rem;
+  border-radius: 20px;
+  cursor: pointer;
+  font-size: 0.9rem;
+}
+
+.join-btn.joined {
+  background: var(--secondary-color);
+}
+
+.posts-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.post-card {
+  background: var(--surface);
+  padding: 1.5rem;
+  border-radius: var(--radius-base);
+  border: 1px solid var(--border);
+  cursor: pointer;
+}
+
+.post-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.post-author {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.post-time {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.post-title {
+  font-size: 1.2rem;
+  font-weight: 600;
+  margin: 0 0 0.5rem 0;
+  color: var(--text-primary);
+}
+
+.post-content {
+  color: var(--text-secondary);
+  margin-bottom: 1rem;
+  line-height: 1.4;
+}
+
+.post-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.vote-buttons {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.vote-btn {
+  background: var(--surface);
+  border: 2px solid var(--border);
+  font-size: 1.4rem;
+  cursor: pointer;
+  padding: 0.5rem;
+  border-radius: 8px;
+  transition: all 0.2s ease;
+  min-width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: bold;
+}
+
+.vote-btn:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 4px 8px var(--shadow);
+}
+
+.vote-btn.upvote {
+  color: #666;
+  border-color: #ddd;
+}
+
+.vote-btn.upvote:hover {
+  color: #ff4500;
+  border-color: #ff4500;
+  background: rgba(255, 69, 0, 0.1);
+}
+
+.vote-btn.upvote.voted {
+  color: #ff4500;
+  border-color: #ff4500;
+  background: rgba(255, 69, 0, 0.2);
+}
+
+.vote-btn.downvote {
+  color: #666;
+  border-color: #ddd;
+}
+
+.vote-btn.downvote:hover {
+  color: #7193ff;
+  border-color: #7193ff;
+  background: rgba(113, 147, 255, 0.1);
+}
+
+.vote-btn.downvote.voted {
+  color: #7193ff;
+  border-color: #7193ff;
+  background: rgba(113, 147, 255, 0.2);
+}
+
+.vote-count {
+  font-weight: 700;
+  min-width: 40px;
+  text-align: center;
+  font-size: 1.1rem;
+  color: var(--text-primary);
+  padding: 0.25rem;
+}
+
+.comment-count {
+  font-size: 0.9rem;
+  color: var(--text-secondary);
+}
+
+.comment-form {
+  background: var(--surface);
+  padding: 1rem;
+  border-radius: var(--radius-base);
+  margin-bottom: 1.5rem;
+}
+
+.comment-form textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-base);
+  background: var(--background);
+  color: var(--text-primary);
+  resize: vertical;
+  margin-bottom: 0.75rem;
+}
+
+.comments-container {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.comment {
+  background: var(--surface);
+  padding: 1rem;
+  border-radius: var(--radius-base);
+  border-left: 3px solid var(--border);
+}
+
+.comment.reply {
+  margin-left: 2rem;
+  border-left-color: var(--primary-color);
+}
+
+.comment-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-bottom: 0.5rem;
+}
+
+.comment-author {
+  font-weight: 600;
+  color: var(--primary-color);
+  font-size: 0.9rem;
+}
+
+.comment-time {
+  font-size: 0.8rem;
+  color: var(--text-secondary);
+}
+
+.comment-content {
+  color: var(--text-primary);
+  margin-bottom: 0.75rem;
+  line-height: 1.4;
+}
+
+.comment-actions {
+  display: flex;
+  gap: 1rem;
+  align-items: center;
+}
+
+.reply-btn {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 0.8rem;
+}
+
+.modal-actions {
+  display: flex;
+  gap: 1rem;
+  margin-top: 1rem;
+}
+
+.modal-actions .btn {
+  width: auto;
+  flex: 1;
+}
+
+#create-post-modal input,
+#create-post-modal textarea {
+  width: 100%;
+  padding: 0.75rem;
+  border: 1px solid var(--border);
+  border-radius: var(--radius-base);
+  background: var(--background);
+  color: var(--text-primary);
+  margin-bottom: 1rem;
+}
+
+.create-post-section {
+  text-align: center;
+  margin-bottom: 2rem;
+  padding: 1rem;
+  background: var(--surface);
+  border-radius: var(--radius-base);
+  border: 1px solid var(--border);
+}
+
+.create-post-floating {
+  width: auto;
+  padding: 0.75rem 2rem;
+  font-size: 1rem;
+  box-shadow: 0 4px 12px var(--shadow);
+}
+
+@media (max-width: 768px) {
+  .comment.reply {
+    margin-left: 1rem;
+  }
+  
+  .post-actions {
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  
+  .vote-buttons {
+    gap: 0.25rem;
+  }
+  
+  .create-post-section {
+    margin-bottom: 1rem;
+    padding: 0.75rem;
+  }
+  
+  .create-post-floating {
+    padding: 0.6rem 1.5rem;
+    font-size: 0.9rem;
+  }
+}
+
 @media (min-width: 1024px) { 
   body { 
     display: flex; 

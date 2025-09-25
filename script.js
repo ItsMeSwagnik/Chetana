@@ -2763,6 +2763,428 @@ document.addEventListener('DOMContentLoaded', () => {
         );
         document.getElementById('emergency-btn')?.addEventListener('click', () => showModal('emergency-modal'));
         document.getElementById('emergency-modal-close-btn')?.addEventListener('click', hideModals);
+
+        // Forum functionality
+        let currentCommunity = '';
+        let currentPost = null;
+        let userAura = 0;
+        let anonymousUsername = null;
+        let userVotes = {}; // Track user votes
+
+        document.getElementById('go-to-forum-btn')?.addEventListener('click', async () => {
+            await initializeForumUser();
+            showScreen('forum-screen');
+            loadForumData();
+        });
+
+        document.getElementById('forum-back-btn')?.addEventListener('click', () => {
+            showScreen('dashboard-screen');
+        });
+
+        async function initializeForumUser() {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (!currentUser || !currentUser.id) {
+                alert('Please log in to access the community forum.');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/forum/user?userId=${currentUser.id}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        anonymousUsername = data.username;
+                        userAura = data.auraPoints;
+                    }
+                }
+            } catch (err) {
+                console.log('Forum user initialization failed:', err);
+                // Fallback to random username
+                anonymousUsername = 'u/' + Math.random().toString(36).substring(2, 8);
+                userAura = 0;
+            }
+        }
+        
+        function loadForumData() {
+            if (anonymousUsername) {
+                document.getElementById('forum-username').textContent = anonymousUsername;
+                document.getElementById('user-aura').textContent = userAura + ' aura';
+            }
+            loadCommunityStats();
+        }
+
+        async function loadCommunityStats() {
+            try {
+                const response = await fetch(`${API_BASE}/api/forum/stats`);
+                if (response.ok) {
+                    const stats = await response.json();
+                    document.querySelectorAll('.community-card').forEach(card => {
+                        const community = card.dataset.community;
+                        const memberCount = card.querySelector('.member-count');
+                        memberCount.textContent = (stats[community] || 0) + ' members';
+                    });
+                }
+            } catch (err) {
+                console.log('Forum stats not available');
+            }
+        }
+
+        // Community navigation
+        document.querySelectorAll('.community-card').forEach(card => {
+            card.addEventListener('click', (e) => {
+                if (e.target.classList.contains('join-btn')) return;
+                currentCommunity = card.dataset.community;
+                document.getElementById('community-title').textContent = 'c/' + currentCommunity;
+                showScreen('community-screen');
+                loadPosts();
+            });
+        });
+
+        document.getElementById('community-back-btn')?.addEventListener('click', () => {
+            showScreen('forum-screen');
+        });
+
+        // Join/Leave communities
+        document.querySelectorAll('.join-btn').forEach(btn => {
+            btn.addEventListener('click', async (e) => {
+                e.stopPropagation();
+                const community = btn.dataset.community;
+                const isJoined = btn.classList.contains('joined');
+                
+                try {
+                    const response = await fetch(`${API_BASE}/api/forum/join`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ community, action: isJoined ? 'leave' : 'join' })
+                    });
+                    
+                    if (response.ok) {
+                        btn.classList.toggle('joined');
+                        btn.textContent = isJoined ? 'Join' : 'Joined';
+                        loadCommunityStats();
+                    }
+                } catch (err) {
+                    console.log('Join/leave not available');
+                }
+            });
+        });
+
+        // Posts functionality
+        async function loadPosts() {
+            try {
+                const response = await fetch(`${API_BASE}/api/forum/posts?community=${currentCommunity}`);
+                if (response.ok) {
+                    const posts = await response.json();
+                    displayPosts(posts);
+                } else {
+                    displayPosts([]);
+                }
+            } catch (err) {
+                displayPosts([]);
+            }
+        }
+
+        function displayPosts(posts) {
+            const container = document.getElementById('posts-container');
+            if (posts.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No posts yet. Be the first to post!</p>';
+                return;
+            }
+            
+            container.innerHTML = posts.map(post => {
+                const voteScore = (post.upvotes || 0) - (post.downvotes || 0);
+                return `
+                    <div class="post-card" data-post-id="${post.id}">
+                        <div class="post-header">
+                            <span class="post-author">${post.author_username}</span>
+                            <span class="post-time">${new Date(post.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <h3 class="post-title">${post.title}</h3>
+                        <p class="post-content">${post.content.substring(0, 200)}${post.content.length > 200 ? '...' : ''}</p>
+                        <div class="post-actions">
+                            <div class="vote-buttons">
+                                <button class="vote-btn upvote" data-post-id="${post.id}" data-type="upvote">▲</button>
+                                <span class="vote-count">${voteScore}</span>
+                                <button class="vote-btn downvote" data-post-id="${post.id}" data-type="downvote">▼</button>
+                            </div>
+                            <span class="comment-count">${post.comment_count || 0} comments</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            // Add click handlers
+            container.querySelectorAll('.post-card').forEach(card => {
+                card.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('vote-btn')) return;
+                    const postId = card.dataset.postId;
+                    openPost(postId);
+                });
+            });
+            
+            container.querySelectorAll('.vote-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    votePost(btn.dataset.postId, btn.dataset.type);
+                });
+            });
+        }
+
+        // Create post
+        document.getElementById('create-post-btn')?.addEventListener('click', () => {
+            document.getElementById('create-post-modal').classList.add('active');
+        });
+
+        document.getElementById('cancel-post-btn')?.addEventListener('click', () => {
+            document.getElementById('create-post-modal').classList.remove('active');
+            document.getElementById('post-title').value = '';
+            document.getElementById('post-content').value = '';
+        });
+
+        document.getElementById('submit-post-btn')?.addEventListener('click', async () => {
+            const title = document.getElementById('post-title').value.trim();
+            const content = document.getElementById('post-content').value.trim();
+            
+            if (!title || !content) {
+                alert('Please fill in both title and content');
+                return;
+            }
+            
+            if (!anonymousUsername) {
+                alert('Please refresh and try again.');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/forum/posts`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        title,
+                        content,
+                        community: currentCommunity,
+                        authorUsername: anonymousUsername
+                    })
+                });
+                
+                if (response.ok) {
+                    document.getElementById('create-post-modal').classList.remove('active');
+                    document.getElementById('post-title').value = '';
+                    document.getElementById('post-content').value = '';
+                    loadPosts();
+                    // No aura for posting - only for getting upvotes
+                }
+            } catch (err) {
+                console.log('Post creation not available');
+            }
+        });
+
+        // Post detail view
+        async function openPost(postId) {
+            try {
+                const response = await fetch(`${API_BASE}/api/forum/posts?postId=${postId}`);
+                if (response.ok) {
+                    currentPost = await response.json();
+                    displayPostDetail();
+                    loadComments(postId);
+                    showScreen('post-screen');
+                }
+            } catch (err) {
+                console.log('Post detail not available');
+            }
+        }
+
+        function displayPostDetail() {
+            if (!currentPost) return;
+            
+            const voteScore = (currentPost.upvotes || 0) - (currentPost.downvotes || 0);
+            
+            document.getElementById('post-detail').innerHTML = `
+                <div class="post-card">
+                    <div class="post-header">
+                        <span class="post-author">${currentPost.author_username}</span>
+                        <span class="post-time">${new Date(currentPost.created_at).toLocaleDateString()}</span>
+                    </div>
+                    <h2 class="post-title">${currentPost.title}</h2>
+                    <p class="post-content">${currentPost.content}</p>
+                    <div class="post-actions">
+                        <div class="vote-buttons">
+                            <button class="vote-btn upvote" data-post-id="${currentPost.id}" data-type="upvote">▲</button>
+                            <span class="vote-count">${voteScore}</span>
+                            <button class="vote-btn downvote" data-post-id="${currentPost.id}" data-type="downvote">▼</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.querySelectorAll('#post-detail .vote-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    votePost(btn.dataset.postId, btn.dataset.type);
+                });
+            });
+        }
+
+        document.getElementById('post-back-btn')?.addEventListener('click', () => {
+            showScreen('community-screen');
+        });
+
+        // Comments
+        async function loadComments(postId) {
+            try {
+                const response = await fetch(`${API_BASE}/api/forum/comments?postId=${postId}`);
+                if (response.ok) {
+                    const comments = await response.json();
+                    displayComments(comments);
+                } else {
+                    displayComments([]);
+                }
+            } catch (err) {
+                displayComments([]);
+            }
+        }
+
+        function displayComments(comments) {
+            const container = document.getElementById('comments-container');
+            if (comments.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No comments yet. Be the first to comment!</p>';
+                return;
+            }
+            
+            container.innerHTML = comments.map(comment => {
+                const voteScore = (comment.upvotes || 0) - (comment.downvotes || 0);
+                return `
+                    <div class="comment ${comment.parent_id ? 'reply' : ''}">
+                        <div class="comment-header">
+                            <span class="comment-author">${comment.author_username}</span>
+                            <span class="comment-time">${new Date(comment.created_at).toLocaleDateString()}</span>
+                        </div>
+                        <p class="comment-content">${comment.content}</p>
+                        <div class="comment-actions">
+                            <div class="vote-buttons">
+                                <button class="vote-btn upvote" data-comment-id="${comment.id}" data-type="upvote">▲</button>
+                                <span class="vote-count">${voteScore}</span>
+                                <button class="vote-btn downvote" data-comment-id="${comment.id}" data-type="downvote">▼</button>
+                            </div>
+                            <button class="reply-btn" data-comment-id="${comment.id}">Reply</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            container.querySelectorAll('.vote-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    voteComment(btn.dataset.commentId, btn.dataset.type);
+                });
+            });
+        }
+
+        document.getElementById('submit-comment-btn')?.addEventListener('click', async () => {
+            const content = document.getElementById('comment-input').value.trim();
+            if (!content || !currentPost || !anonymousUsername) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/forum/comments`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        content,
+                        postId: currentPost.id,
+                        authorUsername: anonymousUsername
+                    })
+                });
+                
+                if (response.ok) {
+                    document.getElementById('comment-input').value = '';
+                    loadComments(currentPost.id);
+                    // No aura for commenting - only for getting upvotes
+                }
+            } catch (err) {
+                console.log('Comment creation not available');
+            }
+        });
+
+        async function votePost(postId, voteType) {
+            if (!anonymousUsername) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/forum/vote`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        postId, 
+                        voteType, 
+                        voterUsername: anonymousUsername 
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        // Update aura display
+                        await updateUserAura();
+                        
+                        // Refresh posts and current post if viewing detail
+                        loadPosts();
+                        if (currentPost && currentPost.id == postId) {
+                            const updatedPostResponse = await fetch(`${API_BASE}/api/forum/posts?postId=${postId}`);
+                            if (updatedPostResponse.ok) {
+                                currentPost = await updatedPostResponse.json();
+                                displayPostDetail();
+                            }
+                        }
+                    }
+                }
+            } catch (err) {
+                console.log('Voting not available');
+            }
+        }
+
+        async function voteComment(commentId, voteType) {
+            if (!anonymousUsername) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/forum/vote`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        commentId, 
+                        voteType, 
+                        voterUsername: anonymousUsername 
+                    })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        // Update aura display
+                        await updateUserAura();
+                        
+                        // Refresh comments
+                        loadComments(currentPost.id);
+                    }
+                }
+            } catch (err) {
+                console.log('Comment voting not available');
+            }
+        }
+        
+        async function updateUserAura() {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (!currentUser || !currentUser.id) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/forum/user?userId=${currentUser.id}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success) {
+                        userAura = data.auraPoints;
+                        document.getElementById('user-aura').textContent = userAura + ' aura';
+                    }
+                }
+            } catch (err) {
+                console.log('Failed to update aura display');
+            }
+        }
         document.getElementById('limit-modal-login-btn')?.addEventListener('click', () => { 
             hideModals(); 
             showScreen('login-screen'); 

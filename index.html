@@ -56,7 +56,7 @@
             <div class="card card--primary" id="go-to-therapist-chat-btn"><h3>🧠 AI Therapist Chat (Unlimited)</h3></div>
             <div class="card card--secondary" id="go-to-assessment-btn"><h3>📊 Take Self-Assessment</h3></div>
             <div class="card card--primary" id="go-to-booking-btn"><h3>📅 Book Appointment</h3></div>
-            <div class="card card--secondary"><h3>💬 Community Forum</h3></div>
+            <div class="card card--secondary" id="go-to-forum-btn"><h3>💬 Community Forum</h3></div>
             <div class="card card--primary" id="go-to-progress-btn"><h3>📈 My Progress Dashboard</h3></div>
             <div class="card card--secondary" id="go-to-resources-btn"><h3>🌿 Wellness Resources</h3></div>
         </main>
@@ -904,6 +904,90 @@
                         <li>We respond to requests within 72 hours</li>
                     </ul>
                 </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="forum-screen" class="screen">
+        <header class="page-header">
+            <div class="header-side-panel"><button id="forum-back-btn" class="back-btn">🏠</button></div>
+            <h2 class="header-title">Community Forum</h2>
+            <div class="header-controls"></div>
+        </header>
+        <div class="page-content">
+            <div class="forum-header">
+                <div class="user-info">
+                    <span class="username" id="forum-username">u/anonymous</span>
+                    <span class="aura-points" id="user-aura">0 aura</span>
+                </div>
+            </div>
+            <div class="communities-list">
+                <div class="community-card" data-community="depression">
+                    <h3>c/depression</h3>
+                    <p>Support and discussions about depression</p>
+                    <div class="community-stats">
+                        <span class="member-count">0 members</span>
+                        <button class="join-btn" data-community="depression">Join</button>
+                    </div>
+                </div>
+                <div class="community-card" data-community="anxiety">
+                    <h3>c/anxiety</h3>
+                    <p>Anxiety support and coping strategies</p>
+                    <div class="community-stats">
+                        <span class="member-count">0 members</span>
+                        <button class="join-btn" data-community="anxiety">Join</button>
+                    </div>
+                </div>
+                <div class="community-card" data-community="stress">
+                    <h3>c/stress</h3>
+                    <p>Managing stress and finding balance</p>
+                    <div class="community-stats">
+                        <span class="member-count">0 members</span>
+                        <button class="join-btn" data-community="stress">Join</button>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="community-screen" class="screen">
+        <header class="page-header">
+            <div class="header-side-panel"><button id="community-back-btn" class="back-btn">←</button></div>
+            <h2 class="header-title" id="community-title">c/depression</h2>
+            <div class="header-controls"></div>
+        </header>
+        <div class="page-content">
+            <div class="create-post-section">
+                <button id="create-post-btn" class="btn btn--primary create-post-floating">+ Create Post</button>
+            </div>
+            <div id="posts-container" class="posts-container"></div>
+        </div>
+    </div>
+
+    <div id="post-screen" class="screen">
+        <header class="page-header">
+            <div class="header-side-panel"><button id="post-back-btn" class="back-btn">←</button></div>
+            <h2 class="header-title">Post</h2>
+            <div class="header-controls"></div>
+        </header>
+        <div class="page-content">
+            <div id="post-detail" class="post-detail"></div>
+            <div class="comment-form">
+                <textarea id="comment-input" placeholder="Add a comment..."></textarea>
+                <button id="submit-comment-btn" class="btn btn--primary">Comment</button>
+            </div>
+            <div id="comments-container" class="comments-container"></div>
+        </div>
+    </div>
+
+    <div id="create-post-modal" class="modal">
+        <div class="auth-container">
+            <h2>Create Post</h2>
+            <input type="text" id="post-title" placeholder="Post title">
+            <textarea id="post-content" placeholder="What's on your mind?" rows="6"></textarea>
+            <div class="modal-actions">
+                <button id="submit-post-btn" class="btn btn--primary">Post</button>
+                <button id="cancel-post-btn" class="btn btn--outline">Cancel</button>
             </div>
         </div>
     </div>

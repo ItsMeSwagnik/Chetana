@@ -34,6 +34,22 @@
     {
       "source": "/api/milestones",
       "destination": "/api/data?action=milestones"
+    },
+    {
+      "source": "/api/forum/stats",
+      "destination": "/api/forum?action=stats"
+    },
+    {
+      "source": "/api/users/([0-9]+)/consent",
+      "destination": "/api/users?action=consent&id=$1"
+    },
+    {
+      "source": "/api/users/([0-9]+)/delete",
+      "destination": "/api/users?action=delete&id=$1"
+    },
+    {
+      "source": "/api/users/([0-9]+)",
+      "destination": "/api/users?action=profile&id=$1"
     }
   ]
 }

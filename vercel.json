@@ -1,3 +1,37 @@
 {
-  "outputDirectory": "."
+  "functions": {
+    "api/**/*.js": {
+      "maxDuration": 10
+    }
+  },
+  "rewrites": [
+    {
+      "source": "/api/forum/(.*)",
+      "destination": "/api/forum?action=$1"
+    },
+    {
+      "source": "/api/users/(.*)",
+      "destination": "/api/users?action=$1"
+    },
+    {
+      "source": "/api/login",
+      "destination": "/api/auth?action=login"
+    },
+    {
+      "source": "/api/register",
+      "destination": "/api/auth?action=register"
+    },
+    {
+      "source": "/api/assessments",
+      "destination": "/api/data?action=assessments"
+    },
+    {
+      "source": "/api/moods",
+      "destination": "/api/data?action=moods"
+    },
+    {
+      "source": "/api/milestones",
+      "destination": "/api/data?action=milestones"
+    }
+  ]
 }

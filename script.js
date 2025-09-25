@@ -64,9 +64,11 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Load data when showing progress screen
         if (screenId === 'progress-screen') {
-            if (typeof renderMoodChart === 'function') renderMoodChart();
-            if (typeof renderMilestones === 'function') renderMilestones();
-            if (typeof checkMilestones === 'function') checkMilestones();
+            setTimeout(() => {
+                if (typeof renderMoodChart === 'function') renderMoodChart();
+                if (typeof renderMilestones === 'function') renderMilestones();
+                if (typeof checkMilestones === 'function') checkMilestones();
+            }, 100);
         }
     }
 
@@ -1561,11 +1563,9 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('Mood saved locally');
             }
             
-            setTimeout(async () => {
-                await renderMoodChart();
-                await renderMilestones();
-                await checkMilestones();
-            }, 500);
+            renderMoodChart();
+            renderMilestones();
+            checkMilestones();
         });
         
         // Render mood trend chart
@@ -1751,6 +1751,10 @@ document.addEventListener('DOMContentLoaded', () => {
             
             // Always try to get current user (including token restoration)
             let currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (!currentUser) {
+                console.log('No user found, skipping milestone check');
+                return;
+            }
             const token = localStorage.getItem('token');
             
             // If no user but token exists, try to restore user
@@ -2841,7 +2845,12 @@ document.addEventListener('DOMContentLoaded', () => {
         initWellnessFeatures();
         document.getElementById('go-to-progress-btn')?.addEventListener('click', () => { 
             renderProgressChart(); 
-            showScreen('progress-screen'); 
+            showScreen('progress-screen');
+            setTimeout(() => {
+                if (typeof renderMoodChart === 'function') renderMoodChart();
+                if (typeof renderMilestones === 'function') renderMilestones();
+                if (typeof checkMilestones === 'function') checkMilestones();
+            }, 50);
         });
         document.getElementById('progress-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
         document.getElementById('go-to-booking-btn')?.addEventListener('click', () => {

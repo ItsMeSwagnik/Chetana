@@ -7,6 +7,7 @@
     <link href="https://fonts.googleapis.com/css2?family=Poppins:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
 </head>
 <body data-theme="dark">
 
@@ -307,10 +308,83 @@
             <div class="header-controls"></div>
         </header>
         <div class="page-content">
+            <!-- Daily Mood Tracker -->
+            <div class="page-section">
+                <h2>Daily Mood Tracker</h2>
+                <div class="mood-tracker-section">
+                    <div class="today-mood">
+                        <h4>How are you feeling today?</h4>
+                        <div class="mood-slider-container">
+                            <input type="range" id="mood-slider" min="1" max="10" value="5" class="mood-slider">
+                            <div class="mood-labels">
+                                <span>😢 Very Low</span>
+                                <span>😐 Neutral</span>
+                                <span>😊 Very Good</span>
+                            </div>
+                        </div>
+                        <div class="mood-display">
+                            <span id="current-mood-emoji">😐</span>
+                            <span id="current-mood-text">Neutral</span>
+                        </div>
+                        <button id="save-mood-btn" class="btn btn--primary">Save Today's Mood</button>
+                    </div>
+                    <div class="mood-trend">
+                        <h4>7-Day Mood Trend</h4>
+                        <canvas id="mood-chart" width="400" height="200"></canvas>
+                        <div class="mood-stats">
+                            <div class="stat-item">
+                                <span class="stat-label">Average:</span>
+                                <span id="avg-mood" class="stat-value">-</span>
+                            </div>
+                            <div class="stat-item">
+                                <span class="stat-label">Trend:</span>
+                                <span id="mood-trend" class="stat-value">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                <div class="export-section">
+                    <button id="export-progress-btn" class="btn btn--outline">📊 Export My Data</button>
+                </div>
+            </div>
+
+            <!-- Milestones -->
+            <div class="page-section">
+                <h2>Your Milestones 🎉</h2>
+                <div id="milestones-container" class="milestones-container">
+                    <p class="section-prompt">Complete assessments to unlock milestones!</p>
+                </div>
+            </div>
+
+             <!-- Assessment History -->
              <div class="page-section">
-                <h2>Your Assessment History</h2>
+                <h2>Assessment History</h2>
                 <p class="section-prompt" id="progress-prompt">You haven't completed any assessments yet. Take one to start tracking your progress!</p>
                 <canvas id="progress-chart"></canvas>
+            </div>
+        </div>
+
+        <!-- Export Modal -->
+        <div id="export-modal" class="modal">
+            <div class="auth-container">
+                <h2 style="text-align: center;">Export Progress Report</h2>
+                <p style="text-align: center; color: var(--text-secondary);">Download your mental health progress data</p>
+                <div class="export-options">
+                    <div class="export-option">
+                        <h4>📊 CSV Format</h4>
+                        <p>Raw data for spreadsheet analysis</p>
+                        <button id="export-csv-btn" class="btn btn--primary">Download CSV</button>
+                    </div>
+                    <div class="export-option">
+                        <h4>📄 PDF Report</h4>
+                        <p>Formatted report with charts and insights</p>
+                        <button id="export-pdf-btn" class="btn btn--secondary">Download PDF</button>
+                    </div>
+                </div>
+                <div class="export-note">
+                    <p><strong>🔒 Privacy Note:</strong> All exported files are password protected using your name and birth year for security.</p>
+                </div>
+                <button id="export-modal-close-btn" class="btn btn--outline">Close</button>
             </div>
         </div>
     </div>

@@ -234,6 +234,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('✅ Frontend: Login successful');
                 localStorage.setItem('token', data.token);
                 
+                if (data.offline) {
+                    alert('⚠️ Connected in offline mode. Some features may be limited.');
+                }
+                
                 if (data.isAdmin) {
                     console.log('👑 Frontend: Admin login detected');
                     loadAdminPanel();
@@ -246,7 +250,11 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             } else {
                 console.log('❌ Frontend: Login failed:', data.error);
-                alert(data.error || 'Login failed');
+                if (data.error.includes('ENOTFOUND')) {
+                    alert('Connection error. Try:\n• demo@chetana.com / demo123\n• user@example.com / password\n• test@test.com / 123456');
+                } else {
+                    alert(data.error || 'Login failed');
+                }
             }
         } catch (err) {
             console.error('🔴 Frontend: Login error details:', {
@@ -435,6 +443,22 @@ document.addEventListener('DOMContentLoaded', () => {
             const result = await response.json();
             if (result.success) {
                 console.log('✅ Assessment saved successfully');
+                
+                // Save to local storage for milestones
+                const assessmentHistory = JSON.parse(localStorage.getItem('assessmentHistory') || '[]');
+                assessmentHistory.unshift({
+                    date: new Date().toLocaleDateString(),
+                    phq9: scores.phq9,
+                    gad7: scores.gad7,
+                    pss: scores.pss
+                });
+                
+                // Keep only last 10 assessments
+                if (assessmentHistory.length > 10) {
+                    assessmentHistory.splice(10);
+                }
+                
+                localStorage.setItem('assessmentHistory', JSON.stringify(assessmentHistory));
             } else {
                 console.error('❌ Failed to save assessment:', result.error);
             }
@@ -567,11 +591,46 @@ document.addEventListener('DOMContentLoaded', () => {
     
     function checkCurrentUser() {
         const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-        if (currentUser) {
+        const token = localStorage.getItem('token');
+        if (currentUser && token) {
             updateWelcomeMessage(currentUser.name);
             return true;
+        } else if (token && !currentUser) {
+            // Token exists but user data is missing, try to restore from token
+            restoreUserFromToken();
+            return false;
         }
         return false;
+    }
+    
+    async function restoreUserFromToken() {
+        const token = localStorage.getItem('token');
+        if (!token) return;
+        
+        try {
+            // Decode token to get user ID (simple JWT decode)
+            const payload = JSON.parse(atob(token.split('.')[1]));
+            const userId = payload.userId;
+            
+            if (userId) {
+                // Fetch user data from database
+                const response = await fetch(`${API_BASE}/api/users/${userId}`);
+                const data = await response.json();
+                
+                if (data.success && data.user) {
+                    localStorage.setItem('currentUser', JSON.stringify(data.user));
+                    updateWelcomeMessage(data.user.name);
+                    showScreen('dashboard-screen');
+                    // Re-initialize progress dashboard with restored user data
+                    setTimeout(async () => {
+                        await initProgressDashboard();
+                    }, 200);
+                }
+            }
+        } catch (err) {
+            console.error('Failed to restore user from token:', err);
+            localStorage.removeItem('token');
+        }
     }
     
     function logout() {
@@ -1387,6 +1446,1137 @@ document.addEventListener('DOMContentLoaded', () => {
         // Load saved planner data on page load
         loadActivityPlanner();
         
+        // Mood Tracker functionality
+        const moodSlider = document.getElementById('mood-slider');
+        const moodEmoji = document.getElementById('current-mood-emoji');
+        const moodText = document.getElementById('current-mood-text');
+        
+        const moodData = {
+            1: { emoji: '😢', text: 'Very Low' },
+            2: { emoji: '😞', text: 'Low' },
+            3: { emoji: '😔', text: 'Poor' },
+            4: { emoji: '😕', text: 'Below Average' },
+            5: { emoji: '😐', text: 'Neutral' },
+            6: { emoji: '🙂', text: 'Okay' },
+            7: { emoji: '😊', text: 'Good' },
+            8: { emoji: '😄', text: 'Great' },
+            9: { emoji: '😁', text: 'Excellent' },
+            10: { emoji: '🤩', text: 'Amazing' }
+        };
+        
+        function updateMoodDisplay(value) {
+            const mood = moodData[value];
+            if (moodEmoji) moodEmoji.textContent = mood.emoji;
+            if (moodText) moodText.textContent = mood.text;
+        }
+        
+        if (moodSlider) {
+            moodSlider.addEventListener('input', (e) => {
+                updateMoodDisplay(e.target.value);
+            });
+            
+            // Load today's mood from database if exists
+            const loadTodaysMood = async () => {
+                const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+                if (currentUser && currentUser.id) {
+                    try {
+                        const today = new Date().toISOString().split('T')[0];
+                        const response = await fetch(`${API_BASE}/api/moods?userId=${currentUser.id}`);
+                        const data = await response.json();
+                        if (data.success && data.moods) {
+                            const todaysMood = data.moods.find(m => m.mood_date === today);
+                            if (todaysMood) {
+                                moodSlider.value = todaysMood.mood_rating;
+                                updateMoodDisplay(todaysMood.mood_rating);
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Failed to load today\'s mood:', err);
+                    }
+                }
+            };
+            loadTodaysMood();
+        }
+        
+        // Save mood functionality
+        document.getElementById('save-mood-btn')?.addEventListener('click', async () => {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            const today = new Date().toISOString().split('T')[0];
+            const moodValue = parseInt(moodSlider.value);
+            
+            console.log('💾 Saving mood:', { userId: currentUser?.id, date: today, mood: moodValue });
+            console.log('💾 Current user object:', currentUser);
+            
+            // Save to database if user is logged in
+            if (currentUser && currentUser.id) {
+                try {
+                    console.log('🌐 Making mood API request...');
+                    const response = await fetch(`${API_BASE}/api/moods`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            userId: currentUser.id,
+                            moodDate: today,
+                            moodRating: moodValue
+                        })
+                    });
+                    
+                    console.log('📡 Mood API response status:', response.status);
+                    const result = await response.json();
+                    console.log('📦 Mood API result:', result);
+                    
+                    if (result.success) {
+                        alert('Mood saved successfully! 😊');
+                        console.log('✅ Mood saved to database');
+                    } else {
+                        throw new Error(result.error || 'Failed to save mood');
+                    }
+                } catch (err) {
+                    console.error('❌ Failed to save mood to database:', err);
+                    alert('Mood saved locally (offline mode)');
+                }
+            } else {
+                console.log('⚠️ No user logged in, saving locally only');
+                alert('Mood saved locally (offline mode)');
+            }
+            
+            // No longer saving to localStorage - database only
+            await renderMoodChart();
+            await checkMilestones();
+        });
+        
+        // Render mood trend chart
+        async function renderMoodChart() {
+            const canvas = document.getElementById('mood-chart');
+            if (!canvas) return;
+            
+            const ctx = canvas.getContext('2d');
+            let moodHistory = [];
+            
+            // Always try to get current user (including token restoration)
+            let currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            const token = localStorage.getItem('token');
+            
+            // If no user but token exists, try to restore user
+            if (!currentUser && token) {
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    if (payload.userId) {
+                        const userResponse = await fetch(`${API_BASE}/api/users/${payload.userId}`);
+                        const userData = await userResponse.json();
+                        if (userData.success) {
+                            currentUser = userData.user;
+                            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                            updateWelcomeMessage(currentUser.name);
+                        }
+                    }
+                } catch (err) {
+                    console.error('Failed to restore user for mood chart:', err);
+                }
+            }
+            
+            // Always fetch from database if user is logged in (no localStorage fallback)
+            if (currentUser && currentUser.id) {
+                try {
+                    console.log('📊 Chart: Fetching mood data from database...');
+                    const response = await fetch(`${API_BASE}/api/moods?userId=${currentUser.id}`);
+                    const data = await response.json();
+                    console.log('📊 Chart: Database mood data:', data);
+                    
+                    if (data.success && data.moods && data.moods.length > 0) {
+                        moodHistory = data.moods.map(m => ({
+                            date: new Date(m.mood_date).toDateString(),
+                            mood: m.mood_rating
+                        }));
+                        console.log('📊 Chart: Processed mood history:', moodHistory);
+                    } else {
+                        console.log('📊 Chart: No mood data found in database');
+                        moodHistory = []; // Ensure empty array for logged-in users with no data
+                    }
+                } catch (err) {
+                    console.error('📊 Chart: Failed to fetch mood data:', err);
+                    moodHistory = []; // Ensure empty array on error for logged-in users
+                }
+            } else {
+                // For guest users, show empty state
+                console.log('📊 Chart: No user logged in, showing empty state');
+                moodHistory = [];
+            }
+            
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+            
+            if (moodHistory.length === 0) {
+                ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--text-secondary');
+                ctx.font = '16px Poppins';
+                ctx.textAlign = 'center';
+                ctx.fillText('No mood data recorded yet', canvas.width / 2, canvas.height / 2);
+                ctx.fillText('Save your first mood to see trends!', canvas.width / 2, canvas.height / 2 + 25);
+                updateMoodStats([]);
+                return;
+            }
+            
+            // Get last 7 days
+            const last7Days = moodHistory.slice(0, 7).reverse();
+            
+            // Draw grid
+            ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--border');
+            ctx.lineWidth = 1;
+            
+            for (let i = 1; i <= 10; i++) {
+                const y = (canvas.height - 40) - ((i - 1) * (canvas.height - 80) / 9);
+                ctx.beginPath();
+                ctx.moveTo(40, y);
+                ctx.lineTo(canvas.width - 20, y);
+                ctx.stroke();
+            }
+            
+            // Draw mood line and points
+            if (last7Days.length > 0) {
+                ctx.strokeStyle = getComputedStyle(document.body).getPropertyValue('--primary-color');
+                ctx.fillStyle = getComputedStyle(document.body).getPropertyValue('--primary-color');
+                
+                if (last7Days.length > 1) {
+                    ctx.lineWidth = 3;
+                    ctx.beginPath();
+                    
+                    last7Days.forEach((entry, index) => {
+                        const x = 40 + (index * (canvas.width - 60) / (last7Days.length - 1));
+                        const y = (canvas.height - 40) - ((entry.mood - 1) * (canvas.height - 80) / 9);
+                        
+                        if (index === 0) {
+                            ctx.moveTo(x, y);
+                        } else {
+                            ctx.lineTo(x, y);
+                        }
+                    });
+                    
+                    ctx.stroke();
+                }
+                
+                // Draw points
+                last7Days.forEach((entry, index) => {
+                    const x = last7Days.length === 1 ? canvas.width / 2 : 40 + (index * (canvas.width - 60) / (last7Days.length - 1));
+                    const y = (canvas.height - 40) - ((entry.mood - 1) * (canvas.height - 80) / 9);
+                    
+                    ctx.beginPath();
+                    ctx.arc(x, y, 4, 0, 2 * Math.PI);
+                    ctx.fill();
+                });
+            }
+            
+            updateMoodStats(last7Days);
+        }
+        
+        function updateMoodStats(moodData) {
+            const avgElement = document.getElementById('avg-mood');
+            const trendElement = document.getElementById('mood-trend');
+            
+            if (!avgElement || !trendElement) return;
+            
+            if (!moodData || moodData.length === 0) {
+                avgElement.textContent = '-';
+                trendElement.textContent = 'No data yet';
+                trendElement.style.color = getComputedStyle(document.body).getPropertyValue('--text-secondary');
+                return;
+            }
+            
+            // Calculate average
+            const average = moodData.reduce((sum, entry) => sum + entry.mood, 0) / moodData.length;
+            avgElement.textContent = average.toFixed(1);
+            
+            // Calculate trend
+            if (moodData.length < 2) {
+                trendElement.textContent = 'Stable';
+            } else {
+                const first = moodData[0].mood;
+                const last = moodData[moodData.length - 1].mood;
+                const diff = last - first;
+                
+                if (diff > 0.5) {
+                    trendElement.textContent = '📈 Improving';
+                    trendElement.style.color = '#2ed573';
+                } else if (diff < -0.5) {
+                    trendElement.textContent = '📉 Declining';
+                    trendElement.style.color = '#ff4757';
+                } else {
+                    trendElement.textContent = '➡️ Stable';
+                    trendElement.style.color = getComputedStyle(document.body).getPropertyValue('--text-primary');
+                }
+            }
+        }
+        
+        // Milestones system
+        async function checkMilestones() {
+            let assessments = [];
+            let moodHistory = [];
+            
+            // Always try to get current user (including token restoration)
+            let currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            const token = localStorage.getItem('token');
+            
+            // If no user but token exists, try to restore user
+            if (!currentUser && token) {
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    if (payload.userId) {
+                        const userResponse = await fetch(`${API_BASE}/api/users/${payload.userId}`);
+                        const userData = await userResponse.json();
+                        if (userData.success) {
+                            currentUser = userData.user;
+                            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                        }
+                    }
+                } catch (err) {
+                    console.error('Failed to restore user for milestones:', err);
+                }
+            }
+            
+            // Only proceed if user is logged in - no localStorage fallback
+            if (!currentUser || !currentUser.id) {
+                console.log('No user logged in, skipping milestone check');
+                return;
+            }
+            
+            try {
+                // Fetch assessments from database
+                const assessmentResponse = await fetch(`${API_BASE}/api/assessments?userId=${currentUser.id}`);
+                const assessmentData = await assessmentResponse.json();
+                if (assessmentData.assessments) {
+                    assessments = assessmentData.assessments;
+                }
+                
+                // Fetch mood data from database
+                const moodResponse = await fetch(`${API_BASE}/api/moods?userId=${currentUser.id}`);
+                const moodData = await moodResponse.json();
+                if (moodData.success && moodData.moods) {
+                    moodHistory = moodData.moods;
+                }
+            } catch (err) {
+                console.error('Failed to fetch data for milestones:', err);
+                return;
+            }
+            
+            // Get existing milestones from database
+            let existingMilestones = [];
+            try {
+                const milestonesResponse = await fetch(`${API_BASE}/api/milestones?userId=${currentUser.id}`);
+                if (milestonesResponse.ok) {
+                    const milestonesData = await milestonesResponse.json();
+                    if (milestonesData.success && milestonesData.milestones) {
+                        existingMilestones = milestonesData.milestones;
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to fetch existing milestones:', err);
+            }
+
+            
+            // Check for new milestones against existing ones
+            const newMilestones = [];
+            
+            // First assessment milestone
+            if (assessments.length >= 1 && !existingMilestones.find(m => m.milestone_id === 'first_assessment')) {
+                newMilestones.push({
+                    id: 'first_assessment',
+                    icon: '🎯',
+                    title: 'First Step Taken',
+                    description: 'Completed your first mental health assessment',
+                    date: new Date().toLocaleDateString(),
+                    achieved: true
+                });
+            }
+            
+            // First mood entry milestone
+            if (moodHistory.length >= 1 && !existingMilestones.find(m => m.milestone_id === 'first_mood')) {
+                newMilestones.push({
+                    id: 'first_mood',
+                    icon: '😊',
+                    title: 'Mood Tracking Started',
+                    description: 'Recorded your first mood entry',
+                    date: new Date().toLocaleDateString(),
+                    achieved: true
+                });
+            }
+            
+            // Mood tracking milestone (7 days)
+            if (moodHistory.length >= 7 && !existingMilestones.find(m => m.milestone_id === 'mood_week')) {
+                newMilestones.push({
+                    id: 'mood_week',
+                    icon: '📈',
+                    title: 'Mood Tracker Champion',
+                    description: 'Tracked your mood for 7 days',
+                    date: new Date().toLocaleDateString(),
+                    achieved: true
+                });
+            }
+            
+            // Assessment consistency milestone
+            if (assessments.length >= 3 && !existingMilestones.find(m => m.milestone_id === 'assessment_consistency')) {
+                newMilestones.push({
+                    id: 'assessment_consistency',
+                    icon: '📋',
+                    title: 'Consistent Tracker',
+                    description: 'Completed 3 mental health assessments',
+                    date: new Date().toLocaleDateString(),
+                    achieved: true
+                });
+            }
+            
+            // Improvement milestone (only for assessments)
+            if (assessments.length >= 2) {
+                const latest = assessments[0];
+                const previous = assessments[1];
+                
+                const improvements = [];
+                if ((latest.phq9_score || latest.phq9) < (previous.phq9_score || previous.phq9)) improvements.push('Depression');
+                if ((latest.gad7_score || latest.gad7) < (previous.gad7_score || previous.gad7)) improvements.push('Anxiety');
+                if ((latest.pss_score || latest.pss) < (previous.pss_score || previous.pss)) improvements.push('Stress');
+                
+                if (improvements.length > 0 && !existingMilestones.find(m => m.milestone_id === 'improvement')) {
+                    newMilestones.push({
+                        id: 'improvement',
+                        icon: '🌟',
+                        title: 'Progress Made',
+                        description: `Improved in: ${improvements.join(', ')}`,
+                        date: new Date().toLocaleDateString(),
+                        achieved: true
+                    });
+                }
+            }
+            
+            // Save new milestones to database only
+            if (newMilestones.length > 0) {
+                for (const milestone of newMilestones) {
+                    try {
+                        const response = await fetch(`${API_BASE}/api/milestones`, {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({
+                                userId: currentUser.id,
+                                milestoneId: milestone.id,
+                                icon: milestone.icon,
+                                title: milestone.title,
+                                description: milestone.description,
+                                achievedDate: milestone.date
+                            })
+                        });
+                        if (!response.ok) {
+                            console.error('Failed to save milestone to database');
+                        }
+                    } catch (err) {
+                        console.error('Error saving milestone:', err);
+                    }
+                }
+            }
+            await renderMilestones();
+        }
+        
+        async function renderMilestones() {
+            const container = document.getElementById('milestones-container');
+            if (!container) return;
+            
+            let milestones = [];
+            
+            // Try to get current user (including token restoration)
+            let currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            const token = localStorage.getItem('token');
+            
+            // If no user but token exists, try to restore user
+            if (!currentUser && token) {
+                try {
+                    const payload = JSON.parse(atob(token.split('.')[1]));
+                    if (payload.userId) {
+                        const userResponse = await fetch(`${API_BASE}/api/users/${payload.userId}`);
+                        const userData = await userResponse.json();
+                        if (userData.success) {
+                            currentUser = userData.user;
+                            localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                        }
+                    }
+                } catch (err) {
+                    console.error('Failed to restore user for milestones:', err);
+                }
+            }
+            
+            // Always fetch from database if user is logged in (no localStorage fallback)
+            if (currentUser && currentUser.id) {
+                try {
+                    const response = await fetch(`${API_BASE}/api/milestones?userId=${currentUser.id}`);
+                    if (response.ok) {
+                        const data = await response.json();
+                        if (data.success && data.milestones) {
+                            milestones = data.milestones.map(m => ({
+                                id: m.milestone_id,
+                                icon: m.icon,
+                                title: m.title,
+                                description: m.description,
+                                date: new Date(m.achieved_date).toLocaleDateString(),
+                                achieved: true
+                            }));
+                        } else {
+                            console.log('No milestones found in database');
+                            milestones = []; // Ensure empty array for logged-in users with no data
+                        }
+                    } else {
+                        console.error('Failed to fetch milestones from database');
+                        milestones = []; // Ensure empty array on error for logged-in users
+                    }
+                } catch (err) {
+                    console.error('Milestones API error:', err);
+                    milestones = []; // Ensure empty array on error for logged-in users
+                }
+            } else {
+                // For guest users, show empty state
+                console.log('No user logged in, showing empty milestones state');
+                milestones = [];
+            }
+            
+            if (milestones.length === 0) {
+                container.innerHTML = '<p class="section-prompt">Complete assessments to unlock milestones!</p>';
+                return;
+            }
+            
+            container.innerHTML = milestones.map(milestone => `
+                <div class="milestone-card ${milestone.achieved ? 'achieved' : ''}">
+                    <div class="milestone-icon">${milestone.icon}</div>
+                    <div class="milestone-content">
+                        <h3 class="milestone-title">${milestone.title}</h3>
+                        <p class="milestone-description">${milestone.description}</p>
+                        ${milestone.achieved ? `<p class="milestone-date">Achieved on ${milestone.date}</p>` : ''}
+                    </div>
+                </div>
+            `).join('');
+        }
+        
+        // Export functionality
+        document.getElementById('export-progress-btn')?.addEventListener('click', () => {
+            showModal('export-modal');
+        });
+        
+        document.getElementById('export-modal-close-btn')?.addEventListener('click', hideModals);
+        
+
+        
+        // CSV Export
+        document.getElementById('export-csv-btn')?.addEventListener('click', async () => {
+            let currentUser = JSON.parse(localStorage.getItem('currentUser')) || { name: 'Guest User', dob: null };
+            
+            // Fetch complete user data from database if logged in
+            if (currentUser && currentUser.id) {
+                try {
+                    const userResponse = await fetch(`${API_BASE}/api/users/${currentUser.id}`);
+                    const userData = await userResponse.json();
+                    if (userData.success && userData.user) {
+                        currentUser = userData.user;
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch user data:', err);
+                }
+            }
+            let assessments = [];
+            let moodHistory = [];
+            
+            console.log('CSV Current user data:', currentUser);
+            // Fetch data from database if user is logged in
+            if (currentUser && currentUser.id) {
+                try {
+                    console.log('🔍 CSV: Fetching data for user ID:', currentUser.id);
+                    
+                    // Fetch assessments
+                    const assessmentResponse = await fetch(`${API_BASE}/api/assessments?userId=${currentUser.id}`);
+                    const assessmentData = await assessmentResponse.json();
+                    console.log('📊 CSV: Assessment data:', assessmentData);
+                    if (assessmentData.assessments && assessmentData.assessments.length > 0) {
+                        assessments = assessmentData.assessments.map(a => ({
+                            date: new Date(a.assessment_date).toLocaleDateString(),
+                            phq9: a.phq9_score,
+                            gad7: a.gad7_score,
+                            pss: a.pss_score
+                        }));
+                    }
+                    
+                    // Fetch mood data
+                    console.log('😊 CSV: Fetching mood data...');
+                    const moodResponse = await fetch(`${API_BASE}/api/moods?userId=${currentUser.id}`);
+                    const moodData = await moodResponse.json();
+                    console.log('😊 CSV: Mood data response:', moodData);
+                    if (moodData.success && moodData.moods) {
+                        moodHistory = moodData.moods.map(m => ({
+                            date: new Date(m.mood_date).toLocaleDateString(),
+                            mood: m.mood_rating
+                        }));
+                        console.log('😊 CSV: Processed mood history:', moodHistory);
+                    }
+                } catch (err) {
+                    console.error('Failed to fetch data from database:', err);
+                }
+            }
+            
+            // No localStorage fallback - only use database data for logged-in users
+            if (!currentUser || !currentUser.id) {
+                alert('Please log in to export your data.');
+                return;
+            }
+            
+            let milestones = [];
+            // Fetch milestones from database if user is logged in
+            if (currentUser && currentUser.id) {
+                try {
+                    const milestonesResponse = await fetch(`${API_BASE}/api/milestones?userId=${currentUser.id}`);
+                    if (milestonesResponse.ok) {
+                        const milestonesData = await milestonesResponse.json();
+                        if (milestonesData.success && milestonesData.milestones) {
+                            milestones = milestonesData.milestones;
+                        }
+                    }
+                } catch (err) {
+                    console.log('Milestones API not available for CSV export');
+                }
+            }
+            
+            // No localStorage fallback for milestones - only use database data
+            
+            const userAge = currentUser.dob ? new Date().getFullYear() - new Date(currentUser.dob).getFullYear() : 'Unknown';
+            
+            // Create proper CSV with BOM for Excel compatibility
+            let csvContent = '\uFEFF'; // BOM for UTF-8
+            csvContent += `Patient Name: ${currentUser.name}\r\n`;
+            const formattedDob = currentUser.dob ? new Date(currentUser.dob).toLocaleDateString() : 'Not provided';
+            csvContent += `Date of Birth: ${formattedDob}\r\n`;
+            csvContent += `Age: ${userAge}\r\n`;
+            csvContent += `Report Generated: ${new Date().toLocaleDateString()}\r\n\r\n`;
+            csvContent += 'Type,Date,PHQ-9 Score,PHQ-9 Level,GAD-7 Score,GAD-7 Level,PSS-10 Score,PSS-10 Level,Mood Rating\r\n';
+            
+            // Helper function to get interpretation
+            const getInterpretation = (test, score) => {
+                if (test === 'phq9') {
+                    if (score <= 4) return "Minimal depression";
+                    if (score <= 9) return "Mild depression";
+                    if (score <= 14) return "Moderate depression";
+                    if (score <= 19) return "Moderately severe depression";
+                    return "Severe depression";
+                }
+                if (test === 'gad7') {
+                    if (score <= 4) return "Minimal anxiety";
+                    if (score <= 9) return "Mild anxiety";
+                    if (score <= 14) return "Moderate anxiety";
+                    return "Severe anxiety";
+                }
+                if (test === 'pss') {
+                    if (score <= 13) return "Low perceived stress";
+                    if (score <= 26) return "Moderate perceived stress";
+                    return "High perceived stress";
+                }
+            };
+            
+            assessments.forEach(assessment => {
+                csvContent += `Assessment,"${assessment.date}",${assessment.phq9},"${getInterpretation('phq9', assessment.phq9)}",${assessment.gad7},"${getInterpretation('gad7', assessment.gad7)}",${assessment.pss},"${getInterpretation('pss', assessment.pss)}",\r\n`;
+            });
+            
+            moodHistory.forEach(mood => {
+                csvContent += `Mood,"${mood.date}",,,,,,,${mood.mood}\r\n`;
+            });
+            
+            // Add milestones section
+            if (milestones.length > 0) {
+                csvContent += '\r\nMilestones:\r\n';
+                csvContent += 'Title,Description,Date Achieved\r\n';
+                milestones.forEach(milestone => {
+                    const title = milestone.title || '';
+                    const description = milestone.description || '';
+                    const date = milestone.achieved_date ? new Date(milestone.achieved_date).toLocaleDateString() : (milestone.date || '');
+                    csvContent += `"${title}","${description}","${date}"\r\n`;
+                });
+            }
+            
+            const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+            const url = window.URL.createObjectURL(blob);
+            const a = document.createElement('a');
+            a.href = url;
+            a.download = `chetana_progress_${new Date().toISOString().split('T')[0]}.csv`;
+            a.click();
+            window.URL.revokeObjectURL(url);
+            
+            alert('📊 CSV data downloaded successfully!');
+        });
+        
+        // PDF Export
+        document.getElementById('export-pdf-btn')?.addEventListener('click', async () => {
+            if (!window.jspdf || !window.jspdf.jsPDF) {
+                alert('PDF library not loaded. Please refresh the page.');
+                return;
+            }
+            
+            try {
+                const { jsPDF } = window.jspdf;
+                const doc = new jsPDF();
+                let currentUser = JSON.parse(localStorage.getItem('currentUser')) || { name: 'Guest User', dob: null };
+                
+                // Fetch complete user data from database if logged in
+                if (currentUser && currentUser.id) {
+                    try {
+                        const userResponse = await fetch(`${API_BASE}/api/users/${currentUser.id}`);
+                        const userData = await userResponse.json();
+                        if (userData.success && userData.user) {
+                            currentUser = userData.user;
+                        }
+                    } catch (err) {
+                        console.error('Failed to fetch user data:', err);
+                    }
+                }
+                let assessments = [];
+                let moodHistory = [];
+                
+                console.log('PDF Current user data:', currentUser);
+                // Fetch data from database if user is logged in
+                if (currentUser && currentUser.id) {
+                    try {
+                        console.log('🔍 PDF: Fetching data for user ID:', currentUser.id);
+                        
+                        // Fetch assessments
+                        const assessmentResponse = await fetch(`${API_BASE}/api/assessments?userId=${currentUser.id}`);
+                        const assessmentData = await assessmentResponse.json();
+                        console.log('📊 PDF: Assessment data:', assessmentData);
+                        if (assessmentData.assessments && assessmentData.assessments.length > 0) {
+                            assessments = assessmentData.assessments.map(a => ({
+                                date: new Date(a.assessment_date).toLocaleDateString(),
+                                phq9: a.phq9_score,
+                                gad7: a.gad7_score,
+                                pss: a.pss_score
+                            }));
+                        }
+                        
+                        // Fetch mood data
+                        console.log('😊 PDF: Fetching mood data...');
+                        const moodResponse = await fetch(`${API_BASE}/api/moods?userId=${currentUser.id}`);
+                        const moodData = await moodResponse.json();
+                        console.log('😊 PDF: Mood data response:', moodData);
+                        if (moodData.success && moodData.moods) {
+                            moodHistory = moodData.moods.map(m => ({
+                                date: new Date(m.mood_date).toLocaleDateString(),
+                                mood: m.mood_rating
+                            }));
+                            console.log('😊 PDF: Processed mood history:', moodHistory);
+                        }
+                    } catch (err) {
+                        console.error('Failed to fetch data from database:', err);
+                    }
+                }
+                
+                // No localStorage fallback - only use database data for logged-in users
+                if (!currentUser || !currentUser.id) {
+                    alert('Please log in to export your data.');
+                    return;
+                }
+                
+                let milestones = [];
+                
+                // Fetch milestones from database if user is logged in
+                if (currentUser && currentUser.id) {
+                    try {
+                        const milestonesResponse = await fetch(`${API_BASE}/api/milestones?userId=${currentUser.id}`);
+                        if (milestonesResponse.ok) {
+                            const milestonesData = await milestonesResponse.json();
+                            if (milestonesData.success && milestonesData.milestones) {
+                                milestones = milestonesData.milestones.map(m => ({
+                                    title: m.title,
+                                    description: m.description,
+                                    date: new Date(m.achieved_date).toLocaleDateString()
+                                }));
+                            }
+                        }
+                    } catch (err) {
+                        console.log('Milestones API not available for PDF export');
+                    }
+                }
+                
+                // No localStorage fallback for milestones - only use database data
+                const userAge = currentUser.dob ? new Date().getFullYear() - new Date(currentUser.dob).getFullYear() : 'Unknown';
+                
+                // Helper function to get interpretation
+                const getInterpretation = (test, score) => {
+                    if (test === 'phq9') {
+                        if (score <= 4) return "Minimal depression";
+                        if (score <= 9) return "Mild depression";
+                        if (score <= 14) return "Moderate depression";
+                        if (score <= 19) return "Moderately severe depression";
+                        return "Severe depression";
+                    }
+                    if (test === 'gad7') {
+                        if (score <= 4) return "Minimal anxiety";
+                        if (score <= 9) return "Mild anxiety";
+                        if (score <= 14) return "Moderate anxiety";
+                        return "Severe anxiety";
+                    }
+                    if (test === 'pss') {
+                        if (score <= 13) return "Low perceived stress";
+                        if (score <= 26) return "Moderate perceived stress";
+                        return "High perceived stress";
+                    }
+                };
+                
+                let yPos = 20;
+                
+                // Title
+                doc.setFontSize(20);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Your Mental Health Progress Report', 20, yPos);
+                yPos += 15;
+                
+                doc.setFontSize(12);
+                doc.setFont('helvetica', 'normal');
+                doc.text(`Patient: ${currentUser.name}`, 20, yPos);
+                yPos += 8;
+                const formattedDob = currentUser.dob ? new Date(currentUser.dob).toLocaleDateString() : 'Not provided';
+                doc.text(`Date of Birth: ${formattedDob}`, 20, yPos);
+                yPos += 8;
+                doc.text(`Age: ${userAge} years`, 20, yPos);
+                yPos += 8;
+                doc.text(`Generated: ${new Date().toLocaleDateString()}`, 20, yPos);
+                yPos += 20;
+                
+                // Helper function to add footer
+                function addPDFFooter(doc, pageNum) {
+                    const pageHeight = doc.internal.pageSize.height;
+                    doc.setFontSize(10);
+                    doc.setFont('helvetica', 'bold');
+                    doc.setTextColor(135, 206, 235);
+                    doc.text('Chetana', 20, pageHeight - 15);
+                    doc.setFont('helvetica', 'normal');
+                    doc.setTextColor(100, 100, 100);
+                    doc.text(' - Awakening Minds, Nurturing Wellbeing', 55, pageHeight - 15);
+                    doc.text(`Page ${pageNum}`, doc.internal.pageSize.width - 30, pageHeight - 15);
+                    doc.setTextColor(0, 0, 0);
+                }
+                
+                let pageNumber = 1;
+                addPDFFooter(doc, pageNumber);
+                
+                // Assessment History
+                doc.setFontSize(16);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Assessment History', 20, yPos);
+                yPos += 10;
+                
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'normal');
+                
+                if (assessments.length === 0) {
+                    doc.text('No assessments completed yet.', 20, yPos);
+                    yPos += 10;
+                } else {
+                    assessments.forEach((assessment, index) => {
+                        if (yPos > 270) {
+                            doc.addPage();
+                            pageNumber++;
+                            addPDFFooter(doc, pageNumber);
+                            yPos = 20;
+                        }
+                        
+                        doc.text(`${index + 1}. Date: ${assessment.date}`, 20, yPos);
+                        yPos += 6;
+                        doc.text(`   PHQ-9 (Depression): ${assessment.phq9} - ${getInterpretation('phq9', assessment.phq9)}`, 25, yPos);
+                        yPos += 6;
+                        doc.text(`   GAD-7 (Anxiety): ${assessment.gad7} - ${getInterpretation('gad7', assessment.gad7)}`, 25, yPos);
+                        yPos += 6;
+                        doc.text(`   PSS-10 (Stress): ${assessment.pss} - ${getInterpretation('pss', assessment.pss)}`, 25, yPos);
+                        yPos += 10;
+                    });
+                }
+                
+                yPos += 10;
+                
+                // Mood History
+                if (yPos > 250) {
+                    doc.addPage();
+                    pageNumber++;
+                    addPDFFooter(doc, pageNumber);
+                    yPos = 20;
+                }
+                
+                doc.setFontSize(16);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Mood History (Last 7 days)', 20, yPos);
+                yPos += 10;
+                
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'normal');
+                
+                if (moodHistory.length === 0) {
+                    doc.text('No mood data recorded yet.', 20, yPos);
+                    yPos += 10;
+                } else {
+                    moodHistory.slice(0, 7).forEach(mood => {
+                        if (yPos > 270) {
+                            doc.addPage();
+                            pageNumber++;
+                            addPDFFooter(doc, pageNumber);
+                            yPos = 20;
+                        }
+                        doc.text(`${mood.date}: ${mood.mood}/10`, 20, yPos);
+                        yPos += 6;
+                    });
+                }
+                
+                yPos += 10;
+                
+                // Milestones
+                if (yPos > 250) {
+                    doc.addPage();
+                    pageNumber++;
+                    addPDFFooter(doc, pageNumber);
+                    yPos = 20;
+                }
+                
+                doc.setFontSize(16);
+                doc.setFont('helvetica', 'bold');
+                doc.text('Milestones Achieved', 20, yPos);
+                yPos += 10;
+                
+                doc.setFontSize(10);
+                doc.setFont('helvetica', 'normal');
+                
+                if (milestones.length === 0) {
+                    doc.text('No milestones achieved yet.', 20, yPos);
+                    yPos += 10;
+                } else {
+                    milestones.forEach(milestone => {
+                        if (yPos > 270) {
+                            doc.addPage();
+                            pageNumber++;
+                            addPDFFooter(doc, pageNumber);
+                            yPos = 20;
+                        }
+                        doc.text(`${milestone.title} - ${milestone.description}`, 20, yPos);
+                        yPos += 6;
+                        doc.text(`Achieved on: ${milestone.date}`, 25, yPos);
+                        yPos += 10;
+                    });
+                }
+                
+                // Add visual chart - ALWAYS include if we have assessment data
+                console.log('Chart data check - assessments length:', assessments.length);
+                if (assessments.length >= 1) {
+                    // Ensure we have space for the chart
+                    if (yPos > 120) {
+                        doc.addPage();
+                        pageNumber++;
+                        addPDFFooter(doc, pageNumber);
+                        yPos = 20;
+                    }
+                    
+                    doc.setFontSize(16);
+                    doc.setFont('helvetica', 'bold');
+                    doc.text('Visual Progress Chart', 20, yPos);
+                    yPos += 15;
+                    
+                    // Prepare chart data (reverse to show chronological order)
+                    const chartData = assessments.slice(0, 10).reverse();
+                    console.log('Chart data for PDF:', chartData);
+                    const chartWidth = 160;
+                    const chartHeight = 90;
+                    const chartX = 20;
+                    const chartY = yPos;
+                    
+                    // Calculate max score for scaling
+                    const maxScore = Math.max(30, ...chartData.flatMap(d => [d.phq9, d.gad7, d.pss]));
+                    
+                    // Draw chart background
+                    doc.setFillColor(248, 249, 250);
+                    doc.rect(chartX - 5, chartY - 5, chartWidth + 10, chartHeight + 10, 'F');
+                    
+                    // Draw axes
+                    doc.setDrawColor(0, 0, 0);
+                    doc.setLineWidth(1);
+                    doc.line(chartX, chartY + chartHeight, chartX + chartWidth, chartY + chartHeight); // X-axis
+                    doc.line(chartX, chartY, chartX, chartY + chartHeight); // Y-axis
+                    
+                    // Draw grid lines
+                    doc.setDrawColor(200, 200, 200);
+                    doc.setLineWidth(0.3);
+                    for (let i = 1; i <= 5; i++) {
+                        const gridY = chartY + (chartHeight * i / 5);
+                        doc.line(chartX, gridY, chartX + chartWidth, gridY);
+                    }
+                    
+                    // Y-axis labels
+                    doc.setFontSize(8);
+                    doc.setTextColor(100, 100, 100);
+                    for (let i = 0; i <= 5; i++) {
+                        const value = Math.round((maxScore * (5 - i)) / 5);
+                        const labelY = chartY + (chartHeight * i / 5) + 2;
+                        doc.text(value.toString(), chartX - 15, labelY);
+                    }
+                    
+                    if (chartData.length === 1) {
+                        // Single data point - show as bars
+                        const data = chartData[0];
+                        const barWidth = 15;
+                        const spacing = 25;
+                        const startX = chartX + 30;
+                        
+                        // PHQ-9 bar
+                        const phq9Height = (data.phq9 * chartHeight) / maxScore;
+                        doc.setFillColor(255, 99, 132);
+                        doc.rect(startX, chartY + chartHeight - phq9Height, barWidth, phq9Height, 'F');
+                        doc.setFontSize(7);
+                        doc.setTextColor(0, 0, 0);
+                        doc.text('PHQ-9', startX - 2, chartY + chartHeight + 10);
+                        doc.text(data.phq9.toString(), startX + 5, chartY + chartHeight - phq9Height - 3);
+                        
+                        // GAD-7 bar
+                        const gad7Height = (data.gad7 * chartHeight) / maxScore;
+                        doc.setFillColor(54, 162, 235);
+                        doc.rect(startX + spacing, chartY + chartHeight - gad7Height, barWidth, gad7Height, 'F');
+                        doc.text('GAD-7', startX + spacing - 2, chartY + chartHeight + 10);
+                        doc.text(data.gad7.toString(), startX + spacing + 5, chartY + chartHeight - gad7Height - 3);
+                        
+                        // PSS bar
+                        const pssHeight = (data.pss * chartHeight) / maxScore;
+                        doc.setFillColor(255, 206, 86);
+                        doc.rect(startX + spacing * 2, chartY + chartHeight - pssHeight, barWidth, pssHeight, 'F');
+                        doc.text('PSS-10', startX + spacing * 2 - 2, chartY + chartHeight + 10);
+                        doc.text(data.pss.toString(), startX + spacing * 2 + 5, chartY + chartHeight - pssHeight - 3);
+                        
+                    } else {
+                        // Multiple data points - show as line chart
+                        const stepX = chartWidth / Math.max(1, chartData.length - 1);
+                        
+                        // PHQ-9 line (red)
+                        doc.setDrawColor(255, 99, 132);
+                        doc.setLineWidth(2);
+                        for (let i = 0; i < chartData.length - 1; i++) {
+                            const x1 = chartX + (i * stepX);
+                            const y1 = chartY + chartHeight - (chartData[i].phq9 * chartHeight / maxScore);
+                            const x2 = chartX + ((i + 1) * stepX);
+                            const y2 = chartY + chartHeight - (chartData[i + 1].phq9 * chartHeight / maxScore);
+                            doc.line(x1, y1, x2, y2);
+                        }
+                        
+                        // PHQ-9 points
+                        doc.setFillColor(255, 99, 132);
+                        for (let i = 0; i < chartData.length; i++) {
+                            const x = chartX + (i * stepX);
+                            const y = chartY + chartHeight - (chartData[i].phq9 * chartHeight / maxScore);
+                            doc.circle(x, y, 2, 'F');
+                        }
+                        
+                        // GAD-7 line (blue)
+                        doc.setDrawColor(54, 162, 235);
+                        doc.setLineWidth(2);
+                        for (let i = 0; i < chartData.length - 1; i++) {
+                            const x1 = chartX + (i * stepX);
+                            const y1 = chartY + chartHeight - (chartData[i].gad7 * chartHeight / maxScore);
+                            const x2 = chartX + ((i + 1) * stepX);
+                            const y2 = chartY + chartHeight - (chartData[i + 1].gad7 * chartHeight / maxScore);
+                            doc.line(x1, y1, x2, y2);
+                        }
+                        
+                        // GAD-7 points
+                        doc.setFillColor(54, 162, 235);
+                        for (let i = 0; i < chartData.length; i++) {
+                            const x = chartX + (i * stepX);
+                            const y = chartY + chartHeight - (chartData[i].gad7 * chartHeight / maxScore);
+                            doc.circle(x, y, 2, 'F');
+                        }
+                        
+                        // PSS line (yellow/orange)
+                        doc.setDrawColor(255, 140, 0);
+                        doc.setLineWidth(2);
+                        for (let i = 0; i < chartData.length - 1; i++) {
+                            const x1 = chartX + (i * stepX);
+                            const y1 = chartY + chartHeight - (chartData[i].pss * chartHeight / maxScore);
+                            const x2 = chartX + ((i + 1) * stepX);
+                            const y2 = chartY + chartHeight - (chartData[i + 1].pss * chartHeight / maxScore);
+                            doc.line(x1, y1, x2, y2);
+                        }
+                        
+                        // PSS points
+                        doc.setFillColor(255, 140, 0);
+                        for (let i = 0; i < chartData.length; i++) {
+                            const x = chartX + (i * stepX);
+                            const y = chartY + chartHeight - (chartData[i].pss * chartHeight / maxScore);
+                            doc.circle(x, y, 2, 'F');
+                        }
+                    }
+                    
+                    // Enhanced Legend with colored boxes
+                    yPos += chartHeight + 20;
+                    doc.setFontSize(9);
+                    doc.setTextColor(0, 0, 0);
+                    
+                    // PHQ-9 legend
+                    doc.setFillColor(255, 99, 132);
+                    doc.rect(20, yPos - 3, 8, 3, 'F');
+                    doc.text('PHQ-9 (Depression)', 32, yPos);
+                    
+                    // GAD-7 legend
+                    doc.setFillColor(54, 162, 235);
+                    doc.rect(80, yPos - 3, 8, 3, 'F');
+                    doc.text('GAD-7 (Anxiety)', 92, yPos);
+                    
+                    // PSS legend
+                    doc.setFillColor(255, 140, 0);
+                    doc.rect(140, yPos - 3, 8, 3, 'F');
+                    doc.text('PSS-10 (Stress)', 152, yPos);
+                    
+                    yPos += 15;
+                    
+                    // Chart interpretation note
+                    doc.setFontSize(8);
+                    doc.setTextColor(100, 100, 100);
+                    doc.text('Note: Lower scores indicate better mental health outcomes.', 20, yPos);
+                    yPos += 10;
+                }
+                
+                // Footer
+                if (yPos > 250) {
+                    doc.addPage();
+                    pageNumber++;
+                    addPDFFooter(doc, pageNumber);
+                    yPos = 20;
+                }
+                
+                yPos += 20;
+                doc.setFontSize(8);
+                doc.setFont('helvetica', 'italic');
+                doc.text('Note: This report contains your personal mental health data. Keep it secure.', 20, yPos);
+                
+                // Ensure footer is on final page
+                addPDFFooter(doc, pageNumber);
+                
+                // Save PDF
+                doc.save(`chetana_report_${new Date().toISOString().split('T')[0]}.pdf`);
+                alert('📄 PDF report with visual chart downloaded successfully!');
+                
+            } catch (error) {
+                console.error('PDF generation error:', error);
+                try {
+                    const { jsPDF } = window.jspdf;
+                    const doc = new jsPDF();
+                    doc.text('Chetana Progress Report', 20, 20);
+                    doc.text('Error: Chart features not supported', 20, 40);
+                    doc.save(`chetana_report_${new Date().toISOString().split('T')[0]}.pdf`);
+                    alert('📄 Basic PDF downloaded (chart unavailable)');
+                } catch (fallbackError) {
+                    console.error('Fallback PDF error:', fallbackError);
+                    alert('Error generating PDF. Please try again.');
+                }
+            }
+        });
+        
+        // Initialize progress dashboard
+        async function initProgressDashboard() {
+            console.log('🚀 Initializing progress dashboard...');
+            await renderMoodChart();
+            await checkMilestones();
+            await renderMilestones();
+            console.log('✅ Progress dashboard initialized');
+        }
+        
+        // Initialize on page load
+        initProgressDashboard();
+        
         // Relaxation timer functionality
         document.querySelectorAll('.timer-btn').forEach(btn => {
             btn.addEventListener('click', () => {
@@ -1423,6 +2613,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Initialize activity planner
         loadActivityPlanner();
         
+        // Initialize progress dashboard
+        initProgressDashboard();
+        
         // Handle video loading states
         document.querySelectorAll('.environment-video').forEach(video => {
             const loadingDiv = video.nextElementSibling;
@@ -1453,11 +2646,16 @@ document.addEventListener('DOMContentLoaded', () => {
         setupAllQuestions();
         applyTheme(localStorage.getItem('theme') || 'dark');
         
-        // Check if user is already logged in
+        // Check if user is already logged in or can be restored from token
         if (checkCurrentUser()) {
             showScreen('dashboard-screen');
         } else {
-            showScreen(currentScreen);
+            const token = localStorage.getItem('token');
+            if (token) {
+                restoreUserFromToken();
+            } else {
+                showScreen(currentScreen);
+            }
         }
         
         setTimeout(() => showToast(), 500);

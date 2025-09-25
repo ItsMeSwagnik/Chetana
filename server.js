@@ -51,6 +51,31 @@ async function initDB() {
       )
     `);
     
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS mood_entries (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        mood_date DATE NOT NULL,
+        mood_rating INTEGER NOT NULL CHECK (mood_rating >= 1 AND mood_rating <= 10),
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, mood_date)
+      )
+    `);
+    
+    await pool.query(`
+      CREATE TABLE IF NOT EXISTS milestones (
+        id SERIAL PRIMARY KEY,
+        user_id INTEGER REFERENCES users(id) ON DELETE CASCADE,
+        milestone_id VARCHAR(50) NOT NULL,
+        icon VARCHAR(10) NOT NULL,
+        title VARCHAR(100) NOT NULL,
+        description TEXT NOT NULL,
+        achieved_date DATE NOT NULL,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE(user_id, milestone_id)
+      )
+    `);
+    
     console.log('Database tables initialized successfully');
   } catch (err) {
     console.error('Database initialization error:', err.message);
@@ -224,6 +249,137 @@ app.delete('/api/admin/users', async (req, res) => {
   } catch (err) {
     console.error('Delete user error:', err);
     res.status(500).json({ error: 'Failed to delete user: ' + err.message });
+  }
+});
+
+app.post('/api/moods', async (req, res) => {
+  try {
+    const { userId, moodDate, moodRating } = req.body;
+    
+    if (!userId || !moodDate || !moodRating) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'Missing required fields' 
+      });
+    }
+
+    const result = await pool.query(`
+      INSERT INTO mood_entries (user_id, mood_date, mood_rating)
+      VALUES ($1, $2, $3)
+      ON CONFLICT (user_id, mood_date)
+      DO UPDATE SET mood_rating = $3, created_at = CURRENT_TIMESTAMP
+      RETURNING *
+    `, [userId, moodDate, moodRating]);
+
+    res.json({ 
+      success: true, 
+      mood: result.rows[0] 
+    });
+  } catch (err) {
+    console.error('Mood save error:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+app.get('/api/moods', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    
+    if (!userId) {
+      return res.status(400).json({ 
+        success: false, 
+        error: 'User ID required' 
+      });
+    }
+
+    const result = await pool.query(`
+      SELECT * FROM mood_entries 
+      WHERE user_id = $1 
+      AND mood_date >= CURRENT_DATE - INTERVAL '30 days'
+      ORDER BY mood_date DESC
+    `, [userId]);
+
+    res.json({ 
+      success: true, 
+      moods: result.rows 
+    });
+  } catch (err) {
+    console.error('Mood fetch error:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+app.get('/api/users/:id', async (req, res) => {
+  try {
+    const { id } = req.params;
+    
+    const result = await pool.query(
+      'SELECT id, name, email, dob FROM users WHERE id = $1',
+      [id]
+    );
+    
+    if (result.rows.length === 0) {
+      return res.status(404).json({ 
+        success: false, 
+        error: 'User not found' 
+      });
+    }
+    
+    res.json({ 
+      success: true, 
+      user: result.rows[0] 
+    });
+  } catch (err) {
+    console.error('User fetch error:', err);
+    res.status(500).json({ 
+      success: false, 
+      error: 'Internal server error' 
+    });
+  }
+});
+
+app.post('/api/milestones', async (req, res) => {
+  try {
+    const { userId, milestoneId, icon, title, description, achievedDate } = req.body;
+    
+    if (!userId || !milestoneId || !title) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    await pool.query(
+      'INSERT INTO milestones (user_id, milestone_id, icon, title, description, achieved_date) VALUES ($1, $2, $3, $4, $5, $6) ON CONFLICT (user_id, milestone_id) DO NOTHING',
+      [userId, milestoneId, icon, title, description, achievedDate || new Date().toISOString().split('T')[0]]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Milestone save error:', err);
+    res.status(500).json({ error: 'Server error: ' + err.message });
+  }
+});
+
+app.get('/api/milestones', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID required' });
+    }
+
+    const result = await pool.query(
+      'SELECT * FROM milestones WHERE user_id = $1 ORDER BY achieved_date DESC',
+      [userId]
+    );
+
+    res.json({ success: true, milestones: result.rows });
+  } catch (err) {
+    console.error('Milestone fetch error:', err);
+    res.status(500).json({ error: 'Server error: ' + err.message });
   }
 });
 

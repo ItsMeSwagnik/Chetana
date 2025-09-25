@@ -1932,6 +1932,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             console.error('Error saving milestone to database:', err);
                         }
                     }
+                } else {
+                    console.log('No user logged in, milestones saved to localStorage only');
                 }
             }
             await renderMilestones();

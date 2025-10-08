@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+﻿document.addEventListener('DOMContentLoaded', () => {
     // --- STATE VARIABLES ---
     let currentScreen = 'login-screen';
     let chatCount = parseInt(localStorage.getItem('demoChatCount')) || 0;
@@ -280,12 +280,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 
                 if (data.isAdmin) {
                     console.log('👑 Frontend: Admin login detected');
+                    // Use the admin user data from server response if available
+                    const adminUser = data.user || { id: 'admin', name: 'Admin', email: 'admin@chetana.com', isAdmin: true };
+                    localStorage.setItem('currentUser', JSON.stringify(adminUser));
+                    updateWelcomeMessage(adminUser.name || 'Admin');
                     loadAdminPanel();
                     showScreen('admin-screen');
                 } else {
                     console.log('👤 Frontend: Regular user login');
                     localStorage.setItem('currentUser', JSON.stringify(data.user));
                     updateWelcomeMessage(data.user.name);
+                    
+                    // Initialize forum user immediately after login
+                    try {
+                        const forumResponse = await fetch(`${API_BASE}/api/forum?action=user&userId=${data.user.id}`);
+                        if (forumResponse.ok) {
+                            const forumData = await forumResponse.json();
+                            if (forumData.success) {
+                                const updatedUser = { ...data.user, forum_uid: forumData.username };
+                                localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+                                updateWelcomeMessage(updatedUser.name);
+                                // Update profile forum UID immediately
+                                const profileForumUid = document.getElementById('profile-forum-uid');
+                                if (profileForumUid) {
+                                    profileForumUid.textContent = forumData.username;
+                                }
+                            }
+                        }
+                    } catch (err) {
+                        console.error('Failed to initialize forum user:', err);
+                    }
                     
                     // Load mood chart and milestones immediately after login
                     setTimeout(async () => {
@@ -364,7 +388,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('📝 Frontend: Registration attempt started');
         
         const name = document.getElementById('register-name')?.value.trim();
-        const dob = document.getElementById('register-dob')?.value;
+        const dob = document.getElementById('register-dob')?.value.trim();
         const email = document.getElementById('register-email')?.value.trim();
         const password = document.getElementById('register-password')?.value.trim();
         const createBtn = document.getElementById('create-account-btn');
@@ -375,6 +399,15 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('❌ Frontend: Missing registration fields');
             alert('Please fill all fields.');
             return;
+        }
+        
+        // Validate date format if manually typed (DD/MM/YYYY)
+        if (dob && dob.includes('/')) {
+            const dateRegex = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
+            if (!dateRegex.test(dob)) {
+                alert('Please enter date in DD/MM/YYYY format (e.g., 15/03/1990)');
+                return;
+            }
         }
         
         const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
@@ -452,6 +485,11 @@ document.addEventListener('DOMContentLoaded', () => {
         }
         
         try {
+            // Fetch fresh user data from database
+            const userResponse = await fetch(`${API_BASE}/api/users/${currentUser.id}`);
+            const userData = await userResponse.json();
+            console.log('User data from database:', userData);
+            
             // Load assessment count
             const assessmentResponse = await fetch(`${API_BASE}/api/assessments?userId=${currentUser.id}`);
             const assessmentData = await assessmentResponse.json();
@@ -464,8 +502,29 @@ document.addEventListener('DOMContentLoaded', () => {
             const moodCount = moodData.success && moodData.moods ? moodData.moods.length : 0;
             document.getElementById('mood-count').textContent = `${moodCount} mood entries recorded`;
             
-            // Account creation date
-            const accountDate = currentUser.created_at ? new Date(currentUser.created_at).toLocaleDateString() : 'Unknown';
+            // Account creation date from database
+            let accountDate = 'Unknown';
+            if (userData.success && userData.user) {
+                const user = userData.user;
+                console.log('User object fields:', Object.keys(user));
+                console.log('Full user object:', user);
+                
+                // Try all possible date fields
+                const dateFields = ['created_at', 'createdAt', 'date_created', 'registration_date', 'signup_date', 'joined_date', 'account_created'];
+                for (const field of dateFields) {
+                    if (user[field]) {
+                        accountDate = new Date(user[field]).toLocaleDateString();
+                        console.log(`Found date in field ${field}:`, user[field]);
+                        break;
+                    }
+                }
+                
+                // If still unknown, use today's date as fallback
+                if (accountDate === 'Unknown') {
+                    accountDate = new Date().toLocaleDateString();
+                    console.log('No creation date found, using current date as fallback');
+                }
+            }
             document.getElementById('account-date').textContent = accountDate;
             
         } catch (err) {
@@ -691,6 +750,7 @@ document.addEventListener('DOMContentLoaded', () => {
         // Update profile screen
         const profileName = document.getElementById('profile-name');
         const profileEmail = document.getElementById('profile-email');
+        const profileForumUid = document.getElementById('profile-forum-uid');
         const currentUser = JSON.parse(localStorage.getItem('currentUser'));
         
         if (profileName && currentUser) {
@@ -699,20 +759,33 @@ document.addEventListener('DOMContentLoaded', () => {
         if (profileEmail && currentUser) {
             profileEmail.textContent = currentUser.email;
         }
+        
+        // Update forum username in profile
+        if (profileForumUid) {
+            if (currentUser && currentUser.forum_uid) {
+                profileForumUid.textContent = currentUser.forum_uid;
+            } else {
+                profileForumUid.textContent = 'Not set (visit forum to generate)';
+            }
+        }
     }
     
-    function checkCurrentUser() {
-        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-        const token = localStorage.getItem('token');
-        if (currentUser && token) {
-            updateWelcomeMessage(currentUser.name);
-            return true;
-        } else if (token && !currentUser) {
-            // Token exists but user data is missing, try to restore from token
-            restoreUserFromToken();
-            return false;
+    async function checkCurrentUser() {
+        try {
+            const response = await fetch(`${API_BASE}/api/session`);
+            const data = await response.json();
+            
+            console.log('🔍 Checking current user session:', data);
+            
+            if (data.success && data.user) {
+                updateWelcomeMessage(data.user.name || 'User');
+                return data.user;
+            }
+        } catch (err) {
+            console.error('Session check failed:', err);
         }
-        return false;
+        console.log('❌ No valid session found');
+        return null;
     }
     
     async function restoreUserFromToken() {
@@ -723,9 +796,39 @@ document.addEventListener('DOMContentLoaded', () => {
             // Decode token to get user ID (simple JWT decode)
             const payload = JSON.parse(atob(token.split('.')[1]));
             const userId = payload.userId;
+            const isAdmin = payload.isAdmin;
             
             if (userId) {
-                // Fetch user data from database
+                // Check if this is an admin token
+                if (isAdmin) {
+                    console.log('👑 Admin token detected, restoring admin session');
+                    // Try to fetch admin user data from database
+                    try {
+                        const adminResponse = await fetch(`${API_BASE}/api/users/${userId}`);
+                        const adminData = await adminResponse.json();
+                        if (adminData.success && adminData.user) {
+                            const adminUser = { ...adminData.user, isAdmin: true };
+                            localStorage.setItem('currentUser', JSON.stringify(adminUser));
+                            updateWelcomeMessage(adminUser.name || 'Admin');
+                        } else {
+                            // Fallback to default admin user
+                            const adminUser = { id: userId || 'admin', name: 'Admin', email: 'admin@chetana.com', isAdmin: true };
+                            localStorage.setItem('currentUser', JSON.stringify(adminUser));
+                            updateWelcomeMessage('Admin');
+                        }
+                    } catch (err) {
+                        console.error('Failed to fetch admin user data:', err);
+                        // Fallback to default admin user
+                        const adminUser = { id: userId || 'admin', name: 'Admin', email: 'admin@chetana.com', isAdmin: true };
+                        localStorage.setItem('currentUser', JSON.stringify(adminUser));
+                        updateWelcomeMessage('Admin');
+                    }
+                    loadAdminPanel();
+                    showScreen('admin-screen');
+                    return;
+                }
+                
+                // Fetch regular user data from database
                 const response = await fetch(`${API_BASE}/api/users/${userId}`);
                 const data = await response.json();
                 
@@ -742,8 +845,11 @@ document.addEventListener('DOMContentLoaded', () => {
     }
     
     function logout() {
-        localStorage.removeItem('currentUser');
+        console.log('🚪 Logging out user...');
+        // Clear all localStorage data
         localStorage.removeItem('token');
+        localStorage.removeItem('currentUser');
+        console.log('🧹 Session cleared');
         showScreen('login-screen');
     }
 
@@ -795,8 +901,8 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="user-name">${user.name || 'Unknown'}</div>
                             <div class="user-email">${user.email || 'No email'}</div>
                         </div>
-                        <button class="view-reports-btn" onclick="viewUserReports(${user.id}, '${user.name || 'User'}')">View Reports</button>
-                        <button class="delete-user-btn" onclick="deleteUser(${user.id})">Delete</button>
+                        <button class="view-reports-btn" data-user-id="${user.id}" data-user-name="${user.name || 'User'}">View Reports</button>
+                        <button class="delete-user-btn" data-user-id="${user.id}">Delete</button>
                     </div>
                     <div class="user-details">
                         <div>DOB: ${user.dob || 'N/A'}</div>
@@ -812,6 +918,82 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('users-list').innerHTML = `<p>Error loading admin data: ${err.message}</p>`;
         }
     }
+    
+    async function loadReports() {
+        try {
+            console.log('Loading reports from API...');
+            const response = await fetch(`${API_BASE}/api/forum?action=reports`);
+            console.log('Reports API response status:', response.status);
+            
+            if (response.ok) {
+                const reports = await response.json();
+                console.log('Reports data received:', reports);
+                displayReports(reports);
+            } else {
+                console.error('Reports API failed with status:', response.status);
+                const errorText = await response.text();
+                console.error('Error response:', errorText);
+                displayReports([]);
+            }
+        } catch (err) {
+            console.error('Failed to load reports:', err);
+            displayReports([]);
+        }
+    }
+    
+    function displayReports(reports) {
+        const container = document.getElementById('reports-list');
+        console.log('Displaying reports:', reports.length, 'reports');
+        
+        if (!container) {
+            console.error('Reports list container not found');
+            return;
+        }
+        
+        if (reports.length === 0) {
+            container.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 2rem;">No reports to review.</p>';
+            return;
+        }
+        
+        container.innerHTML = reports.map(report => `
+            <div class="report-card" style="background: var(--surface); padding: 1.5rem; border-radius: var(--radius-base); border: 1px solid var(--border); margin-bottom: 1rem;">
+                <div class="report-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 1rem;">
+                    <span class="report-type" style="background: var(--primary-color); color: white; padding: 0.25rem 0.75rem; border-radius: 15px; font-size: 0.8rem; text-transform: uppercase;">${report.type}</span>
+                    <span class="report-date" style="color: var(--text-secondary); font-size: 0.9rem;">${new Date(report.created_at).toLocaleDateString()}</span>
+                </div>
+                <div class="report-content" style="margin-bottom: 1rem;">
+                    <p style="margin: 0.5rem 0; color: var(--text-primary);"><strong>Content:</strong> ${report.content_preview || 'N/A'}</p>
+                    <p style="margin: 0.5rem 0; color: var(--text-primary);"><strong>Author:</strong> ${report.author_uid || 'Unknown'}</p>
+                    <p style="margin: 0.5rem 0; color: var(--text-primary);"><strong>Reason:</strong> ${report.reason}</p>
+                    <p style="margin: 0.5rem 0; color: var(--text-primary);"><strong>Reporter:</strong> ${report.reporter_uid}</p>
+                </div>
+                <div class="report-actions" style="display: flex; gap: 1rem;">
+                    <button class="btn btn--danger" onclick="resolveReport(${report.id}, 'delete')" style="background: var(--danger); color: white; border: none; padding: 0.5rem 1rem; border-radius: var(--radius-base); cursor: pointer;">Delete Content</button>
+                    <button class="btn btn--outline" onclick="resolveReport(${report.id}, 'dismiss')" style="background: transparent; border: 2px solid var(--primary-color); color: var(--primary-color); padding: 0.5rem 1rem; border-radius: var(--radius-base); cursor: pointer;">Dismiss Report</button>
+                </div>
+            </div>
+        `).join('');
+        
+        console.log('Reports HTML generated and inserted');
+    }
+    
+    async function resolveReport(reportId, action) {
+        try {
+            const response = await fetch(`${API_BASE}/api/forum?action=resolve-report`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ reportId, action })
+            });
+            if (response.ok) {
+                alert(`Report ${action}d successfully!`);
+                loadReports();
+            }
+        } catch (err) {
+            alert('Failed to resolve report');
+        }
+    }
+    
+    window.resolveReport = resolveReport;
     
     async function deleteUser(userId) {
         if (confirm('Are you sure you want to delete this user?')) {
@@ -995,7 +1177,7 @@ document.addEventListener('DOMContentLoaded', () => {
             <div class="no-more-therapists">
                 <h2>🎉 That's all!</h2>
                 <p>You've seen all available therapists in your area.</p>
-                <button onclick="resetTherapists()" class="btn btn--primary">Start Over</button>
+                <button class="btn btn--primary reset-therapists-btn" onclick="resetTherapists()">Start Over</button>
             </div>
         `;
         document.getElementById('therapist-counter').style.display = 'none';
@@ -1145,9 +1327,17 @@ document.addEventListener('DOMContentLoaded', () => {
                 <div class="request-details">
                     <p>📅 ${request.date} at ${request.time}</p>
                 </div>
-                <button onclick="cancelRequest(${request.id})" class="cancel-btn">Cancel Request</button>
+                <button class="cancel-btn" data-request-id="${request.id}">Cancel Request</button>
             `;
             requestsList.appendChild(requestCard);
+        });
+        
+        // Add event listeners to cancel buttons
+        requestsList.querySelectorAll('.cancel-btn').forEach(btn => {
+            btn.addEventListener('click', () => {
+                const requestId = parseInt(btn.dataset.requestId);
+                cancelRequest(requestId);
+            });
         });
     }
     
@@ -1162,6 +1352,11 @@ document.addEventListener('DOMContentLoaded', () => {
     window.deleteUser = deleteUser;
     window.viewUserReports = viewUserReports;
     window.cancelRequest = cancelRequest;
+    window.resetTherapists = resetTherapists;
+    window.loadReports = loadReports;
+    window.displayReports = displayReports;
+    
+    // Make resetTherapists globally available
     window.resetTherapists = resetTherapists;
     
     // Global functions for mood tracking and milestones
@@ -1690,7 +1885,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 `<div class="journal-entry-item">
                     <div class="entry-header">
                         <div class="entry-date">${entry.date}</div>
-                        <button class="delete-entry-btn" onclick="deleteJournalEntry(${index})">Delete</button>
+                        <button class="delete-entry-btn" data-entry-index="${index}">Delete</button>
                     </div>
                     <div class="entry-text">${entry.text.substring(0, 100)}...</div>
                 </div>`
@@ -2695,28 +2890,40 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
 
-    function initializeApp() {
+    async function initializeApp() {
         window.addEventListener('resize', setAppHeight);
         setAppHeight();
         setupAllQuestions();
-        applyTheme(localStorage.getItem('theme') || 'dark');
+        applyTheme('dark'); // Default theme, no localStorage
         
-        // Check if user is already logged in or can be restored from token
-        if (checkCurrentUser()) {
-            showScreen('dashboard-screen');
-            // Load mood chart and milestones for existing user
-            setTimeout(async () => {
-                if (typeof renderMoodChart === 'function') await renderMoodChart();
-                if (typeof checkMilestones === 'function') await checkMilestones();
-                if (typeof renderMilestones === 'function') await renderMilestones();
-            }, 1000);
-        } else {
-            const token = localStorage.getItem('token');
-            if (token) {
-                restoreUserFromToken();
+        // Try to restore user from token first
+        await restoreUserFromToken();
+        
+        // Check if user has active session
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        if (currentUser) {
+            // Enhanced admin detection - check multiple conditions
+            if (currentUser.isAdmin === true || 
+                currentUser.email === 'admin@chetana.com' ||
+                currentUser.id === 'admin' ||
+                (currentUser.name && currentUser.name.toLowerCase() === 'admin')
+            ) {
+                console.log('👑 Admin user detected on refresh, showing admin panel');
+                console.log('👑 Admin user data:', currentUser);
+                loadAdminPanel();
+                showScreen('admin-screen');
             } else {
-                showScreen(currentScreen);
+                console.log('👤 Regular user detected, showing dashboard');
+                showScreen('dashboard-screen');
+                // Load mood chart and milestones for existing user
+                setTimeout(async () => {
+                    if (typeof renderMoodChart === 'function') await renderMoodChart();
+                    if (typeof checkMilestones === 'function') await checkMilestones();
+                    if (typeof renderMilestones === 'function') await renderMilestones();
+                }, 1000);
             }
+        } else {
+            showScreen(currentScreen);
         }
         
         setTimeout(() => showToast(), 500);
@@ -2725,6 +2932,17 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('login-btn')?.addEventListener('click', handleLogin);
         document.getElementById('go-to-register-btn')?.addEventListener('click', () => showScreen('register-screen'));
         document.getElementById('create-account-btn')?.addEventListener('click', handleCreateAccount);
+        
+        // DOB input type switching
+        const dobInput = document.getElementById('register-dob');
+        if (dobInput) {
+            dobInput.addEventListener('focus', () => {
+                dobInput.type = 'date';
+            });
+            dobInput.addEventListener('blur', () => {
+                if (!dobInput.value) dobInput.type = 'text';
+            });
+        }
         document.getElementById('back-to-login-btn')?.addEventListener('click', () => showScreen('login-screen'));
         document.getElementById('guest-login-btn')?.addEventListener('click', () => { 
             showScreen('demo-chat-screen'); 
@@ -2737,15 +2955,63 @@ document.addEventListener('DOMContentLoaded', () => {
             applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
             document.getElementById('profile-theme-toggle').textContent = currentTheme === 'dark' ? 'Dark' : 'Light';
         });
-        document.getElementById('admin-logout-btn')?.addEventListener('click', () => showScreen('login-screen'));
+        document.getElementById('admin-logout-btn')?.addEventListener('click', logout);
         document.getElementById('user-reports-back-btn')?.addEventListener('click', () => showScreen('admin-screen'));
         document.getElementById('user-reports-dashboard-btn')?.addEventListener('click', () => showScreen('admin-screen'));
+        
+        // Admin forum access
+        document.getElementById('admin-forum-btn')?.addEventListener('click', async () => {
+            showScreen('forum-screen');
+            await initializeForumUser();
+            await loadForumData();
+            setupForumHandlers();
+        });
+        
+        // Admin reports
+        document.getElementById('admin-reports-btn')?.addEventListener('click', async () => {
+            console.log('Admin reports button clicked');
+            try {
+                await loadReports();
+                showScreen('admin-reports-screen');
+            } catch (err) {
+                console.error('Error loading reports:', err);
+                alert('Failed to load reports. Please try again.');
+            }
+        });
+        
+        // Admin reports back button
+        document.getElementById('admin-reports-back-btn')?.addEventListener('click', () => {
+            showScreen('admin-screen');
+        });
+        
+        // Admin cleanup duplicate posts
+        document.getElementById('cleanup-admin-posts-btn')?.addEventListener('click', async () => {
+            if (confirm('Are you sure you want to clean up duplicate admin posts? This will remove extra welcome posts.')) {
+                try {
+                    const response = await fetch(`${API_BASE}/api/forum?action=cleanup-admin-posts`);
+                    const result = await response.json();
+                    if (result.success) {
+                        alert(result.message || 'Duplicate admin posts cleaned up successfully!');
+                    } else {
+                        alert('Failed to cleanup posts: ' + (result.error || 'Unknown error'));
+                    }
+                } catch (err) {
+                    console.error('Cleanup error:', err);
+                    alert('Error cleaning up posts. Please try again.');
+                }
+            }
+        });
         document.getElementById('demo-chat-login-btn')?.addEventListener('click', () => showScreen('login-screen'));
         document.getElementById('demo-send-btn')?.addEventListener('click', () => handleSendMessage('demo'));
         document.getElementById('demo-message-input')?.addEventListener('keypress', e => { 
             if (e.key === 'Enter') handleSendMessage('demo'); 
         });
-        document.getElementById('theme-toggle-global')?.addEventListener('click', () => applyTheme(currentTheme === 'dark' ? 'light' : 'dark'));
+        // Theme toggle functionality - handle all theme toggle buttons
+        document.addEventListener('click', (e) => {
+            if (e.target.closest('.theme-toggle')) {
+                applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
+            }
+        });
         document.getElementById('go-to-therapist-chat-btn')?.addEventListener('click', () => { 
             showScreen('therapist-chat-screen'); 
             addMessage('therapist-chat-messages', 'ai', "Welcome back."); 
@@ -2769,220 +3035,335 @@ document.addEventListener('DOMContentLoaded', () => {
         let currentPost = null;
         let userAura = 0;
         let anonymousUsername = null;
-        let userVotes = {}; // Track user votes
+        
+        // Rate limiting for API calls
+        let lastApiCall = 0;
+        const API_RATE_LIMIT = 3000; // 3 seconds between calls
+        
+        async function rateLimitedFetch(url, options = {}) {
+            const now = Date.now();
+            const timeSinceLastCall = now - lastApiCall;
+            
+            if (timeSinceLastCall < API_RATE_LIMIT) {
+                await new Promise(resolve => setTimeout(resolve, API_RATE_LIMIT - timeSinceLastCall));
+            }
+            
+            lastApiCall = Date.now();
+            return fetch(url, options);
+        }
+        
+        // Helper function to update comment count in community view
+        function updateCommentCountInCommunity(postId) {
+            const commentCountEl = document.querySelector(`[data-post-id="${postId}"] .comment-count`);
+            if (commentCountEl && currentPost) {
+                commentCountEl.textContent = `${currentPost.comment_count || 0} comments`;
+            }
+        }
+
 
         document.getElementById('go-to-forum-btn')?.addEventListener('click', async () => {
-            await initializeForumUser();
             showScreen('forum-screen');
-            loadForumData();
+            await initializeForumUser();
+            await loadForumData();
+            setupForumHandlers();
         });
 
         document.getElementById('forum-back-btn')?.addEventListener('click', () => {
-            showScreen('dashboard-screen');
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (currentUser && (currentUser.isAdmin || currentUser.email === 'admin@chetana.com')) {
+                showScreen('admin-screen');
+            } else {
+                showScreen('dashboard-screen');
+            }
         });
 
         async function initializeForumUser() {
             const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            if (!currentUser || !currentUser.id) {
+            if (!currentUser) {
                 alert('Please log in to access the community forum.');
                 return;
             }
             
             try {
-                const response = await fetch(`${API_BASE}/api/forum/user?userId=${currentUser.id}`);
+                // Handle admin user specially
+                if (currentUser.isAdmin || currentUser.email === 'admin@chetana.com') {
+                    anonymousUsername = 'admin';
+                    userAura = 0;
+                    
+                    const profileForumUid = document.getElementById('profile-forum-uid');
+                    if (profileForumUid) {
+                        profileForumUid.textContent = anonymousUsername;
+                    }
+                    
+                    currentUser.forum_uid = anonymousUsername;
+                    localStorage.setItem('currentUser', JSON.stringify(currentUser));
+                    return;
+                }
+                
+                // Handle regular users
+                if (!currentUser.id) {
+                    alert('Please log in to access the community forum.');
+                    return;
+                }
+                
+                const response = await fetch(`${API_BASE}/api/forum?action=user&userId=${currentUser.id}`);
                 if (response.ok) {
                     const data = await response.json();
                     if (data.success) {
                         anonymousUsername = data.username;
                         userAura = data.auraPoints;
+                        
+                        const profileForumUid = document.getElementById('profile-forum-uid');
+                        if (profileForumUid) {
+                            profileForumUid.textContent = anonymousUsername;
+                        }
+                        
+                        currentUser.forum_uid = anonymousUsername;
+                        localStorage.setItem('currentUser', JSON.stringify(currentUser));
                     }
                 }
             } catch (err) {
                 console.log('Forum user initialization failed:', err);
-                // Fallback to random username
-                anonymousUsername = 'u/' + Math.random().toString(36).substring(2, 8);
-                userAura = 0;
             }
         }
         
-        function loadForumData() {
+        async function loadForumData() {
             if (anonymousUsername) {
-                document.getElementById('forum-username').textContent = anonymousUsername;
-                document.getElementById('user-aura').textContent = userAura + ' aura';
+                const usernameEl = document.getElementById('forum-username');
+                const auraEl = document.getElementById('user-aura');
+                if (usernameEl) usernameEl.textContent = anonymousUsername;
+                if (auraEl) auraEl.textContent = userAura + ' aura';
             }
-            loadCommunityStats();
+            await loadCommunityStats();
+        }
+        
+        let forum = null;
+        
+        function setupForumHandlers() {
+            if (typeof initializeForum === 'function') {
+                forum = initializeForum(anonymousUsername, currentCommunity, currentPost, showScreen);
+                
+                // Community navigation
+                document.querySelectorAll('.community-card').forEach(card => {
+                    card.addEventListener('click', (e) => {
+                        if (e.target.classList.contains('join-btn')) return;
+                        const newCommunity = card.dataset.community;
+                        currentCommunity = newCommunity;
+                        document.getElementById('community-title').textContent = 'c/' + currentCommunity;
+                        showScreen('community-screen');
+                        // Update the forum instance's current community and reload posts
+                        if (forum && forum.updateCommunity) {
+                            forum.updateCommunity(newCommunity);
+                            forum.loadPosts();
+                        }
+                    });
+                });
+                
+                // Remove existing event listeners to prevent duplicates
+                const createPostBtn = document.getElementById('create-post-btn');
+                const submitPostBtn = document.getElementById('submit-post-btn');
+                const cancelPostBtn = document.getElementById('cancel-post-btn');
+                const submitCommentBtn = document.getElementById('submit-comment-btn');
+                
+                // Clone and replace to remove all existing listeners
+                if (createPostBtn) {
+                    const newCreatePostBtn = createPostBtn.cloneNode(true);
+                    createPostBtn.parentNode.replaceChild(newCreatePostBtn, createPostBtn);
+                    newCreatePostBtn.addEventListener('click', () => {
+                        document.getElementById('create-post-modal').classList.add('active');
+                    });
+                }
+                
+                if (submitPostBtn) {
+                    const newSubmitPostBtn = submitPostBtn.cloneNode(true);
+                    submitPostBtn.parentNode.replaceChild(newSubmitPostBtn, submitPostBtn);
+                    newSubmitPostBtn.addEventListener('click', async () => {
+                        const title = document.getElementById('post-title').value.trim();
+                        const content = document.getElementById('post-content').value.trim();
+                        
+                        if (title && content) {
+                            if (await forum.createPost(title, content)) {
+                                document.getElementById('create-post-modal').classList.remove('active');
+                                document.getElementById('post-title').value = '';
+                                document.getElementById('post-content').value = '';
+                            }
+                        } else {
+                            alert('Please fill in both title and content');
+                        }
+                    });
+                }
+                
+                if (cancelPostBtn) {
+                    const newCancelPostBtn = cancelPostBtn.cloneNode(true);
+                    cancelPostBtn.parentNode.replaceChild(newCancelPostBtn, cancelPostBtn);
+                    newCancelPostBtn.addEventListener('click', () => {
+                        document.getElementById('create-post-modal').classList.remove('active');
+                        document.getElementById('post-title').value = '';
+                        document.getElementById('post-content').value = '';
+                    });
+                }
+                
+                if (submitCommentBtn) {
+                    const newSubmitCommentBtn = submitCommentBtn.cloneNode(true);
+                    submitCommentBtn.parentNode.replaceChild(newSubmitCommentBtn, submitCommentBtn);
+                    newSubmitCommentBtn.addEventListener('click', async () => {
+                        const content = document.getElementById('comment-input').value.trim();
+                        if (content) {
+                            if (await forum.createComment(content)) {
+                                document.getElementById('comment-input').value = '';
+                                // Update comment count in the current post
+                                if (currentPost) {
+                                    currentPost.comment_count = (currentPost.comment_count || 0) + 1;
+                                    updateCommentCountInCommunity(currentPost.id);
+                                }
+                            }
+                        }
+                    });
+                }
+                
+                // Join button functionality with backend integration
+                document.querySelectorAll('.join-btn').forEach(btn => {
+                    btn.addEventListener('click', async (e) => {
+                        e.stopPropagation();
+                        const community = btn.dataset.community;
+                        const isJoined = btn.classList.contains('joined');
+                        
+                        if (!anonymousUsername) {
+                            alert('Please log in to join communities.');
+                            return;
+                        }
+                        
+                        try {
+                            const action = isJoined ? 'leave' : 'join';
+                            console.log('Join/Leave attempt:', { community, anonymousUsername, action, isJoined });
+                            
+                            // Make API call to join/leave community
+                            const response = await fetch(`${API_BASE}/api/forum?action=join`, {
+                                method: 'POST',
+                                headers: { 'Content-Type': 'application/json' },
+                                body: JSON.stringify({
+                                    community: community,
+                                    userUid: anonymousUsername,
+                                    action: action
+                                })
+                            });
+                            
+                            console.log('Join/Leave response status:', response.status);
+                            
+                            if (response.ok) {
+                                const result = await response.json();
+                                console.log('Join/Leave result:', result);
+                                if (result.success) {
+                                    // Update UI only after successful server response
+                                    btn.classList.toggle('joined', !isJoined);
+                                    btn.textContent = isJoined ? 'Join' : 'Joined';
+                                    
+                                    // Update member count
+                                    const memberCountEl = btn.parentElement.querySelector('.member-count');
+                                    if (memberCountEl) {
+                                        const currentCount = parseInt(memberCountEl.textContent) || 0;
+                                        const newCount = isJoined ? currentCount - 1 : currentCount + 1;
+                                        memberCountEl.textContent = `${Math.max(0, newCount)} members`;
+                                    }
+                                } else {
+                                    console.error('Join/Leave failed:', result.error);
+                                    alert(`Failed to ${action} community: ${result.error || 'Unknown error'}`);
+                                }
+                            } else {
+                                const errorText = await response.text();
+                                console.error('Join/Leave HTTP error:', response.status, errorText);
+                                alert(`Failed to ${action} community. Please try again.`);
+                            }
+                        } catch (err) {
+                            console.error('Community join/leave error:', err);
+                            alert('Error updating membership. Please try again.');
+                        }
+                    });
+                });
+                
+                // Load user memberships to set initial button states
+                setTimeout(() => {
+                    loadUserMemberships();
+                }, 100);
+            }
         }
 
         async function loadCommunityStats() {
             try {
-                const response = await fetch(`${API_BASE}/api/forum/stats`);
+                const response = await fetch(`${API_BASE}/api/forum?action=stats`);
                 if (response.ok) {
-                    const stats = await response.json();
-                    document.querySelectorAll('.community-card').forEach(card => {
-                        const community = card.dataset.community;
-                        const memberCount = card.querySelector('.member-count');
-                        memberCount.textContent = (stats[community] || 0) + ' members';
-                    });
+                    const data = await response.json();
+                    if (data.success && data.stats) {
+                        const stats = data.stats.communities || {};
+                        document.querySelectorAll('.community-card').forEach(card => {
+                            const community = card.dataset.community;
+                            const memberCount = card.querySelector('.member-count');
+                            memberCount.textContent = (stats[community] || 0) + ' members';
+                        });
+                    }
                 }
             } catch (err) {
                 console.log('Forum stats not available');
             }
         }
+        
+        async function loadUserMemberships() {
+            if (!anonymousUsername) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/forum?action=memberships&userUid=${encodeURIComponent(anonymousUsername)}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    if (data.success && data.memberships) {
+                        document.querySelectorAll('.join-btn').forEach(btn => {
+                            const community = btn.dataset.community;
+                            const isJoined = data.memberships.includes(community);
+                            btn.classList.toggle('joined', isJoined);
+                            btn.textContent = isJoined ? 'Joined' : 'Join';
+                        });
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load user memberships:', err);
+            }
+        }
+        
+        async function checkMembership(community) {
+            if (!anonymousUsername) return false;
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/forum?action=memberships&userUid=${encodeURIComponent(anonymousUsername)}`);
+                if (response.ok) {
+                    const data = await response.json();
+                    return data.success && data.memberships.includes(community);
+                }
+            } catch (err) {
+                console.error('Check membership error:', err);
+            }
+            return false;
+        }
 
-        // Community navigation
-        document.querySelectorAll('.community-card').forEach(card => {
-            card.addEventListener('click', (e) => {
-                if (e.target.classList.contains('join-btn')) return;
-                currentCommunity = card.dataset.community;
-                document.getElementById('community-title').textContent = 'c/' + currentCommunity;
-                showScreen('community-screen');
-                loadPosts();
-            });
-        });
-
+        // Initialize forum system
+        let forumAPI = null;
+        
         document.getElementById('community-back-btn')?.addEventListener('click', () => {
             showScreen('forum-screen');
         });
-
-        // Join/Leave communities
-        document.querySelectorAll('.join-btn').forEach(btn => {
-            btn.addEventListener('click', async (e) => {
-                e.stopPropagation();
-                const community = btn.dataset.community;
-                const isJoined = btn.classList.contains('joined');
-                
-                try {
-                    const response = await fetch(`${API_BASE}/api/forum/join`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({ community, action: isJoined ? 'leave' : 'join' })
-                    });
-                    
-                    if (response.ok) {
-                        btn.classList.toggle('joined');
-                        btn.textContent = isJoined ? 'Join' : 'Joined';
-                        loadCommunityStats();
-                    }
-                } catch (err) {
-                    console.log('Join/leave not available');
-                }
-            });
+        
+        document.getElementById('post-back-btn')?.addEventListener('click', () => {
+            showScreen('community-screen');
         });
 
-        // Posts functionality
-        async function loadPosts() {
-            try {
-                const response = await fetch(`${API_BASE}/api/forum/posts?community=${currentCommunity}`);
-                if (response.ok) {
-                    const posts = await response.json();
-                    displayPosts(posts);
-                } else {
-                    displayPosts([]);
-                }
-            } catch (err) {
-                displayPosts([]);
-            }
-        }
 
-        function displayPosts(posts) {
-            const container = document.getElementById('posts-container');
-            if (posts.length === 0) {
-                container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No posts yet. Be the first to post!</p>';
-                return;
-            }
-            
-            container.innerHTML = posts.map(post => {
-                const voteScore = (post.upvotes || 0) - (post.downvotes || 0);
-                return `
-                    <div class="post-card" data-post-id="${post.id}">
-                        <div class="post-header">
-                            <span class="post-author">${post.author_username}</span>
-                            <span class="post-time">${new Date(post.created_at).toLocaleDateString()}</span>
-                        </div>
-                        <h3 class="post-title">${post.title}</h3>
-                        <p class="post-content">${post.content.substring(0, 200)}${post.content.length > 200 ? '...' : ''}</p>
-                        <div class="post-actions">
-                            <div class="vote-buttons">
-                                <button class="vote-btn upvote" data-post-id="${post.id}" data-type="upvote">▲</button>
-                                <span class="vote-count">${voteScore}</span>
-                                <button class="vote-btn downvote" data-post-id="${post.id}" data-type="downvote">▼</button>
-                            </div>
-                            <span class="comment-count">${post.comment_count || 0} comments</span>
-                        </div>
-                    </div>
-                `;
-            }).join('');
-            
-            // Add click handlers
-            container.querySelectorAll('.post-card').forEach(card => {
-                card.addEventListener('click', (e) => {
-                    if (e.target.classList.contains('vote-btn')) return;
-                    const postId = card.dataset.postId;
-                    openPost(postId);
-                });
-            });
-            
-            container.querySelectorAll('.vote-btn').forEach(btn => {
-                btn.addEventListener('click', (e) => {
-                    e.stopPropagation();
-                    votePost(btn.dataset.postId, btn.dataset.type);
-                });
-            });
-        }
 
-        // Create post
-        document.getElementById('create-post-btn')?.addEventListener('click', () => {
-            document.getElementById('create-post-modal').classList.add('active');
-        });
 
-        document.getElementById('cancel-post-btn')?.addEventListener('click', () => {
-            document.getElementById('create-post-modal').classList.remove('active');
-            document.getElementById('post-title').value = '';
-            document.getElementById('post-content').value = '';
-        });
 
-        document.getElementById('submit-post-btn')?.addEventListener('click', async () => {
-            const title = document.getElementById('post-title').value.trim();
-            const content = document.getElementById('post-content').value.trim();
-            
-            if (!title || !content) {
-                alert('Please fill in both title and content');
-                return;
-            }
-            
-            if (!anonymousUsername) {
-                alert('Please refresh and try again.');
-                return;
-            }
-            
-            try {
-                const response = await fetch(`${API_BASE}/api/forum/posts`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        title,
-                        content,
-                        community: currentCommunity,
-                        authorUsername: anonymousUsername
-                    })
-                });
-                
-                if (response.ok) {
-                    document.getElementById('create-post-modal').classList.remove('active');
-                    document.getElementById('post-title').value = '';
-                    document.getElementById('post-content').value = '';
-                    loadPosts();
-                    // No aura for posting - only for getting upvotes
-                }
-            } catch (err) {
-                console.log('Post creation not available');
-            }
-        });
 
+        
         // Post detail view
         async function openPost(postId) {
             try {
-                const response = await fetch(`${API_BASE}/api/forum/posts?postId=${postId}`);
+                const response = await fetch(`${API_BASE}/api/forum?action=posts&postId=${postId}&userUid=${anonymousUsername}`);
                 if (response.ok) {
                     currentPost = await response.json();
                     displayPostDetail();
@@ -2998,40 +3379,54 @@ document.addEventListener('DOMContentLoaded', () => {
             if (!currentPost) return;
             
             const voteScore = (currentPost.upvotes || 0) - (currentPost.downvotes || 0);
+            const isOwnPost = currentPost.author_uid === anonymousUsername;
+            const isAdmin = anonymousUsername === 'u/kklt3o' || anonymousUsername === 'admin@chetana.com' || anonymousUsername === 'admin';
+            const canDelete = isOwnPost || isAdmin;
+            const voteButtonsDisabled = isOwnPost ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : '';
+            const isPinned = currentPost.pinned;
+            
+            // Check user's vote state
+            const userVote = currentPost.user_vote;
+            const upvoteActive = userVote === 'upvote' ? 'active' : '';
+            const downvoteActive = userVote === 'downvote' ? 'active' : '';
             
             document.getElementById('post-detail').innerHTML = `
-                <div class="post-card">
+                <div class="post-card ${isPinned ? 'pinned-post' : ''}">
                     <div class="post-header">
-                        <span class="post-author">${currentPost.author_username}</span>
+                        <span class="post-author">${currentPost.author_uid}</span>
                         <span class="post-time">${new Date(currentPost.created_at).toLocaleDateString()}</span>
+                        ${isPinned ? '<span class="pin-badge">📌 Pinned</span>' : ''}
+                        ${canDelete ? `<button class="delete-btn" data-post-id="${currentPost.id}" data-type="post">🗑️ Delete Post</button>` : ''}
                     </div>
                     <h2 class="post-title">${currentPost.title}</h2>
                     <p class="post-content">${currentPost.content}</p>
                     <div class="post-actions">
                         <div class="vote-buttons">
-                            <button class="vote-btn upvote" data-post-id="${currentPost.id}" data-type="upvote">▲</button>
+                            <button class="vote-btn upvote ${upvoteActive}" data-post-id="${currentPost.id}" data-type="upvote" ${voteButtonsDisabled}>▲</button>
                             <span class="vote-count">${voteScore}</span>
-                            <button class="vote-btn downvote" data-post-id="${currentPost.id}" data-type="downvote">▼</button>
+                            <button class="vote-btn downvote ${downvoteActive}" data-post-id="${currentPost.id}" data-type="downvote" ${voteButtonsDisabled}>▼</button>
                         </div>
                     </div>
                 </div>
             `;
             
-            document.querySelectorAll('#post-detail .vote-btn').forEach(btn => {
+            document.querySelectorAll('#post-detail .vote-btn:not([disabled])').forEach(btn => {
                 btn.addEventListener('click', () => {
                     votePost(btn.dataset.postId, btn.dataset.type);
                 });
             });
+            
+            document.querySelectorAll('#post-detail .delete-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    deleteContent(btn.dataset.type, btn.dataset.postId);
+                });
+            });
         }
-
-        document.getElementById('post-back-btn')?.addEventListener('click', () => {
-            showScreen('community-screen');
-        });
 
         // Comments
         async function loadComments(postId) {
             try {
-                const response = await fetch(`${API_BASE}/api/forum/comments?postId=${postId}`);
+                const response = await fetch(`${API_BASE}/api/forum?action=comments&postId=${postId}&userUid=${anonymousUsername}`);
                 if (response.ok) {
                     const comments = await response.json();
                     displayComments(comments);
@@ -3052,18 +3447,31 @@ document.addEventListener('DOMContentLoaded', () => {
             
             container.innerHTML = comments.map(comment => {
                 const voteScore = (comment.upvotes || 0) - (comment.downvotes || 0);
+                const isOwnComment = comment.author_uid === anonymousUsername;
+                const isAdmin = anonymousUsername === 'u/kklt3o' || anonymousUsername === 'admin@chetana.com' || anonymousUsername === 'admin';
+                const canDelete = isOwnComment || isAdmin;
+                const voteButtonsDisabled = isOwnComment ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : '';
+                const isPinned = comment.pinned;
+                
+                // Check user's vote state
+                const userVote = comment.user_vote;
+                const upvoteActive = userVote === 'upvote' ? 'active' : '';
+                const downvoteActive = userVote === 'downvote' ? 'active' : '';
+                
                 return `
-                    <div class="comment ${comment.parent_id ? 'reply' : ''}">
+                    <div class="comment ${comment.parent_id ? 'reply' : ''} ${isPinned ? 'pinned-comment' : ''}">
                         <div class="comment-header">
-                            <span class="comment-author">${comment.author_username}</span>
+                            <span class="comment-author">${comment.author_uid}</span>
                             <span class="comment-time">${new Date(comment.created_at).toLocaleDateString()}</span>
+                            ${isPinned ? '<span class="pin-badge">📌 Pinned</span>' : ''}
+                            ${canDelete ? `<button class="delete-btn" data-comment-id="${comment.id}" data-type="comment">🗑️</button>` : ''}
                         </div>
                         <p class="comment-content">${comment.content}</p>
                         <div class="comment-actions">
                             <div class="vote-buttons">
-                                <button class="vote-btn upvote" data-comment-id="${comment.id}" data-type="upvote">▲</button>
+                                <button class="vote-btn upvote ${upvoteActive}" data-comment-id="${comment.id}" data-type="upvote" ${voteButtonsDisabled}>▲</button>
                                 <span class="vote-count">${voteScore}</span>
-                                <button class="vote-btn downvote" data-comment-id="${comment.id}" data-type="downvote">▼</button>
+                                <button class="vote-btn downvote ${downvoteActive}" data-comment-id="${comment.id}" data-type="downvote" ${voteButtonsDisabled}>▼</button>
                             </div>
                             <button class="reply-btn" data-comment-id="${comment.id}">Reply</button>
                         </div>
@@ -3071,118 +3479,771 @@ document.addEventListener('DOMContentLoaded', () => {
                 `;
             }).join('');
             
-            container.querySelectorAll('.vote-btn').forEach(btn => {
+            container.querySelectorAll('.vote-btn:not([disabled])').forEach(btn => {
                 btn.addEventListener('click', () => {
                     voteComment(btn.dataset.commentId, btn.dataset.type);
                 });
             });
+            
+            container.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    deleteContent(btn.dataset.type, btn.dataset.commentId);
+                });
+            });
         }
 
-        document.getElementById('submit-comment-btn')?.addEventListener('click', async () => {
-            const content = document.getElementById('comment-input').value.trim();
-            if (!content || !currentPost || !anonymousUsername) return;
-            
-            try {
-                const response = await fetch(`${API_BASE}/api/forum/comments`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        content,
-                        postId: currentPost.id,
-                        authorUsername: anonymousUsername
-                    })
-                });
-                
-                if (response.ok) {
-                    document.getElementById('comment-input').value = '';
-                    loadComments(currentPost.id);
-                    // No aura for commenting - only for getting upvotes
-                }
-            } catch (err) {
-                console.log('Comment creation not available');
-            }
-        });
-
+        const userVotes = {}; // Track user votes: {postId: 'upvote'|'downvote'|null}
+        
         async function votePost(postId, voteType) {
-            if (!anonymousUsername) return;
-            
-            try {
-                const response = await fetch(`${API_BASE}/api/forum/vote`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ 
-                        postId, 
-                        voteType, 
-                        voterUsername: anonymousUsername 
-                    })
-                });
-                
-                if (response.ok) {
-                    const result = await response.json();
-                    if (result.success) {
-                        // Update aura display
-                        await updateUserAura();
-                        
-                        // Refresh posts and current post if viewing detail
-                        loadPosts();
-                        if (currentPost && currentPost.id == postId) {
-                            const updatedPostResponse = await fetch(`${API_BASE}/api/forum/posts?postId=${postId}`);
-                            if (updatedPostResponse.ok) {
-                                currentPost = await updatedPostResponse.json();
-                                displayPostDetail();
-                            }
-                        }
-                    }
-                }
-            } catch (err) {
-                console.log('Voting not available');
+            if (!anonymousUsername) {
+                alert('Please refresh the page and try again.');
+                return;
             }
+            
+            const currentVote = userVotes[`post-${postId}`];
+            const voteCountEl = document.querySelector(`[data-post-id="${postId}"] .vote-count`);
+            const upBtn = document.querySelector(`[data-post-id="${postId}"] .upvote`);
+            const downBtn = document.querySelector(`[data-post-id="${postId}"] .downvote`);
+            
+            let currentCount = parseInt(voteCountEl.textContent) || 0;
+            let newVote = null;
+            
+            if (currentVote === voteType) {
+                // Remove vote if clicking same button
+                currentCount += voteType === 'upvote' ? -1 : 1;
+                newVote = null;
+            } else {
+                // Add new vote or switch vote
+                if (currentVote) {
+                    // Switch from opposite vote
+                    currentCount += voteType === 'upvote' ? 2 : -2;
+                } else {
+                    // First vote
+                    currentCount += voteType === 'upvote' ? 1 : -1;
+                }
+                newVote = voteType;
+            }
+            
+            // Update UI
+            voteCountEl.textContent = currentCount;
+            userVotes[`post-${postId}`] = newVote;
+            
+            // Update button states
+            upBtn.classList.toggle('active', newVote === 'upvote');
+            downBtn.classList.toggle('active', newVote === 'downvote');
+            
+            // Send to server in background
+            fetch(`${API_BASE}/api/forum?action=vote`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    postId: parseInt(postId), 
+                    voteType, 
+                    voterUid: anonymousUsername 
+                })
+            }).catch(() => {});
         }
 
         async function voteComment(commentId, voteType) {
-            if (!anonymousUsername) return;
+            if (!anonymousUsername) {
+                alert('Please refresh the page and try again.');
+                return;
+            }
+            
+            const currentVote = userVotes[`comment-${commentId}`];
+            const voteCountEl = document.querySelector(`[data-comment-id="${commentId}"] .vote-count`);
+            const upBtn = document.querySelector(`[data-comment-id="${commentId}"] .upvote`);
+            const downBtn = document.querySelector(`[data-comment-id="${commentId}"] .downvote`);
+            
+            if (!voteCountEl || !upBtn || !downBtn) {
+                console.error('Vote elements not found for comment:', commentId);
+                return;
+            }
+            
+            let currentCount = parseInt(voteCountEl.textContent) || 0;
+            let newVote = null;
+            
+            if (currentVote === voteType) {
+                // Remove vote if clicking same button
+                currentCount += voteType === 'upvote' ? -1 : 1;
+                newVote = null;
+            } else {
+                // Add new vote or switch vote
+                if (currentVote) {
+                    // Switch from opposite vote
+                    currentCount += voteType === 'upvote' ? 2 : -2;
+                } else {
+                    // First vote
+                    currentCount += voteType === 'upvote' ? 1 : -1;
+                }
+                newVote = voteType;
+            }
+            
+            // Update UI
+            voteCountEl.textContent = currentCount;
+            userVotes[`comment-${commentId}`] = newVote;
+            
+            // Update button states
+            upBtn.classList.toggle('active', newVote === 'upvote');
+            downBtn.classList.toggle('active', newVote === 'downvote');
+            
+            // Send to server in background
+            fetch(`${API_BASE}/api/forum?action=vote`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    commentId: parseInt(commentId), 
+                    voteType, 
+                    voterUid: anonymousUsername 
+                })
+            }).catch(() => {});
+        }
+        
+        async function deleteContent(type, id) {
+            if (!confirm(`Are you sure you want to delete this ${type}? This action cannot be undone.`)) {
+                return;
+            }
+            
+            if (!anonymousUsername) {
+                alert('Please refresh the page and try again.');
+                return;
+            }
             
             try {
-                const response = await fetch(`${API_BASE}/api/forum/vote`, {
-                    method: 'POST',
+                const response = await fetch(`${API_BASE}/api/forum?action=delete-content`, {
+                    method: 'DELETE',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({ 
-                        commentId, 
-                        voteType, 
-                        voterUsername: anonymousUsername 
+                        type, 
+                        id: parseInt(id), 
+                        authorUid: anonymousUsername 
                     })
                 });
                 
                 if (response.ok) {
                     const result = await response.json();
                     if (result.success) {
-                        // Update aura display
-                        await updateUserAura();
+                        alert(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully!`);
                         
-                        // Refresh comments
-                        loadComments(currentPost.id);
+                        if (type === 'post') {
+                            // If we're viewing the post detail, go back to community
+                            if (currentPost && currentPost.id == id) {
+                                showScreen('community-screen');
+                                loadPosts();
+                            } else {
+                                loadPosts();
+                            }
+                        } else if (type === 'comment') {
+                            // Refresh comments
+                            if (currentPost) {
+                                loadComments(currentPost.id);
+                            }
+                        }
+                    } else {
+                        alert(result.error || `Failed to delete ${type}`);
                     }
+                } else {
+                    const errorText = await response.text();
+                    console.error(`Delete ${type} request failed:`, response.status, errorText);
+                    alert(`Failed to delete ${type}. Please try again.`);
                 }
             } catch (err) {
-                console.log('Comment voting not available');
+                console.error(`Delete ${type} error:`, err);
+                alert('Network error. Please check your connection and try again.');
             }
+        }
+
+        // Initialize join buttons when forum loads
+        setTimeout(() => {
+            if (typeof loadUserMemberships === 'function') {
+                loadUserMemberships();
+            }
+        }, 100);
+
+        // Posts functionality
+        async function loadPosts() {
+            try {
+                const response = await fetch(`${API_BASE}/api/forum?action=posts&community=${currentCommunity}&userUid=${anonymousUsername}`);
+                if (response.ok) {
+                    const posts = await response.json();
+                    displayPosts(posts);
+                } else {
+                    displayPosts([]);
+                }
+            } catch (err) {
+                displayPosts([]);
+            }
+        }
+
+        function displayPosts(posts) {
+            const container = document.getElementById('posts-container');
+            if (posts.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No posts yet. Be the first to post!</p>';
+                return;
+            }
+            
+            container.innerHTML = posts.map(post => {
+                const voteScore = (post.upvotes || 0) - (post.downvotes || 0);
+                const isOwnPost = post.author_uid === anonymousUsername;
+                const isAdmin = anonymousUsername === 'u/kklt3o' || anonymousUsername === 'admin@chetana.com' || anonymousUsername === 'admin';
+                const canDelete = isOwnPost || isAdmin;
+                const voteButtonsDisabled = isOwnPost ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : '';
+                const isPinned = post.pinned;
+                
+                // Check user's vote state
+                const userVote = post.user_vote;
+                const upvoteActive = userVote === 'upvote' ? 'active' : '';
+                const downvoteActive = userVote === 'downvote' ? 'active' : '';
+                
+                // Ensure comment count is properly displayed
+                const commentCount = parseInt(post.comment_count) || 0;
+                console.log(`Post ${post.id} comment count:`, commentCount, 'from data:', post.comment_count);
+                
+                return `
+                    <div class="post-card ${isPinned ? 'pinned-post' : ''}" data-post-id="${post.id}">
+                        <div class="post-header">
+                            <span class="post-author">${post.author_uid}</span>
+                            <span class="post-time">${new Date(post.created_at).toLocaleDateString()}</span>
+                            ${isPinned ? '<span class="pin-badge">📌 Pinned</span>' : ''}
+                            ${canDelete ? `<button class="delete-btn" data-post-id="${post.id}" data-type="post">🗑️</button>` : ''}
+                        </div>
+                        <h3 class="post-title">${post.title}</h3>
+                        <p class="post-content">${post.content.substring(0, 200)}${post.content.length > 200 ? '...' : ''}</p>
+                        <div class="post-actions">
+                            <div class="vote-buttons">
+                                <button class="vote-btn upvote ${upvoteActive}" data-post-id="${post.id}" data-type="upvote" ${voteButtonsDisabled}>▲</button>
+                                <span class="vote-count">${voteScore}</span>
+                                <button class="vote-btn downvote ${downvoteActive}" data-post-id="${post.id}" data-type="downvote" ${voteButtonsDisabled}>▼</button>
+                            </div>
+                            <span class="comment-count">${commentCount} comments</span>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            // Add click handlers
+            container.querySelectorAll('.post-card').forEach(card => {
+                card.addEventListener('click', (e) => {
+                    if (e.target.classList.contains('vote-btn') || e.target.classList.contains('delete-btn')) return;
+                    const postId = card.dataset.postId;
+                    openPost(postId);
+                });
+            });
+            
+            container.querySelectorAll('.vote-btn:not([disabled])').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    votePost(btn.dataset.postId, btn.dataset.type);
+                });
+            });
+            
+            container.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', (e) => {
+                    e.stopPropagation();
+                    deleteContent(btn.dataset.type, btn.dataset.postId);
+                });
+            });
+        }
+
+        // Create post
+        document.getElementById('create-post-btn')?.addEventListener('click', () => {
+            document.getElementById('create-post-modal').classList.add('active');
+        });
+
+        document.getElementById('cancel-post-btn')?.addEventListener('click', () => {
+            document.getElementById('create-post-modal').classList.remove('active');
+            document.getElementById('post-title').value = '';
+            document.getElementById('post-content').value = '';
+        });
+        
+        // Report modal handlers
+        document.getElementById('submit-report-btn')?.addEventListener('click', async () => {
+            const selectedReason = document.querySelector('input[name="report-reason"]:checked');
+            const details = document.getElementById('report-details').value.trim();
+            
+            if (!selectedReason) {
+                alert('Please select a reason for reporting.');
+                return;
+            }
+            
+            let reason = selectedReason.value;
+            if (reason === 'Other' && details) {
+                reason = details;
+            } else if (details) {
+                reason += ': ' + details;
+            }
+            
+            if (reason.length < 5) {
+                alert('Please provide a reason with at least 5 characters.');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/forum?action=report`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        type: window.currentReportType,
+                        id: parseInt(window.currentReportId),
+                        reason,
+                        reporterUid: anonymousUsername
+                    })
+                });
+                
+                if (response.ok) {
+                    alert('Report submitted successfully!');
+                    document.getElementById('report-modal').classList.remove('active');
+                    document.querySelectorAll('input[name="report-reason"]').forEach(r => r.checked = false);
+                    document.getElementById('report-details').value = '';
+                } else {
+                    const errorData = await response.text();
+                    console.error('Report failed:', response.status, errorData);
+                    alert('Failed to submit report');
+                }
+            } catch (err) {
+                console.error('Report error:', err);
+                alert('Error submitting report');
+            }
+        });
+        
+        document.getElementById('cancel-report-btn')?.addEventListener('click', () => {
+            document.getElementById('report-modal').classList.remove('active');
+            document.querySelectorAll('input[name="report-reason"]').forEach(r => r.checked = false);
+            document.getElementById('report-details').value = '';
+        });
+        
+        // Community rules modal handlers
+        document.getElementById('rules-agreement-checkbox')?.addEventListener('change', (e) => {
+            const agreeBtn = document.getElementById('agree-rules-btn');
+            if (agreeBtn) {
+                agreeBtn.disabled = !e.target.checked;
+            }
+        });
+        
+        document.getElementById('agree-rules-btn')?.addEventListener('click', () => {
+            const community = document.getElementById('community-rules-title').textContent.replace('c/', '').replace(' Community Rules', '');
+            localStorage.setItem(`rules_agreed_${community}_${anonymousUsername}`, 'true');
+            document.getElementById('community-rules-modal').classList.remove('active');
+            document.getElementById('rules-agreement-checkbox').checked = false;
+            document.getElementById('agree-rules-btn').disabled = true;
+        });
+        
+        document.getElementById('cancel-rules-btn')?.addEventListener('click', () => {
+            document.getElementById('community-rules-modal').classList.remove('active');
+            document.getElementById('rules-agreement-checkbox').checked = false;
+            document.getElementById('agree-rules-btn').disabled = true;
+        });
+
+
+
+        // Post detail view
+        async function openPost(postId) {
+            try {
+                const response = await fetch(`${API_BASE}/api/forum?action=posts&postId=${postId}&userUid=${anonymousUsername}`);
+                if (response.ok) {
+                    currentPost = await response.json();
+                    displayPostDetail();
+                    loadComments(postId);
+                    showScreen('post-screen');
+                }
+            } catch (err) {
+                console.log('Post detail not available');
+            }
+        }
+
+        function displayPostDetail() {
+            if (!currentPost) return;
+            
+            const voteScore = (currentPost.upvotes || 0) - (currentPost.downvotes || 0);
+            const isOwnPost = currentPost.author_uid === anonymousUsername;
+            const isAdmin = anonymousUsername === 'u/kklt3o' || anonymousUsername === 'admin@chetana.com' || anonymousUsername === 'admin';
+            const canDelete = isOwnPost || isAdmin;
+            const voteButtonsDisabled = isOwnPost ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : '';
+            const isPinned = currentPost.pinned;
+            
+            // Check user's vote state
+            const userVote = currentPost.user_vote;
+            const upvoteActive = userVote === 'upvote' ? 'active' : '';
+            const downvoteActive = userVote === 'downvote' ? 'active' : '';
+            
+            document.getElementById('post-detail').innerHTML = `
+                <div class="post-card ${isPinned ? 'pinned-post' : ''}">
+                    <div class="post-header">
+                        <span class="post-author">${currentPost.author_uid}</span>
+                        <span class="post-time">${new Date(currentPost.created_at).toLocaleDateString()}</span>
+                        ${isPinned ? '<span class="pin-badge">📌 Pinned</span>' : ''}
+                        ${canDelete ? `<button class="delete-btn" data-post-id="${currentPost.id}" data-type="post">🗑️ Delete Post</button>` : ''}
+                    </div>
+                    <h2 class="post-title">${currentPost.title}</h2>
+                    <p class="post-content">${currentPost.content}</p>
+                    <div class="post-actions">
+                        <div class="vote-buttons">
+                            <button class="vote-btn upvote ${upvoteActive}" data-post-id="${currentPost.id}" data-type="upvote" ${voteButtonsDisabled}>▲</button>
+                            <span class="vote-count">${voteScore}</span>
+                            <button class="vote-btn downvote ${downvoteActive}" data-post-id="${currentPost.id}" data-type="downvote" ${voteButtonsDisabled}>▼</button>
+                        </div>
+                    </div>
+                </div>
+            `;
+            
+            document.querySelectorAll('#post-detail .vote-btn:not([disabled])').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    votePost(btn.dataset.postId, btn.dataset.type);
+                });
+            });
+            
+            document.querySelectorAll('#post-detail .delete-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    deleteContent(btn.dataset.type, btn.dataset.postId);
+                });
+            });
+        }
+
+        document.getElementById('post-back-btn')?.addEventListener('click', () => {
+            showScreen('community-screen');
+        });
+
+        // Comments
+        async function loadComments(postId) {
+            try {
+                const response = await fetch(`${API_BASE}/api/forum?action=comments&postId=${postId}&userUid=${anonymousUsername}`);
+                if (response.ok) {
+                    const comments = await response.json();
+                    displayComments(comments);
+                } else {
+                    displayComments([]);
+                }
+            } catch (err) {
+                displayComments([]);
+            }
+        }
+
+        function displayComments(comments) {
+            const container = document.getElementById('comments-container');
+            if (comments.length === 0) {
+                container.innerHTML = '<p style="text-align: center; color: var(--text-secondary);">No comments yet. Be the first to comment!</p>';
+                return;
+            }
+            
+            container.innerHTML = comments.map(comment => {
+                const voteScore = (comment.upvotes || 0) - (comment.downvotes || 0);
+                const isOwnComment = comment.author_uid === anonymousUsername;
+                const isAdmin = anonymousUsername === 'u/kklt3o' || anonymousUsername === 'admin@chetana.com' || anonymousUsername === 'admin';
+                const canDelete = isOwnComment || isAdmin;
+                const voteButtonsDisabled = isOwnComment ? 'disabled style="opacity: 0.5; cursor: not-allowed;"' : '';
+                const isPinned = comment.pinned;
+                
+                // Check user's vote state
+                const userVote = comment.user_vote;
+                const upvoteActive = userVote === 'upvote' ? 'active' : '';
+                const downvoteActive = userVote === 'downvote' ? 'active' : '';
+                
+                return `
+                    <div class="comment ${comment.parent_id ? 'reply' : ''} ${isPinned ? 'pinned-comment' : ''}">
+                        <div class="comment-header">
+                            <span class="comment-author">${comment.author_uid}</span>
+                            <span class="comment-time">${new Date(comment.created_at).toLocaleDateString()}</span>
+                            ${isPinned ? '<span class="pin-badge">📌 Pinned</span>' : ''}
+                            ${canDelete ? `<button class="delete-btn" data-comment-id="${comment.id}" data-type="comment">🗑️</button>` : ''}
+                        </div>
+                        <p class="comment-content">${comment.content}</p>
+                        <div class="comment-actions">
+                            <div class="vote-buttons">
+                                <button class="vote-btn upvote ${upvoteActive}" data-comment-id="${comment.id}" data-type="upvote" ${voteButtonsDisabled}>▲</button>
+                                <span class="vote-count">${voteScore}</span>
+                                <button class="vote-btn downvote ${downvoteActive}" data-comment-id="${comment.id}" data-type="downvote" ${voteButtonsDisabled}>▼</button>
+                            </div>
+                            <button class="reply-btn" data-comment-id="${comment.id}">Reply</button>
+                        </div>
+                    </div>
+                `;
+            }).join('');
+            
+            container.querySelectorAll('.vote-btn:not([disabled])').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    voteComment(btn.dataset.commentId, btn.dataset.type);
+                });
+            });
+            
+            container.querySelectorAll('.delete-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    deleteContent(btn.dataset.type, btn.dataset.commentId);
+                });
+            });
+        }
+
+
+
+        document.getElementById('post-back-btn')?.addEventListener('click', () => {
+            showScreen('community-screen');
+        });
+
+        // Rate limiting removed for direct API access
+        
+        // Reply to comment function
+        window.replyToComment = function(commentId) {
+            const replyInput = document.getElementById('comment-input');
+            replyInput.focus();
+            replyInput.placeholder = `Replying to comment...`;
+            replyInput.dataset.replyTo = commentId;
+        };
+        
+        // Make deleteContent globally available
+        window.deleteContent = async function(type, id) {
+            if (!confirm(`Are you sure you want to delete this ${type}?`)) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/forum?action=delete-content`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ type, id: parseInt(id), authorUid: anonymousUsername })
+                });
+                
+                if (response.ok) {
+                    const result = await response.json();
+                    if (result.success) {
+                        alert(`${type} deleted successfully!`);
+                        if (type === 'post') {
+                            loadPosts();
+                        } else if (type === 'comment' && currentPost) {
+                            loadComments(currentPost.id);
+                        }
+                    } else {
+                        alert(result.error || `Failed to delete ${type}`);
+                    }
+                } else {
+                    alert(`Failed to delete ${type}`);
+                }
+            } catch (err) {
+                alert('Error deleting content');
+            }
+        };
+        
+        // Fix comment count and delete buttons in templates
+        function fixForumTemplates() {
+            // This will be called after DOM updates to fix any remaining issues
+            setTimeout(() => {
+                document.querySelectorAll('.comment-count').forEach(el => {
+                    if (el.textContent.includes('0 comments') && el.dataset.actualCount) {
+                        el.textContent = `${el.dataset.actualCount} comments`;
+                    }
+                });
+            }, 100);
+        }
+        
+        async function votePost(postId, voteType) {
+            if (!anonymousUsername) {
+                alert('Please refresh the page and try again.');
+                return;
+            }
+            
+            const currentVote = userVotes[`post-${postId}`];
+            const voteCountEl = document.querySelector(`[data-post-id="${postId}"] .vote-count`);
+            const upBtn = document.querySelector(`[data-post-id="${postId}"] .upvote`);
+            const downBtn = document.querySelector(`[data-post-id="${postId}"] .downvote`);
+            
+            let currentCount = parseInt(voteCountEl.textContent) || 0;
+            let newVote = null;
+            
+            if (currentVote === voteType) {
+                // Remove vote if clicking same button
+                currentCount += voteType === 'upvote' ? -1 : 1;
+                newVote = null;
+            } else {
+                // Add new vote or switch vote
+                if (currentVote) {
+                    // Switch from opposite vote
+                    currentCount += voteType === 'upvote' ? 2 : -2;
+                } else {
+                    // First vote
+                    currentCount += voteType === 'upvote' ? 1 : -1;
+                }
+                newVote = voteType;
+            }
+            
+            // Update UI
+            voteCountEl.textContent = currentCount;
+            userVotes[`post-${postId}`] = newVote;
+            
+            // Update button states
+            upBtn.classList.toggle('active', newVote === 'upvote');
+            downBtn.classList.toggle('active', newVote === 'downvote');
+            
+            // Send to server in background
+            fetch(`${API_BASE}/api/forum?action=vote`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    postId: parseInt(postId), 
+                    voteType, 
+                    voterUid: anonymousUsername 
+                })
+            }).catch(() => {});
+        }
+
+        async function voteComment(commentId, voteType) {
+            if (!anonymousUsername) {
+                alert('Please refresh the page and try again.');
+                return;
+            }
+            
+            const currentVote = userVotes[`comment-${commentId}`];
+            const voteCountEl = document.querySelector(`[data-comment-id="${commentId}"] .vote-count`);
+            const upBtn = document.querySelector(`[data-comment-id="${commentId}"] .upvote`);
+            const downBtn = document.querySelector(`[data-comment-id="${commentId}"] .downvote`);
+            
+            let currentCount = parseInt(voteCountEl.textContent) || 0;
+            let newVote = null;
+            
+            if (currentVote === voteType) {
+                // Remove vote if clicking same button
+                currentCount += voteType === 'upvote' ? -1 : 1;
+                newVote = null;
+            } else {
+                // Add new vote or switch vote
+                if (currentVote) {
+                    // Switch from opposite vote
+                    currentCount += voteType === 'upvote' ? 2 : -2;
+                } else {
+                    // First vote
+                    currentCount += voteType === 'upvote' ? 1 : -1;
+                }
+                newVote = voteType;
+            }
+            
+            // Update UI
+            voteCountEl.textContent = currentCount;
+            userVotes[`comment-${commentId}`] = newVote;
+            
+            // Update button states
+            upBtn.classList.toggle('active', newVote === 'upvote');
+            downBtn.classList.toggle('active', newVote === 'downvote');
+            
+            // Send to server in background
+            fetch(`${API_BASE}/api/forum?action=vote`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ 
+                    commentId: parseInt(commentId), 
+                    voteType, 
+                    voterUid: anonymousUsername 
+                })
+            }).catch(() => {});
         }
         
         async function updateUserAura() {
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            if (!currentUser || !currentUser.id) return;
+            // Disabled to prevent rate limiting
+            console.log('Aura update skipped to prevent rate limits');
+        }
+        
+        async function deleteContent(type, id) {
+            if (!confirm(`Are you sure you want to delete this ${type}? This action cannot be undone.`)) {
+                return;
+            }
+            
+            if (!anonymousUsername) {
+                alert('Please refresh the page and try again.');
+                return;
+            }
             
             try {
-                const response = await fetch(`${API_BASE}/api/forum/user?userId=${currentUser.id}`);
+                const response = await fetch(`${API_BASE}/api/forum?action=delete-content`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ 
+                        type, 
+                        id: parseInt(id), 
+                        authorUid: anonymousUsername 
+                    })
+                });
+                
                 if (response.ok) {
-                    const data = await response.json();
-                    if (data.success) {
-                        userAura = data.auraPoints;
-                        document.getElementById('user-aura').textContent = userAura + ' aura';
+                    const result = await response.json();
+                    if (result.success) {
+                        alert(`${type.charAt(0).toUpperCase() + type.slice(1)} deleted successfully!`);
+                        
+                        if (type === 'post') {
+                            // If we're viewing the post detail, go back to community
+                            if (currentPost && currentPost.id == id) {
+                                showScreen('community-screen');
+                                loadPosts();
+                            } else {
+                                loadPosts();
+                            }
+                        } else if (type === 'comment') {
+                            // Refresh comments
+                            if (currentPost) {
+                                loadComments(currentPost.id);
+                            }
+                        }
+                    } else {
+                        alert(result.error || `Failed to delete ${type}`);
                     }
+                } else {
+                    const errorText = await response.text();
+                    console.error(`Delete ${type} request failed:`, response.status, errorText);
+                    alert(`Failed to delete ${type}. Please try again.`);
                 }
             } catch (err) {
-                console.log('Failed to update aura display');
+                console.error(`Delete ${type} error:`, err);
+                alert('Network error. Please check your connection and try again.');
+            }
+        }
+        
+        // Reply to comment function
+        window.replyToComment = function(commentId) {
+            const replyInput = document.getElementById('comment-input');
+            replyInput.focus();
+            replyInput.placeholder = `Replying to comment...`;
+            replyInput.dataset.replyTo = commentId;
+        };
+        
+        // Create welcome posts for each community on first load
+        async function createWelcomePosts() {
+            if (anonymousUsername === 'u/kklt3o' || anonymousUsername === 'admin@chetana.com' || anonymousUsername === 'admin') {
+                const welcomePosts = [
+                    {
+                        community: 'depression',
+                        title: 'Welcome to c/depression - Community Guidelines',
+                        content: 'Welcome to our depression support community! This is a safe space for sharing experiences, offering support, and finding resources. Please be respectful, kind, and supportive to all members. Remember that this community is for peer support and should not replace professional medical advice.'
+                    },
+                    {
+                        community: 'anxiety',
+                        title: 'Welcome to c/anxiety - Community Guidelines', 
+                        content: 'Welcome to our anxiety support community! Here you can share your experiences with anxiety, learn coping strategies, and support others on their journey. Please maintain a supportive and understanding environment. If you are experiencing a panic attack or crisis, please seek immediate professional help.'
+                    },
+                    {
+                        community: 'stress',
+                        title: 'Welcome to c/stress - Community Guidelines',
+                        content: 'Welcome to our stress management community! This space is dedicated to sharing stress management techniques, discussing work-life balance, and supporting each other through challenging times. Please be respectful and constructive in your interactions.'
+                    }
+                ];
+                
+                for (const post of welcomePosts) {
+                    try {
+                        // Check if welcome post already exists
+                        const existingResponse = await fetch(`${API_BASE}/api/forum?action=posts&community=${post.community}`);
+                        if (existingResponse.ok) {
+                            const existingPosts = await existingResponse.json();
+                            const hasWelcomePost = existingPosts.some(p => p.title.includes('Welcome') && p.title.includes('Guidelines'));
+                            
+                            if (!hasWelcomePost) {
+                                await fetch(`${API_BASE}/api/forum?action=posts`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        title: post.title,
+                                        content: post.content,
+                                        community: post.community,
+                                        authorUid: anonymousUsername
+                                    })
+                                });
+                            }
+                        }
+                    } catch (err) {
+                        console.log('Failed to create welcome post for', post.community);
+                    }
+                }
             }
         }
         document.getElementById('limit-modal-login-btn')?.addEventListener('click', () => { 
@@ -3190,6 +4251,156 @@ document.addEventListener('DOMContentLoaded', () => {
             showScreen('login-screen'); 
         });
         document.getElementById('limit-modal-close-btn')?.addEventListener('click', hideModals);
+        
+        // Data Privacy screen event listeners
+        document.getElementById('data-privacy-btn')?.addEventListener('click', () => {
+            loadDataPrivacyInfo();
+            showScreen('data-privacy-screen');
+        });
+        document.getElementById('data-privacy-back-btn')?.addEventListener('click', () => showScreen('profile-screen'));
+        
+        // Export data button event listener
+        document.getElementById('export-data-btn')?.addEventListener('click', () => {
+            showModal('export-modal');
+        });
+        
+        // Delete account button event listener
+        document.getElementById('delete-account-btn')?.addEventListener('click', () => {
+            showModal('delete-account-modal');
+        });
+        
+        // Privacy policy link in permissions modal
+        document.getElementById('privacy-policy-link')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            showScreen('privacy-policy-screen');
+        });
+        
+        // Privacy consent checkbox handler
+        document.getElementById('privacy-consent')?.addEventListener('change', (e) => {
+            const grantBtn = document.getElementById('grant-permissions-btn');
+            if (grantBtn) {
+                grantBtn.disabled = !e.target.checked;
+            }
+        });
+        
+        // Grant permissions button
+        document.getElementById('grant-permissions-btn')?.addEventListener('click', () => {
+            const privacyConsent = document.getElementById('privacy-consent');
+            if (privacyConsent && privacyConsent.checked) {
+                hideModals();
+                showScreen('dashboard-screen');
+            } else {
+                alert('You must agree to the Privacy Policy to continue.');
+            }
+        });
+        
+        // Privacy policy back button - return to data privacy screen
+        document.getElementById('privacy-back-btn')?.addEventListener('click', () => {
+            showScreen('data-privacy-screen');
+        });
+        
+        // View privacy policy button in data privacy screen
+        document.getElementById('view-privacy-policy-btn')?.addEventListener('click', () => {
+            showScreen('privacy-policy-screen');
+        });
+        
+        // Export all data button in data privacy screen
+        document.getElementById('export-all-data-btn')?.addEventListener('click', () => {
+            showModal('export-modal');
+        });
+        document.getElementById('export-all-data-btn')?.addEventListener('click', () => {
+            showModal('export-modal');
+        });
+        document.getElementById('view-privacy-policy-btn')?.addEventListener('click', () => {
+            showScreen('privacy-policy-screen');
+        });
+        document.getElementById('privacy-back-btn')?.addEventListener('click', () => showScreen('data-privacy-screen'));
+        document.getElementById('delete-account-btn')?.addEventListener('click', () => {
+            showModal('delete-account-modal');
+        });
+        
+        // Privacy policy link in permissions modal - special handling
+        document.getElementById('privacy-policy-link')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            // Store current modal state
+            const permissionsModal = document.getElementById('permissions-modal');
+            permissionsModal.style.display = 'none';
+            
+            // Create a special privacy policy screen without home button
+            const privacyScreen = document.getElementById('privacy-policy-screen');
+            const privacyHeader = privacyScreen.querySelector('.page-header');
+            const privacyContent = privacyScreen.querySelector('.page-content');
+            
+            // Replace header with special version
+            privacyHeader.innerHTML = `
+                <div class="header-side-panel"></div>
+                <h2 class="header-title">Privacy & Policy</h2>
+                <div class="header-controls">
+                    <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                </div>
+            `;
+            
+            // Add checkbox at the bottom of privacy content
+            const existingContent = privacyContent.innerHTML;
+            privacyContent.innerHTML = existingContent + `
+                <div class="privacy-consent" style="margin-top: 2rem; padding: 1rem; border: 2px solid var(--primary-color); border-radius: 8px; background: var(--surface);">
+                    <label class="permission-item privacy-item">
+                        <input type="checkbox" id="privacy-modal-consent" required>
+                        <span class="permission-icon">🔒</span>
+                        <div class="permission-text">
+                            <strong>I agree to the Privacy Policy & DPDP Act Compliance</strong>
+                            <small>Required to use the app and store your health data securely.</small>
+                        </div>
+                    </label>
+                    <button id="privacy-modal-continue-btn" class="btn btn--primary" disabled style="margin-top: 1rem;">Continue</button>
+                </div>
+            `;
+            
+            showScreen('privacy-policy-screen');
+            
+            // Handle the new checkbox and continue button
+            document.getElementById('privacy-modal-consent')?.addEventListener('change', (e) => {
+                const continueBtn = document.getElementById('privacy-modal-continue-btn');
+                if (continueBtn) {
+                    continueBtn.disabled = !e.target.checked;
+                }
+            });
+            
+            document.getElementById('privacy-modal-continue-btn')?.addEventListener('click', () => {
+                // Check the original privacy consent checkbox
+                const originalConsent = document.getElementById('privacy-consent');
+                if (originalConsent) {
+                    originalConsent.checked = true;
+                    // Enable the grant permissions button
+                    const grantBtn = document.getElementById('grant-permissions-btn');
+                    if (grantBtn) {
+                        grantBtn.disabled = false;
+                    }
+                }
+                
+                // Return to dashboard and show permissions modal
+                showScreen('dashboard-screen');
+                permissionsModal.style.display = 'flex';
+                
+                // Restore original privacy screen content
+                privacyHeader.innerHTML = `
+                    <div class="header-side-panel"><button id="privacy-back-btn" class="back-btn">🏠</button></div>
+                    <h2 class="header-title">Privacy & Policy</h2>
+                    <div class="header-controls">
+                        <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                    </div>
+                `;
+                privacyContent.innerHTML = existingContent;
+            });
+        });
+        
+        // Privacy consent checkbox handler
+        document.getElementById('privacy-consent')?.addEventListener('change', (e) => {
+            const grantBtn = document.getElementById('grant-permissions-btn');
+            if (grantBtn) {
+                grantBtn.disabled = !e.target.checked;
+            }
+        });
         document.getElementById('grant-permissions-btn')?.addEventListener('click', async () => {
             console.log('Permissions granted:', {
                 location: document.getElementById('location-permission').checked,
@@ -3205,7 +4416,12 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (typeof renderMilestones === 'function') await renderMilestones();
             }, 200);
         });
-        document.getElementById('skip-permissions-btn')?.addEventListener('click', async () => { 
+        document.getElementById('skip-permissions-btn')?.addEventListener('click', async () => {
+            const privacyConsent = document.getElementById('privacy-consent');
+            if (!privacyConsent || !privacyConsent.checked) {
+                alert('You must agree to the Privacy Policy to continue.');
+                return;
+            }
             console.log('Permissions skipped.'); 
             hideModals(); 
             showScreen('dashboard-screen');
@@ -3220,8 +4436,12 @@ document.addEventListener('DOMContentLoaded', () => {
         // Privacy policy consent checkbox validation
         document.getElementById('privacy-consent')?.addEventListener('change', (e) => {
             const grantBtn = document.getElementById('grant-permissions-btn');
+            const skipBtn = document.getElementById('skip-permissions-btn');
             if (grantBtn) {
                 grantBtn.disabled = !e.target.checked;
+            }
+            if (skipBtn) {
+                skipBtn.disabled = !e.target.checked;
             }
         });
         
@@ -3384,7 +4604,10 @@ document.addEventListener('DOMContentLoaded', () => {
             renderProgressChart(); 
             showScreen('progress-screen'); 
         });
-        document.getElementById('go-to-resources-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('go-to-resources-btn')?.addEventListener('click', () => {
+            showScreen('resources-screen');
+        });
+
         document.getElementById('resources-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
         
         // Wellness resource event listeners
@@ -3420,6 +4643,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('mindfulness-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
         document.getElementById('journal-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
         document.getElementById('relax-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+
+
         
         // Wellness functionality
         initWellnessFeatures();
@@ -3477,7 +4702,237 @@ document.addEventListener('DOMContentLoaded', () => {
                 alert('Please select an answer to continue.');
             }
         });
+        
+        // Forum join button event listeners
+        document.addEventListener('click', async (e) => {
+            if (e.target.classList.contains('join-btn')) {
+                const community = e.target.dataset.community;
+                const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+                
+                if (!currentUser) {
+                    alert('Please log in to join communities.');
+                    return;
+                }
+                
+                const isJoined = e.target.classList.contains('joined');
+                const action = isJoined ? 'leave' : 'join';
+                
+                // Disable button during request
+                e.target.disabled = true;
+                const originalText = e.target.textContent;
+                const originalClass = e.target.classList.contains('joined');
+                e.target.textContent = 'Loading...';
+                
+                try {
+                    const userResponse = await fetch(`/api/forum?action=user&userId=${currentUser.id}`);
+                    const userData = await userResponse.json();
+                    
+                    if (!userData.success) {
+                        alert('Failed to get user data');
+                        e.target.textContent = originalText;
+                        e.target.disabled = false;
+                        return;
+                    }
+                    
+                    const response = await fetch('/api/forum?action=join', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            community,
+                            userUid: userData.username,
+                            action
+                        })
+                    });
+                    
+                    const result = await response.json();
+                    
+                    if (response.ok && result.success) {
+                        // Update button state immediately and persistently
+                        if (action === 'join') {
+                            e.target.textContent = 'Joined';
+                            e.target.classList.add('joined');
+                        } else {
+                            e.target.textContent = 'Join';
+                            e.target.classList.remove('joined');
+                        }
+                        
+                        // Force reload memberships after a short delay to ensure server state is updated
+                        setTimeout(async () => {
+                            await loadCommunityMemberships();
+                        }, 500);
+                    } else {
+                        alert('Failed to update membership');
+                        e.target.textContent = originalText;
+                        if (originalClass) {
+                            e.target.classList.add('joined');
+                        } else {
+                            e.target.classList.remove('joined');
+                        }
+                    }
+                } catch (err) {
+                    console.error('Membership update error:', err);
+                    alert('Error updating membership');
+                    e.target.textContent = originalText;
+                    if (originalClass) {
+                        e.target.classList.add('joined');
+                    } else {
+                        e.target.classList.remove('joined');
+                    }
+                } finally {
+                    e.target.disabled = false;
+                }
+            }
+        });
+        
+        // Add missing event listeners for wellness resources
+        document.getElementById('go-to-resources-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('resources-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        document.getElementById('understanding-depression-btn')?.addEventListener('click', () => showScreen('understanding-depression-screen'));
+        document.getElementById('depression-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('behavioral-activation-btn')?.addEventListener('click', () => showScreen('behavioral-activation-screen'));
+        document.getElementById('behavioral-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('breathing-exercise-btn')?.addEventListener('click', () => showScreen('breathing-exercise-screen'));
+        document.getElementById('breathing-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('writing-journal-btn')?.addEventListener('click', () => showScreen('writing-journal-screen'));
+        document.getElementById('journal-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('mindfulness-meditation-btn')?.addEventListener('click', () => showScreen('mindfulness-meditation-screen'));
+        document.getElementById('mindfulness-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('relax-environment-btn')?.addEventListener('click', () => showScreen('relax-environment-screen'));
+        document.getElementById('relax-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        
+        // Assessment screen event listeners
+        document.getElementById('go-to-assessment-btn')?.addEventListener('click', startAssessment);
+        document.getElementById('assessment-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        document.getElementById('results-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        
+        // Assessment consent handling
+        document.getElementById('assessment-data-consent')?.addEventListener('change', (e) => {
+            const startBtn = document.getElementById('start-assessment-btn');
+            if (startBtn) {
+                startBtn.disabled = !e.target.checked;
+            }
+        });
+        
+        document.getElementById('start-assessment-btn')?.addEventListener('click', () => {
+            setupAllQuestions();
+            currentQuestionIndex = 0;
+            userAnswers = {};
+            document.getElementById('assessment-consent').style.display = 'none';
+            document.getElementById('assessment-content').style.display = 'block';
+            renderCurrentQuestion();
+        });
+        
+        // Delete account modal handlers
+        document.getElementById('delete-confirmation-checkbox')?.addEventListener('change', (e) => {
+            const confirmBtn = document.getElementById('confirm-delete-btn');
+            if (confirmBtn) {
+                confirmBtn.disabled = !e.target.checked;
+            }
+        });
+        
+        document.getElementById('cancel-delete-btn')?.addEventListener('click', hideModals);
+        document.getElementById('confirm-delete-btn')?.addEventListener('click', async () => {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (!currentUser || !currentUser.id) {
+                alert('Please log in to delete your account.');
+                return;
+            }
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/users/${currentUser.id}`, {
+                    method: 'DELETE',
+                    headers: { 'Content-Type': 'application/json' }
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    alert('Account deleted successfully. You will be logged out.');
+                    logout();
+                } else {
+                    alert('Failed to delete account: ' + (result.error || 'Unknown error'));
+                }
+            } catch (err) {
+                console.error('Delete account error:', err);
+                alert('Error deleting account. Please try again.');
+            }
+        });
     }
+    
+    // Make functions globally available
+    window.showScreen = showScreen;
+    window.showReportModal = function(type, id) {
+        window.currentReportType = type;
+        window.currentReportId = id;
+        document.getElementById('report-modal').classList.add('active');
+    };
+    
+    // Load community memberships when forum screen is shown
+    async function loadCommunityMemberships() {
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        if (!currentUser) return;
+        
+        try {
+            const userResponse = await fetch(`/api/forum?action=user&userId=${currentUser.id}`);
+            const userData = await userResponse.json();
+            
+            if (!userData.success) return;
+            
+            const membershipResponse = await fetch(`/api/forum?action=memberships&userUid=${encodeURIComponent(userData.username)}`);
+            const membershipData = await membershipResponse.json();
+            
+            if (membershipData.success) {
+                // Update button states based on actual memberships from server
+                document.querySelectorAll('.join-btn').forEach(btn => {
+                    const community = btn.dataset.community;
+                    const isJoined = membershipData.memberships.includes(community);
+                    
+                    // Only update if the state is different to avoid flickering
+                    const currentlyJoined = btn.classList.contains('joined');
+                    if (isJoined !== currentlyJoined) {
+                        if (isJoined) {
+                            btn.textContent = 'Joined';
+                            btn.classList.add('joined');
+                        } else {
+                            btn.textContent = 'Join';
+                            btn.classList.remove('joined');
+                        }
+                    }
+                });
+            }
+            
+            const statsResponse = await fetch('/api/forum?action=stats');
+            const statsData = await statsResponse.json();
+            
+            if (statsData.success) {
+                document.querySelectorAll('.community-card').forEach(card => {
+                    const community = card.dataset.community;
+                    const memberCountEl = card.querySelector('.member-count');
+                    if (memberCountEl && statsData.stats.communities[community] !== undefined) {
+                        memberCountEl.textContent = `${statsData.stats.communities[community]} members`;
+                    } else if (memberCountEl) {
+                        memberCountEl.textContent = '0 members';
+                    }
+                });
+            }
+        } catch (err) {
+            console.error('Failed to load community memberships:', err);
+        }
+    }
+    
+    const originalShowScreen = window.showScreen;
+    window.showScreen = function(screenId) {
+        originalShowScreen(screenId);
+        if (screenId === 'forum-screen') {
+            // Load memberships immediately and then again after a short delay to ensure accuracy
+            loadCommunityMemberships();
+            setTimeout(loadCommunityMemberships, 500);
+        }
+    };
+    
+    document.getElementById('go-to-forum-btn')?.addEventListener('click', () => {
+        // Load memberships when forum button is clicked
+        setTimeout(loadCommunityMemberships, 100);
+    });
     
     initializeApp();
 });

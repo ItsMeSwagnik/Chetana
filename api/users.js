@@ -57,7 +57,8 @@ export default async function handler(req, res) {
         const testUsers = {
             'demo@chetana.com': { id: 1, name: 'Demo User', password: 'demo123' },
             'test@test.com': { id: 2, name: 'Test User', password: '123456' },
-            'user@example.com': { id: 3, name: 'John Doe', password: 'password' }
+            'user@example.com': { id: 3, name: 'John Doe', password: 'password' },
+            'swagnikganguly2004@gmail.com': { id: 4, name: 'Swagnik', password: 'swagnik' }
         };
         
         const testUser = testUsers[email];
@@ -71,14 +72,18 @@ export default async function handler(req, res) {
         }
 
         try {
-            // Query database for user with matching email and password
+            console.log('DB URL exists:', !!process.env.DATABASE_URL);
+            
             const result = await pool.query(
                 'SELECT id, name, email FROM users WHERE email = $1 AND password = $2',
                 [email, password]
             );
             
+            console.log('Query executed. Rows found:', result.rows.length);
+            
             if (result.rows.length > 0) {
                 const user = result.rows[0];
+                console.log('User authenticated successfully');
                 return res.json({
                     success: true,
                     token: `token-${user.id}`,
@@ -86,7 +91,11 @@ export default async function handler(req, res) {
                 });
             }
         } catch (err) {
-            console.error('Database error:', err);
+            console.error('Database error details:', {
+                message: err.message,
+                code: err.code,
+                detail: err.detail
+            });
         }
         
         return res.status(401).json({ success: false, error: 'Invalid credentials' });

@@ -1,5 +1,9 @@
-// Simple in-memory user storage (for demo - use database in production)
-let users = [];
+import { Pool } from 'pg';
+
+const pool = new Pool({
+    connectionString: process.env.DATABASE_URL || process.env.POSTGRES_URL,
+    ssl: { rejectUnauthorized: false }
+});
 
 export default async function handler(req, res) {
     const { method } = req;
@@ -11,25 +15,25 @@ export default async function handler(req, res) {
             return res.status(400).json({ success: false, error: 'All fields are required' });
         }
 
-        // Check if user already exists
-        if (users.find(u => u.email === email)) {
-            return res.status(400).json({ success: false, error: 'Email already registered' });
-        }
+        try {
+            // Check if user already exists
+            const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
+            if (existingUser.rows.length > 0) {
+                return res.status(400).json({ success: false, error: 'Email already registered' });
+            }
 
-        // Create new user
-        const newUser = {
-            id: users.length + 1,
-            name,
-            email,
-            password, // In production, hash this
-            dob,
-            created_at: new Date().toISOString()
-        };
-        
-        users.push(newUser);
-        console.log('User registered:', email);
-        
-        return res.json({ success: true, message: 'Account created successfully' });
+            // Create new user
+            const result = await pool.query(
+                'INSERT INTO users (name, email, password, dob, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING id, name, email',
+                [name, email, password, dob]
+            );
+            
+            console.log('User registered:', email);
+            return res.json({ success: true, message: 'Account created successfully' });
+        } catch (err) {
+            console.error('Registration error:', err);
+            return res.status(500).json({ success: false, error: 'Registration failed' });
+        }
     }
 
     if (method === 'POST' && req.url?.includes('login')) {
@@ -49,26 +53,41 @@ export default async function handler(req, res) {
             });
         }
 
-        // Find registered user
-        const user = users.find(u => u.email === email && u.password === password);
-        
-        if (user) {
-            return res.json({
-                success: true,
-                token: `token-${user.id}`,
-                user: { id: user.id, name: user.name, email: user.email }
-            });
-        }
+        try {
+            // Find registered user in database
+            const result = await pool.query(
+                'SELECT id, name, email FROM users WHERE email = $1 AND password = $2',
+                [email, password]
+            );
+            
+            if (result.rows.length > 0) {
+                const user = result.rows[0];
+                return res.json({
+                    success: true,
+                    token: `token-${user.id}`,
+                    user: { id: user.id, name: user.name, email: user.email }
+                });
+            }
 
-        return res.status(401).json({ success: false, error: 'Invalid credentials' });
+            return res.status(401).json({ success: false, error: 'Invalid credentials' });
+        } catch (err) {
+            console.error('Login error:', err);
+            return res.status(500).json({ success: false, error: 'Login failed' });
+        }
     }
 
     if (method === 'GET' && req.url?.includes('admin')) {
-        return res.json({ 
-            success: true, 
-            users: users.filter(u => !u.isAdmin),
-            totalAssessments: 0 
-        });
+        try {
+            const result = await pool.query('SELECT id, name, email, dob, created_at FROM users ORDER BY created_at DESC');
+            return res.json({ 
+                success: true, 
+                users: result.rows,
+                totalAssessments: 0 
+            });
+        } catch (err) {
+            console.error('Admin query error:', err);
+            return res.json({ success: true, users: [], totalAssessments: 0 });
+        }
     }
 
     return res.status(404).json({ success: false, error: 'Endpoint not found' });

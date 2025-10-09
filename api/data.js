@@ -90,5 +90,75 @@ export default async function handler(req, res) {
         }
     }
 
+    if (dataType === 'journal') {
+        if (method === 'POST') {
+            let { userId, entryText, moodRating } = req.body;
+            if (userId === 'admin') {
+                const adminResult = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
+                userId = adminResult.rows.length > 0 ? adminResult.rows[0].id : 1;
+            }
+            try {
+                await pool.query(
+                    'INSERT INTO journal_entries (user_id, entry_text, mood_rating) VALUES ($1, $2, $3)',
+                    [userId, entryText, moodRating]
+                );
+                return res.json({ success: true, message: 'Journal entry saved' });
+            } catch (err) {
+                return res.status(500).json({ success: false, error: 'Failed to save journal entry' });
+            }
+        }
+        if (method === 'GET' && userId) {
+            let actualUserId = userId;
+            if (userId === 'admin') {
+                const adminResult = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
+                actualUserId = adminResult.rows.length > 0 ? adminResult.rows[0].id : 1;
+            }
+            try {
+                const result = await pool.query(
+                    'SELECT * FROM journal_entries WHERE user_id = $1 ORDER BY entry_date DESC, created_at DESC LIMIT 10',
+                    [actualUserId]
+                );
+                return res.json({ success: true, entries: result.rows });
+            } catch (err) {
+                return res.json({ success: true, entries: [] });
+            }
+        }
+    }
+
+    if (dataType === 'activities') {
+        if (method === 'POST') {
+            let { userId, dayName, activities } = req.body;
+            if (userId === 'admin') {
+                const adminResult = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
+                userId = adminResult.rows.length > 0 ? adminResult.rows[0].id : 1;
+            }
+            try {
+                await pool.query(
+                    'INSERT INTO activity_planner (user_id, day_name, activities) VALUES ($1, $2, $3) ON CONFLICT (user_id, day_name) DO UPDATE SET activities = $3, updated_at = CURRENT_TIMESTAMP',
+                    [userId, dayName, activities]
+                );
+                return res.json({ success: true, message: 'Activities saved' });
+            } catch (err) {
+                return res.status(500).json({ success: false, error: 'Failed to save activities' });
+            }
+        }
+        if (method === 'GET' && userId) {
+            let actualUserId = userId;
+            if (userId === 'admin') {
+                const adminResult = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
+                actualUserId = adminResult.rows.length > 0 ? adminResult.rows[0].id : 1;
+            }
+            try {
+                const result = await pool.query(
+                    'SELECT * FROM activity_planner WHERE user_id = $1',
+                    [actualUserId]
+                );
+                return res.json({ success: true, activities: result.rows });
+            } catch (err) {
+                return res.json({ success: true, activities: [] });
+            }
+        }
+    }
+
     return res.status(404).json({ success: false, error: 'Endpoint not found' });
 }

@@ -209,6 +209,9 @@ async function initDB() {
       
       await queryWithRetry(`CREATE TABLE IF NOT EXISTS milestones (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, milestone_id VARCHAR(50) NOT NULL, icon VARCHAR(10) NOT NULL, title VARCHAR(100) NOT NULL, description TEXT NOT NULL, achieved_date DATE NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, milestone_id))`);
       
+      await queryWithRetry(`CREATE TABLE IF NOT EXISTS journal_entries (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, entry_text TEXT NOT NULL, entry_date DATE DEFAULT CURRENT_DATE, mood_rating INTEGER CHECK (mood_rating >= 1 AND mood_rating <= 5), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+      
+      await queryWithRetry(`CREATE TABLE IF NOT EXISTS activity_planner (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, day_name VARCHAR(20) NOT NULL, activities TEXT[], created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, day_name))`);
       
       console.log('✅ Database tables initialized successfully');
       return;

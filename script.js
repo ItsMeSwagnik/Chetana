@@ -1849,14 +1849,33 @@
             });
         });
         
-        document.getElementById('save-entry')?.addEventListener('click', () => {
+        document.getElementById('save-entry')?.addEventListener('click', async () => {
             const text = document.getElementById('journal-text').value;
-            if (text.trim()) {
-                const entries = JSON.parse(localStorage.getItem('journalEntries') || '[]');
-                entries.unshift({ date: new Date().toLocaleDateString(), text });
-                localStorage.setItem('journalEntries', JSON.stringify(entries));
-                loadJournalEntries();
-                alert('Entry saved!');
+            const selectedMood = document.querySelector('.mood-btn.selected');
+            const moodRating = selectedMood ? parseInt(selectedMood.dataset.mood) : null;
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            
+            if (text.trim() && currentUser) {
+                try {
+                    const response = await fetch(`${API_BASE}/api/data?type=journal`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            userId: currentUser.id,
+                            entryText: text,
+                            moodRating: moodRating
+                        })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        document.getElementById('journal-text').value = '';
+                        document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+                        loadJournalEntries();
+                        alert('Entry saved!');
+                    }
+                } catch (err) {
+                    alert('Failed to save entry');
+                }
             }
         });
         
@@ -1872,18 +1891,27 @@
             });
         });
         
-        function loadJournalEntries() {
-            const entries = JSON.parse(localStorage.getItem('journalEntries') || '[]');
-            const list = document.getElementById('journal-entries-list');
-            list.innerHTML = entries.slice(0, 5).map((entry, index) => 
-                `<div class="journal-entry-item">
-                    <div class="entry-header">
-                        <div class="entry-date">${entry.date}</div>
-                        <button class="delete-entry-btn" data-entry-index="${index}">Delete</button>
-                    </div>
-                    <div class="entry-text">${entry.text.substring(0, 100)}...</div>
-                </div>`
-            ).join('');
+        async function loadJournalEntries() {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (!currentUser) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/data?type=journal&userId=${currentUser.id}`);
+                const data = await response.json();
+                const entries = data.entries || [];
+                const list = document.getElementById('journal-entries-list');
+                list.innerHTML = entries.map(entry => 
+                    `<div class="journal-entry-item">
+                        <div class="entry-header">
+                            <div class="entry-date">${new Date(entry.entry_date).toLocaleDateString()}</div>
+                            ${entry.mood_rating ? `<span class="entry-mood">${['😢','😔','😐','🙂','😊'][entry.mood_rating-1]}</span>` : ''}
+                        </div>
+                        <div class="entry-text">${entry.entry_text.substring(0, 100)}...</div>
+                    </div>`
+                ).join('');
+            } catch (err) {
+                console.error('Failed to load journal entries:', err);
+            }
         }
         
         window.deleteJournalEntry = function(index) {
@@ -2047,9 +2075,11 @@
         switchEnvironment('forest');
         
         // Save activity planner data
-        function saveActivityPlanner() {
-            const plannerData = {};
-            document.querySelectorAll('.day-column').forEach(dayCol => {
+        async function saveActivityPlanner() {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (!currentUser) return;
+            
+            document.querySelectorAll('.day-column').forEach(async dayCol => {
                 const day = dayCol.querySelector('h4').textContent;
                 const activities = [];
                 dayCol.querySelectorAll('.activity-slot').forEach(slot => {
@@ -2058,20 +2088,38 @@
                         activities.push(activity);
                     }
                 });
-                plannerData[day] = activities;
+                
+                try {
+                    await fetch(`${API_BASE}/api/data?type=activities`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            userId: currentUser.id,
+                            dayName: day,
+                            activities: activities
+                        })
+                    });
+                } catch (err) {
+                    console.error('Failed to save activities:', err);
+                }
             });
-            localStorage.setItem('activityPlanner', JSON.stringify(plannerData));
         }
         
         // Load activity planner data
-        function loadActivityPlanner() {
-            const saved = localStorage.getItem('activityPlanner');
-            if (saved) {
-                const plannerData = JSON.parse(saved);
+        async function loadActivityPlanner() {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (!currentUser) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/data?type=activities&userId=${currentUser.id}`);
+                const data = await response.json();
+                const activitiesData = data.activities || [];
+                
                 document.querySelectorAll('.day-column').forEach(dayCol => {
                     const day = dayCol.querySelector('h4').textContent;
                     const slots = dayCol.querySelectorAll('.activity-slot');
-                    const activities = plannerData[day] || [];
+                    const dayData = activitiesData.find(a => a.day_name === day);
+                    const activities = dayData ? dayData.activities : [];
                     
                     slots.forEach((slot, index) => {
                         if (activities[index]) {
@@ -2080,6 +2128,8 @@
                         }
                     });
                 });
+            } catch (err) {
+                console.error('Failed to load activities:', err);
             }
         }
         

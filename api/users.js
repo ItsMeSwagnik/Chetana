@@ -9,10 +9,34 @@ export default async function handler(req, res) {
     const { method, query } = req;
     const action = query.action;
     
+    // Add CORS headers
+    res.setHeader('Access-Control-Allow-Origin', '*');
+    res.setHeader('Access-Control-Allow-Methods', 'GET, POST, PUT, DELETE, OPTIONS');
+    res.setHeader('Access-Control-Allow-Headers', 'Content-Type, Authorization');
+    
+    if (method === 'OPTIONS') {
+        return res.status(200).end();
+    }
+    
+    // Parse JSON body if needed
+    let body = req.body;
+    if (typeof body === 'string') {
+        try {
+            body = JSON.parse(body);
+        } catch (e) {
+            console.error('Failed to parse JSON body:', e);
+        }
+    }
+    
+    console.log('API Request:', { method, action, url: req.url, body });
+    
     if (method === 'POST' && (action === 'login' || req.url?.includes('login'))) {
-        const { email, password } = req.body || {};
+        const { email, password } = body || {};
+        
+        console.log('Login attempt:', { email: email || 'missing', hasPassword: !!password });
         
         if (!email || !password) {
+            console.log('Missing credentials');
             return res.status(400).json({ success: false, error: 'Email and password required' });
         }
 
@@ -67,7 +91,7 @@ export default async function handler(req, res) {
     }
 
     if (method === 'POST' && (action === 'register' || req.url?.includes('register'))) {
-        const { name, email, password, dob } = req.body || {};
+        const { name, email, password, dob } = body || {};
         
         if (!name || !email || !password || !dob) {
             return res.status(400).json({ success: false, error: 'All fields are required' });

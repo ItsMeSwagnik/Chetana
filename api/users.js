@@ -6,9 +6,10 @@ const pool = new Pool({
 });
 
 export default async function handler(req, res) {
-    const { method } = req;
+    const { method, query } = req;
+    const action = query.action;
     
-    if (method === 'POST' && req.url?.includes('login')) {
+    if (method === 'POST' && (action === 'login' || req.url?.includes('login'))) {
         const { email, password } = req.body || {};
         
         if (!email || !password) {
@@ -65,7 +66,7 @@ export default async function handler(req, res) {
         }
     }
 
-    if (method === 'POST' && req.url?.includes('register')) {
+    if (method === 'POST' && (action === 'register' || req.url?.includes('register'))) {
         const { name, email, password, dob } = req.body || {};
         
         if (!name || !email || !password || !dob) {
@@ -86,7 +87,7 @@ export default async function handler(req, res) {
         }
     }
 
-    if (method === 'GET' && req.url?.includes('admin')) {
+    if (method === 'GET' && (action === 'admin' || req.url?.includes('admin'))) {
         try {
             const result = await pool.query('SELECT id, name, email, dob, created_at FROM users ORDER BY created_at DESC');
             return res.json({ success: true, users: result.rows, totalAssessments: 0 });

@@ -1,7 +1,7 @@
 // Simple session management without localStorage
 let currentSession = null;
 
-module.exports = (req, res) => {
+export default (req, res) => {
   const { method } = req;
 
   if (method === 'GET') {

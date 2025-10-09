@@ -1,5 +1,5 @@
-const { Pool } = require('pg');
-const validator = require('validator');
+import { Pool } from 'pg';
+import validator from 'validator';
 
 // Valid communities constant
 const VALID_COMMUNITIES = ['depression', 'anxiety', 'stress', 'general'];
@@ -43,7 +43,7 @@ const DB_CONFIG = {
   connectionTimeoutMillis: 10000
 };
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
   // Security headers
   res.setHeader('Access-Control-Allow-Origin', process.env.NODE_ENV === 'production' ? process.env.FRONTEND_URL || 'https://chetana.vercel.app' : '*');
   res.setHeader('Access-Control-Allow-Methods', 'GET, POST, OPTIONS, DELETE');

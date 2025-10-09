@@ -1,12 +1,19 @@
-const express = require('express');
-const cors = require('cors');
-const bcrypt = require('bcrypt');
-const jwt = require('jsonwebtoken');
-const { Pool } = require('pg');
-const rateLimit = require('express-rate-limit');
-const helmet = require('helmet');
-const validator = require('validator');
-require('dotenv').config();
+import express from 'express';
+import cors from 'cors';
+import bcrypt from 'bcrypt';
+import jwt from 'jsonwebtoken';
+import { Pool } from 'pg';
+import rateLimit from 'express-rate-limit';
+import helmet from 'helmet';
+import validator from 'validator';
+import dotenv from 'dotenv';
+import { fileURLToPath } from 'url';
+import { dirname } from 'path';
+
+const __filename = fileURLToPath(import.meta.url);
+const __dirname = dirname(__filename);
+
+dotenv.config();
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -272,6 +279,71 @@ app.get('/api/health', async (req, res) => {
 });
 
 // Routes
+app.all('/api/users', async (req, res) => {
+  const { action } = req.query;
+  
+  if (action === 'login' && req.method === 'POST') {
+    // Handle login directly here
+    try {
+      console.log('Login attempt:', { email: req.body.email, hasPassword: !!req.body.password });
+      const { email, password } = req.body;
+      
+      if (!email || !password) {
+        return res.status(400).json({ success: false, error: 'Email and password required' });
+      }
+      
+      // Admin login
+      if (email === 'admin@chetana.com' && password === 'admin123') {
+        return res.json({
+          success: true,
+          isAdmin: true,
+          token: 'admin-token',
+          user: { id: 1, name: 'Admin', email: 'admin@chetana.com', isAdmin: true }
+        });
+      }
+      
+      // Database login
+      const result = await queryWithRetry('SELECT * FROM users WHERE email = $1', [email]);
+      
+      if (result.rows.length === 0) {
+        return res.status(401).json({ success: false, error: 'Invalid credentials' });
+      }
+      
+      const user = result.rows[0];
+      const validPassword = await bcrypt.compare(password, user.password);
+      
+      if (!validPassword) {
+        return res.status(401).json({ success: false, error: 'Invalid credentials' });
+      }
+      
+      const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET);
+      res.json({ 
+        success: true, 
+        token, 
+        user: { id: user.id, name: user.name, email: user.email } 
+      });
+    } catch (err) {
+      console.error('Login error:', err);
+      res.status(500).json({ success: false, error: 'Login failed' });
+    }
+    return;
+  }
+  
+  if (action === 'register' && req.method === 'POST') {
+    // Redirect to register handler
+    req.url = '/api/register';
+    return app._router.handle(req, res);
+  }
+  
+  if (action === 'admin' && req.method === 'GET') {
+    // Redirect to admin handler
+    req.url = '/api/admin/users';
+    return app._router.handle(req, res);
+  }
+  
+  res.status(404).json({ success: false, error: 'Invalid action' });
+});
+
 app.post('/api/register', async (req, res) => {
   try {
     console.log('Registration attempt:', { email: req.body.email, hasPassword: !!req.body.password });
@@ -971,7 +1043,7 @@ app.post('/api/logout', (req, res) => {
 // Forum API - consolidated endpoint
 app.all('/api/forum', async (req, res) => {
   try {
-    const forumHandler = require('./api/forum.js');
+    const { default: forumHandler } = await import('./api/forum.js');
     return await forumHandler(req, res);
   } catch (err) {
     console.error('Forum handler error:', err);
@@ -982,7 +1054,7 @@ app.all('/api/forum', async (req, res) => {
 // Forum join endpoint
 app.post('/api/forum/join', async (req, res) => {
   try {
-    const forumHandler = require('./api/forum.js');
+    const { default: forumHandler } = await import('./api/forum.js');
     return await forumHandler(req, res);
   } catch (err) {
     console.error('Forum join error:', err);
@@ -993,7 +1065,7 @@ app.post('/api/forum/join', async (req, res) => {
 // Session API endpoint
 app.all('/api/session', async (req, res) => {
   try {
-    const sessionHandler = require('./api/session.js');
+    const { default: sessionHandler } = await import('./api/session.js');
     return await sessionHandler(req, res);
   } catch (err) {
     console.error('Session handler error:', err);

@@ -17,11 +17,11 @@
     },
     {
       "source": "/api/login",
-      "destination": "/api/auth?action=login"
+      "destination": "/api/users?action=login"
     },
     {
       "source": "/api/register",
-      "destination": "/api/auth?action=register"
+      "destination": "/api/users?action=register"
     },
     {
       "source": "/api/assessments",

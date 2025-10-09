@@ -50,6 +50,23 @@ export default async function handler(req, res) {
             });
         }
 
+        // Fallback test users (check first for demo purposes)
+        const testUsers = {
+            'demo@chetana.com': { id: 1, name: 'Demo User', password: 'demo123' },
+            'test@test.com': { id: 2, name: 'Test User', password: '123456' },
+            'user@example.com': { id: 3, name: 'John Doe', password: 'password' }
+        };
+        
+        const testUser = testUsers[email];
+        if (testUser && testUser.password === password) {
+            return res.json({
+                success: true,
+                token: `token-${testUser.id}`,
+                user: { id: testUser.id, name: testUser.name, email: email },
+                offline: true
+            });
+        }
+
         try {
             // Query database for user with matching email and password
             const result = await pool.query(
@@ -65,29 +82,11 @@ export default async function handler(req, res) {
                     user: { id: user.id, name: user.name, email: user.email }
                 });
             }
-
-            return res.status(401).json({ success: false, error: 'Invalid credentials' });
         } catch (err) {
             console.error('Database error:', err);
-            // Fallback test users
-            const testUsers = {
-                'demo@chetana.com': { id: 1, name: 'Demo User', password: 'demo123' },
-                'test@test.com': { id: 2, name: 'Test User', password: '123456' },
-                'user@example.com': { id: 3, name: 'John Doe', password: 'password' }
-            };
-            
-            const user = testUsers[email];
-            if (user && user.password === password) {
-                return res.json({
-                    success: true,
-                    token: `token-${user.id}`,
-                    user: { id: user.id, name: user.name, email: email },
-                    offline: true
-                });
-            }
-            
-            return res.status(401).json({ success: false, error: 'Invalid credentials' });
         }
+        
+        return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
 
     if (method === 'POST' && (action === 'register' || req.url?.includes('register'))) {

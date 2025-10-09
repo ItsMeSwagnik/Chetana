@@ -28,6 +28,11 @@ export default async function handler(req, res) {
         }
     }
     
+    // Debug log for POST requests
+    if (method === 'POST') {
+        console.log('POST request:', { action, hasBody: !!body, bodyKeys: body ? Object.keys(body) : [] });
+    }
+    
     if (method === 'POST' && (action === 'login' || req.url?.includes('login'))) {
         const { email, password } = body || {};
         

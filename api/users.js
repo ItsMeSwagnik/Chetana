@@ -1,11 +1,11 @@
-const { Pool } = require('pg');
+import { Pool } from 'pg';
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL || process.env.POSTGRES_URL,
     ssl: { rejectUnauthorized: false }
 });
 
-module.exports = async function handler(req, res) {
+export default async function handler(req, res) {
     const { method } = req;
     
     if (method === 'POST' && req.url?.includes('register')) {

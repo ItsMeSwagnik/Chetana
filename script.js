@@ -793,54 +793,48 @@
         if (!token) return;
         
         try {
-            // Decode token to get user ID (simple JWT decode)
-            const payload = JSON.parse(atob(token.split('.')[1]));
-            const userId = payload.userId;
-            const isAdmin = payload.isAdmin;
+            // Handle simple token format (admin-token)
+            if (token === 'admin-token') {
+                const adminUser = { id: 'admin', name: 'Admin', email: 'admin@chetana.com', isAdmin: true };
+                localStorage.setItem('currentUser', JSON.stringify(adminUser));
+                updateWelcomeMessage('Admin');
+                loadAdminPanel();
+                showScreen('admin-screen');
+                return;
+            }
             
-            if (userId) {
-                // Check if this is an admin token
+            // Handle JWT tokens
+            if (token.includes('.')) {
+                const payload = JSON.parse(atob(token.split('.')[1]));
+                const userId = payload.userId;
+                const isAdmin = payload.isAdmin;
+                
                 if (isAdmin) {
                     console.log('👑 Admin token detected, restoring admin session');
-                    // Try to fetch admin user data from database
-                    try {
-                        const adminResponse = await fetch(`${API_BASE}/api/users/${userId}`);
-                        const adminData = await adminResponse.json();
-                        if (adminData.success && adminData.user) {
-                            const adminUser = { ...adminData.user, isAdmin: true };
-                            localStorage.setItem('currentUser', JSON.stringify(adminUser));
-                            updateWelcomeMessage(adminUser.name || 'Admin');
-                        } else {
-                            // Fallback to default admin user
-                            const adminUser = { id: userId || 'admin', name: 'Admin', email: 'admin@chetana.com', isAdmin: true };
-                            localStorage.setItem('currentUser', JSON.stringify(adminUser));
-                            updateWelcomeMessage('Admin');
-                        }
-                    } catch (err) {
-                        console.error('Failed to fetch admin user data:', err);
-                        // Fallback to default admin user
-                        const adminUser = { id: userId || 'admin', name: 'Admin', email: 'admin@chetana.com', isAdmin: true };
-                        localStorage.setItem('currentUser', JSON.stringify(adminUser));
-                        updateWelcomeMessage('Admin');
-                    }
+                    const adminUser = { id: userId || 'admin', name: 'Admin', email: 'admin@chetana.com', isAdmin: true };
+                    localStorage.setItem('currentUser', JSON.stringify(adminUser));
+                    updateWelcomeMessage('Admin');
                     loadAdminPanel();
                     showScreen('admin-screen');
                     return;
                 }
                 
-                // Fetch regular user data from database
-                const response = await fetch(`${API_BASE}/api/users/${userId}`);
-                const data = await response.json();
-                
-                if (data.success && data.user) {
-                    localStorage.setItem('currentUser', JSON.stringify(data.user));
-                    updateWelcomeMessage(data.user.name);
-                    showScreen('dashboard-screen');
+                if (userId) {
+                    // Fetch regular user data from database
+                    const response = await fetch(`${API_BASE}/api/users/${userId}`);
+                    const data = await response.json();
+                    
+                    if (data.success && data.user) {
+                        localStorage.setItem('currentUser', JSON.stringify(data.user));
+                        updateWelcomeMessage(data.user.name);
+                        showScreen('dashboard-screen');
+                    }
                 }
             }
         } catch (err) {
             console.error('Failed to restore user from token:', err);
             localStorage.removeItem('token');
+            localStorage.removeItem('currentUser');
         }
     }
     
@@ -4786,6 +4780,60 @@
         
         // Add missing event listeners for wellness resources
         document.getElementById('go-to-resources-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        
+        // Wellness resource navigation
+        document.getElementById('understanding-depression-btn')?.addEventListener('click', () => showScreen('understanding-depression-screen'));
+        document.getElementById('behavioral-activation-btn')?.addEventListener('click', () => showScreen('behavioral-activation-screen'));
+        document.getElementById('breathing-exercise-btn')?.addEventListener('click', () => showScreen('breathing-exercise-screen'));
+        document.getElementById('writing-journal-btn')?.addEventListener('click', () => showScreen('writing-journal-screen'));
+        document.getElementById('mindfulness-meditation-btn')?.addEventListener('click', () => showScreen('mindfulness-meditation-screen'));
+        document.getElementById('relax-environment-btn')?.addEventListener('click', () => showScreen('relax-environment-screen'));
+        
+        // Back buttons for wellness resources
+        document.getElementById('depression-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('behavioral-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('breathing-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('journal-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('mindfulness-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('relax-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('resources-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        
+        // Privacy and data management
+        document.getElementById('data-privacy-btn')?.addEventListener('click', () => {
+            loadDataPrivacyInfo();
+            showScreen('data-privacy-screen');
+        });
+        document.getElementById('data-privacy-back-btn')?.addEventListener('click', () => showScreen('profile-screen'));
+        document.getElementById('privacy-back-btn')?.addEventListener('click', () => showScreen('data-privacy-screen'));
+        document.getElementById('view-privacy-policy-btn')?.addEventListener('click', () => showScreen('privacy-policy-screen'));
+        document.getElementById('privacy-policy-link')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            showScreen('privacy-policy-screen');
+        });
+        document.getElementById('assessment-privacy-link')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            showScreen('privacy-policy-screen');
+        });
+        
+        // Assessment and progress navigation
+        document.getElementById('go-to-assessment-btn')?.addEventListener('click', () => {
+            startAssessment();
+        });
+        document.getElementById('assessment-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        document.getElementById('results-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        document.getElementById('progress-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        
+        // Booking navigation
+        document.getElementById('go-to-booking-btn')?.addEventListener('click', () => {
+            loadTherapists();
+            showScreen('booking-screen');
+        });
+        document.getElementById('booking-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        document.getElementById('view-requests-btn')?.addEventListener('click', () => {
+            loadBookingRequests();
+            showScreen('requests-screen');
+        });
+        document.getElementById('requests-back-btn')?.addEventListener('click', () => showScreen('booking-screen'));
         document.getElementById('resources-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
         document.getElementById('understanding-depression-btn')?.addEventListener('click', () => showScreen('understanding-depression-screen'));
         document.getElementById('depression-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));

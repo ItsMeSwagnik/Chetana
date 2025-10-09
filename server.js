@@ -1073,6 +1073,17 @@ app.all('/api/session', async (req, res) => {
   }
 });
 
+// Data API endpoint for moods, assessments, and milestones
+app.all('/api/data', async (req, res) => {
+  try {
+    const { default: dataHandler } = await import('./api/data.js');
+    return await dataHandler(req, res);
+  } catch (err) {
+    console.error('Data handler error:', err);
+    res.status(500).json({ error: 'Data API error: ' + err.message });
+  }
+});
+
 
 
 // Media API endpoint for environment videos and audio

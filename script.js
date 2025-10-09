@@ -423,7 +423,7 @@
         try {
             console.log('🌐 Frontend: Making registration API request');
             
-            const response = await fetch(`${API_BASE}/api/register`, {
+            const response = await fetch(`${API_BASE}/api/data?type=register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, email, password, dob })
@@ -2173,7 +2173,7 @@
             console.log('💾 Saving mood:', { userId: currentUser.id, date: today, mood: moodValue });
             
             try {
-                const response = await fetch(`${API_BASE}/api/moods`, {
+                const response = await fetch(`${API_BASE}/api/data?type=moods`, {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     body: JSON.stringify({

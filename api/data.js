@@ -38,5 +38,13 @@ export default async function handler(req, res) {
         }
     }
 
+    if (type === 'admin-users' && method === 'GET') {
+        return res.json({ 
+            success: true, 
+            users: [], 
+            totalAssessments: 0 
+        });
+    }
+
     return res.status(404).json({ success: false, error: 'Endpoint not found' });
 }

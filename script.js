@@ -249,7 +249,7 @@
         try {
             console.log('🌐 Frontend: Making API request to:', `${API_BASE}/api/login`);
             
-            const response = await fetch(`${API_BASE}/api/login`, {
+            const response = await fetch(`${API_BASE}/api/users?action=login`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ email, password })
@@ -423,7 +423,7 @@
         try {
             console.log('🌐 Frontend: Making registration API request');
             
-            const response = await fetch(`${API_BASE}/api/data?type=register`, {
+            const response = await fetch(`${API_BASE}/api/users?action=register`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 body: JSON.stringify({ name, email, password, dob })
@@ -855,7 +855,7 @@
 
     async function loadAdminPanel() {
         try {
-            const response = await fetch(`${API_BASE}/api/admin/users`);
+            const response = await fetch(`${API_BASE}/api/users?action=admin`);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);

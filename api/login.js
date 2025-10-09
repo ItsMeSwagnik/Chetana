@@ -4,6 +4,7 @@ export default async function handler(req, res) {
     }
 
     const { email, password } = req.body;
+    console.log('Login attempt:', { email, password: password ? '***' : 'missing' });
 
     if (email === 'admin@chetana.com' && password === 'admin123') {
         return res.json({
@@ -21,6 +22,7 @@ export default async function handler(req, res) {
     ];
 
     const user = demoAccounts.find(u => u.email === email && u.password === password);
+    console.log('User found:', !!user);
     
     if (user) {
         return res.json({
@@ -30,5 +32,6 @@ export default async function handler(req, res) {
         });
     }
 
+    console.log('Available accounts:', demoAccounts.map(u => u.email));
     return res.status(401).json({ success: false, error: 'Invalid credentials' });
 }

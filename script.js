@@ -3164,11 +3164,7 @@
             });
         });
         
-        // Load journal entries on init
-        loadJournalEntries();
-        
-        // Initialize activity planner
-        loadActivityPlanner();
+        // Journal entries and activity planner will load on-demand when screens are visited
         
 
         

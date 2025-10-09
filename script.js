@@ -361,6 +361,12 @@
                     }, 500);
                     
                     showModal('permissions-modal');
+                    
+                    // Load activity planner and journal after successful login
+                    setTimeout(() => {
+                        if (typeof loadActivityPlanner === 'function') loadActivityPlanner();
+                        if (typeof loadJournalEntries === 'function') loadJournalEntries();
+                    }, 2000);
                 }
             } else {
                 console.log('❌ Frontend: Login failed:', data.error);
@@ -2376,14 +2382,7 @@
             }
         });
         
-        // Load saved planner and journal data on page load (only if user is logged in)
-        setTimeout(() => {
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            if (currentUser && currentUser.id) {
-                loadActivityPlanner();
-                loadJournalEntries();
-            }
-        }, 1000);
+        // Note: Activity planner and journal data will be loaded after user login
         
         // Mood Tracker functionality
         const moodSlider = document.getElementById('mood-slider');

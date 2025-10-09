@@ -1,41 +1,13 @@
 import { Pool } from 'pg';
 
 const pool = new Pool({
-    connectionString: process.env.DATABASE_URL || process.env.POSTGRES_URL,
+    connectionString: process.env.DATABASE_URL,
     ssl: { rejectUnauthorized: false }
 });
 
 export default async function handler(req, res) {
     const { method } = req;
     
-    if (method === 'POST' && req.url?.includes('register')) {
-        const { name, email, password, dob } = req.body || {};
-        
-        if (!name || !email || !password || !dob) {
-            return res.status(400).json({ success: false, error: 'All fields are required' });
-        }
-
-        try {
-            // Check if user already exists
-            const existingUser = await pool.query('SELECT id FROM users WHERE email = $1', [email]);
-            if (existingUser.rows.length > 0) {
-                return res.status(400).json({ success: false, error: 'Email already registered' });
-            }
-
-            // Create new user
-            const result = await pool.query(
-                'INSERT INTO users (name, email, password, dob, created_at) VALUES ($1, $2, $3, $4, NOW()) RETURNING id, name, email',
-                [name, email, password, dob]
-            );
-            
-            console.log('User registered:', email);
-            return res.json({ success: true, message: 'Account created successfully' });
-        } catch (err) {
-            console.error('Registration error:', err);
-            return res.status(500).json({ success: false, error: 'Registration failed' });
-        }
-    }
-
     if (method === 'POST' && req.url?.includes('login')) {
         const { email, password } = req.body || {};
         
@@ -54,17 +26,14 @@ export default async function handler(req, res) {
         }
 
         try {
-            // Find registered user in database
+            // Query database for user with matching email and password
             const result = await pool.query(
                 'SELECT id, name, email FROM users WHERE email = $1 AND password = $2',
                 [email, password]
             );
             
-            console.log('Database query result:', result.rows.length, 'users found');
-            
             if (result.rows.length > 0) {
                 const user = result.rows[0];
-                console.log('User found:', user.email);
                 return res.json({
                     success: true,
                     token: `token-${user.id}`,
@@ -72,25 +41,22 @@ export default async function handler(req, res) {
                 });
             }
 
-            console.log('No user found with credentials:', email);
             return res.status(401).json({ success: false, error: 'Invalid credentials' });
         } catch (err) {
-            console.error('Database connection error:', err.message);
-            
-            // Fallback: Check if it's a test account
+            console.error('Database error:', err);
+            // Fallback test users
             const testUsers = {
                 'demo@chetana.com': { id: 1, name: 'Demo User', password: 'demo123' },
                 'test@test.com': { id: 2, name: 'Test User', password: '123456' },
                 'user@example.com': { id: 3, name: 'John Doe', password: 'password' }
             };
             
-            const testUser = testUsers[email];
-            if (testUser && testUser.password === password) {
-                console.log('Using fallback test user:', email);
+            const user = testUsers[email];
+            if (user && user.password === password) {
                 return res.json({
                     success: true,
-                    token: `token-${testUser.id}`,
-                    user: { id: testUser.id, name: testUser.name, email: email },
+                    token: `token-${user.id}`,
+                    user: { id: user.id, name: user.name, email: email },
                     offline: true
                 });
             }
@@ -99,16 +65,32 @@ export default async function handler(req, res) {
         }
     }
 
+    if (method === 'POST' && req.url?.includes('register')) {
+        const { name, email, password, dob } = req.body || {};
+        
+        if (!name || !email || !password || !dob) {
+            return res.status(400).json({ success: false, error: 'All fields are required' });
+        }
+
+        try {
+            await pool.query(
+                'INSERT INTO users (name, email, password, dob, created_at) VALUES ($1, $2, $3, $4, NOW())',
+                [name, email, password, dob]
+            );
+            return res.json({ success: true, message: 'Account created successfully' });
+        } catch (err) {
+            if (err.code === '23505') {
+                return res.status(400).json({ success: false, error: 'Email already registered' });
+            }
+            return res.status(500).json({ success: false, error: 'Registration failed' });
+        }
+    }
+
     if (method === 'GET' && req.url?.includes('admin')) {
         try {
             const result = await pool.query('SELECT id, name, email, dob, created_at FROM users ORDER BY created_at DESC');
-            return res.json({ 
-                success: true, 
-                users: result.rows,
-                totalAssessments: 0 
-            });
+            return res.json({ success: true, users: result.rows, totalAssessments: 0 });
         } catch (err) {
-            console.error('Admin query error:', err);
             return res.json({ success: true, users: [], totalAssessments: 0 });
         }
     }

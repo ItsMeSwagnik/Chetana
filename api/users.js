@@ -114,5 +114,10 @@ export default async function handler(req, res) {
         }
     }
 
+    // Debug endpoint
+    if (method === 'GET' && action === 'test') {
+        return res.json({ success: true, message: 'API is working', action, method, url: req.url });
+    }
+    
     return res.status(404).json({ success: false, error: 'Endpoint not found' });
 }

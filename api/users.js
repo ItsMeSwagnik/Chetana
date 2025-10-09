@@ -1,4 +1,5 @@
 import { Pool } from 'pg';
+import bcrypt from 'bcryptjs';
 
 const pool = new Pool({
     connectionString: process.env.DATABASE_URL,
@@ -74,31 +75,26 @@ export default async function handler(req, res) {
         try {
             console.log('DB URL exists:', !!process.env.DATABASE_URL);
             
-            const result = await pool.query(
-                'SELECT id, name, email FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1)) AND TRIM(password) = TRIM($2)',
-                [email, password]
+            // Get user by email first
+            const userResult = await pool.query(
+                'SELECT id, name, email, password FROM users WHERE LOWER(TRIM(email)) = LOWER(TRIM($1))',
+                [email]
             );
             
-            console.log('Query executed. Rows found:', result.rows.length);
-            
-            // Debug: Check if user exists with just email
-            const emailCheck = await pool.query('SELECT email FROM users WHERE email = $1', [email]);
-            console.log('User exists with email:', emailCheck.rows.length > 0);
-            
-            if (emailCheck.rows.length > 0) {
-                // Check password field
-                const passCheck = await pool.query('SELECT password FROM users WHERE email = $1', [email]);
-                console.log('Stored password length:', passCheck.rows[0]?.password?.length);
-            }
-            
-            if (result.rows.length > 0) {
-                const user = result.rows[0];
-                console.log('User authenticated successfully');
-                return res.json({
-                    success: true,
-                    token: `token-${user.id}`,
-                    user: { id: user.id, name: user.name, email: user.email }
-                });
+            if (userResult.rows.length > 0) {
+                const user = userResult.rows[0];
+                
+                // Compare password with bcrypt
+                const isValidPassword = await bcrypt.compare(password, user.password);
+                
+                if (isValidPassword) {
+                    console.log('User authenticated successfully');
+                    return res.json({
+                        success: true,
+                        token: `token-${user.id}`,
+                        user: { id: user.id, name: user.name, email: user.email }
+                    });
+                }
             }
         } catch (err) {
             console.error('Database error details:', {

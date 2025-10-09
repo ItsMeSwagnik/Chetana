@@ -362,11 +362,7 @@
                     
                     showModal('permissions-modal');
                     
-                    // Load activity planner and journal after successful login
-                    setTimeout(() => {
-                        if (typeof loadActivityPlanner === 'function') loadActivityPlanner();
-                        if (typeof loadJournalEntries === 'function') loadJournalEntries();
-                    }, 2000);
+                    // Activity planner and journal will load when user visits those screens
                 }
             } else {
                 console.log('❌ Frontend: Login failed:', data.error);
@@ -2382,7 +2378,32 @@
             }
         });
         
-        // Note: Activity planner and journal data will be loaded after user login
+        // Load data only when user visits specific screens
+        
+        // Override screen navigation to load data on demand
+        const originalShowScreen = showScreen;
+        showScreen = function(screenId) {
+            originalShowScreen(screenId);
+            
+            // Load data when visiting specific screens
+            if (screenId === 'behavioral-activation-screen') {
+                setTimeout(() => {
+                    const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+                    if (currentUser && currentUser.id && typeof loadActivityPlanner === 'function') {
+                        loadActivityPlanner();
+                    }
+                }, 500);
+            }
+            
+            if (screenId === 'writing-journal-screen') {
+                setTimeout(() => {
+                    const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+                    if (currentUser && currentUser.id && typeof loadJournalEntries === 'function') {
+                        loadJournalEntries();
+                    }
+                }, 500);
+            }
+        };
         
         // Mood Tracker functionality
         const moodSlider = document.getElementById('mood-slider');
@@ -3205,9 +3226,7 @@
                     if (typeof renderMoodChart === 'function') await renderMoodChart();
                     if (typeof checkMilestones === 'function') await checkMilestones();
                     if (typeof renderMilestones === 'function') await renderMilestones();
-                    // Load activity planner and journal after user session is established
-                    if (typeof loadActivityPlanner === 'function') await loadActivityPlanner();
-                    if (typeof loadJournalEntries === 'function') await loadJournalEntries();
+                    // Activity planner and journal will load when user visits those screens
                 }, 1500);
             }
         } else {

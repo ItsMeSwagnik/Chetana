@@ -1913,7 +1913,7 @@
         
         async function loadJournalEntries() {
             const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            if (!currentUser) {
+            if (!currentUser || !currentUser.id) {
                 console.log('📝 No user found for journal entries load');
                 return;
             }
@@ -2215,7 +2215,7 @@
         // Load activity planner data
         async function loadActivityPlanner() {
             const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            if (!currentUser) {
+            if (!currentUser || !currentUser.id) {
                 console.log('📅 No user found for activity planner load');
                 return;
             }
@@ -2376,11 +2376,14 @@
             }
         });
         
-        // Load saved planner and journal data on page load
+        // Load saved planner and journal data on page load (only if user is logged in)
         setTimeout(() => {
-            loadActivityPlanner();
-            loadJournalEntries();
-        }, 500);
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (currentUser && currentUser.id) {
+                loadActivityPlanner();
+                loadJournalEntries();
+            }
+        }, 1000);
         
         // Mood Tracker functionality
         const moodSlider = document.getElementById('mood-slider');
@@ -3203,7 +3206,10 @@
                     if (typeof renderMoodChart === 'function') await renderMoodChart();
                     if (typeof checkMilestones === 'function') await checkMilestones();
                     if (typeof renderMilestones === 'function') await renderMilestones();
-                }, 1000);
+                    // Load activity planner and journal after user session is established
+                    if (typeof loadActivityPlanner === 'function') await loadActivityPlanner();
+                    if (typeof loadJournalEntries === 'function') await loadJournalEntries();
+                }, 1500);
             }
         } else {
             showScreen(currentScreen);

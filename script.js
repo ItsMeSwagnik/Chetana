@@ -2930,6 +2930,27 @@
 
         // Add all event listeners
         document.getElementById('login-btn')?.addEventListener('click', handleLogin);
+        
+        // Add test login button for debugging
+        const testBtn = document.createElement('button');
+        testBtn.textContent = 'Test API';
+        testBtn.style.cssText = 'position:fixed;top:10px;right:10px;z-index:9999;background:red;color:white;padding:10px;';
+        testBtn.onclick = async () => {
+            try {
+                const response = await fetch('/api/users?action=login', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ email: 'demo@chetana.com', password: 'demo123' })
+                });
+                const text = await response.text();
+                console.log('Test API Response:', response.status, text);
+                alert(`Status: ${response.status}\nResponse: ${text}`);
+            } catch (err) {
+                console.error('Test API Error:', err);
+                alert(`Error: ${err.message}`);
+            }
+        };
+        document.body.appendChild(testBtn);
         document.getElementById('go-to-register-btn')?.addEventListener('click', () => showScreen('register-screen'));
         document.getElementById('create-account-btn')?.addEventListener('click', handleCreateAccount);
         

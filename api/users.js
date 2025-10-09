@@ -28,15 +28,10 @@ export default async function handler(req, res) {
         }
     }
     
-    console.log('API Request:', { method, action, url: req.url, body });
-    
     if (method === 'POST' && (action === 'login' || req.url?.includes('login'))) {
         const { email, password } = body || {};
         
-        console.log('Login attempt:', { email: email || 'missing', hasPassword: !!password });
-        
         if (!email || !password) {
-            console.log('Missing credentials');
             return res.status(400).json({ success: false, error: 'Email and password required' });
         }
 

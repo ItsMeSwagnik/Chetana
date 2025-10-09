@@ -1855,27 +1855,47 @@
             const moodRating = selectedMood ? parseInt(selectedMood.dataset.mood) : null;
             const currentUser = JSON.parse(localStorage.getItem('currentUser'));
             
-            if (text.trim() && currentUser) {
-                try {
-                    const response = await fetch(`${API_BASE}/api/data?type=journal`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            userId: currentUser.id,
-                            entryText: text,
-                            moodRating: moodRating
-                        })
-                    });
-                    const result = await response.json();
-                    if (result.success) {
-                        document.getElementById('journal-text').value = '';
-                        document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
-                        loadJournalEntries();
-                        alert('Entry saved!');
-                    }
-                } catch (err) {
-                    alert('Failed to save entry');
+            if (!text.trim()) {
+                alert('Please write something in your journal entry.');
+                return;
+            }
+            
+            if (!currentUser) {
+                alert('Please log in to save journal entries.');
+                return;
+            }
+            
+            console.log('📝 Saving journal entry:', { userId: currentUser.id, textLength: text.length, moodRating });
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/data?type=journal`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUser.id,
+                        entryText: text.trim(),
+                        moodRating: moodRating
+                    })
+                });
+                
+                const result = await response.json();
+                console.log('📝 Journal save result:', result);
+                
+                if (result.success) {
+                    document.getElementById('journal-text').value = '';
+                    document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
+                    
+                    // Reload journal entries to show the new entry
+                    await loadJournalEntries();
+                    
+                    alert('📝 Journal entry saved successfully!');
+                    console.log('✅ Journal entry saved and list refreshed');
+                } else {
+                    throw new Error(result.error || 'Failed to save entry');
                 }
+            } catch (err) {
+                console.error('📝 Failed to save journal entry:', err);
+                alert('Failed to save entry: ' + err.message);
             }
         });
         
@@ -1893,24 +1913,53 @@
         
         async function loadJournalEntries() {
             const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            if (!currentUser) return;
+            if (!currentUser) {
+                console.log('📝 No user found for journal entries load');
+                return;
+            }
             
             try {
+                console.log('📝 Loading journal entries for user:', currentUser.id);
                 const response = await fetch(`${API_BASE}/api/data?type=journal&userId=${currentUser.id}`);
                 const data = await response.json();
+                console.log('📝 Journal entries response:', data);
+                
                 const entries = data.entries || [];
+                console.log('📝 Found journal entries:', entries.length);
+                
                 const list = document.getElementById('journal-entries-list');
-                list.innerHTML = entries.map(entry => 
-                    `<div class="journal-entry-item">
-                        <div class="entry-header">
-                            <div class="entry-date">${new Date(entry.entry_date).toLocaleDateString()}</div>
-                            ${entry.mood_rating ? `<span class="entry-mood">${['😢','😔','😐','🙂','😊'][entry.mood_rating-1]}</span>` : ''}
+                if (!list) {
+                    console.log('📝 Journal entries list element not found');
+                    return;
+                }
+                
+                if (entries.length === 0) {
+                    list.innerHTML = '<p style="text-align: center; color: var(--text-secondary); padding: 1rem;">No journal entries yet. Write your first entry above!</p>';
+                    return;
+                }
+                
+                list.innerHTML = entries.map((entry, index) => {
+                    const entryDate = entry.formatted_date || new Date(entry.entry_date).toLocaleDateString();
+                    const entryTime = entry.formatted_time || new Date(entry.created_at).toLocaleTimeString();
+                    const moodEmoji = entry.mood_rating ? ['😢','😔','😐','🙂','😊'][entry.mood_rating-1] : '';
+                    const entryPreview = entry.entry_text.length > 100 ? entry.entry_text.substring(0, 100) + '...' : entry.entry_text;
+                    
+                    return `<div class="journal-entry-item" style="border: 1px solid var(--border); border-radius: 8px; padding: 1rem; margin-bottom: 0.5rem; background: var(--surface);">
+                        <div class="entry-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <div class="entry-date" style="font-weight: 500; color: var(--text-primary);">${entryDate} ${entryTime}</div>
+                            ${moodEmoji ? `<span class="entry-mood" style="font-size: 1.2rem;">${moodEmoji}</span>` : ''}
                         </div>
-                        <div class="entry-text">${entry.entry_text.substring(0, 100)}...</div>
-                    </div>`
-                ).join('');
+                        <div class="entry-text" style="color: var(--text-secondary); line-height: 1.4;">${entryPreview}</div>
+                    </div>`;
+                }).join('');
+                
+                console.log('📝 Journal entries loaded successfully');
             } catch (err) {
-                console.error('Failed to load journal entries:', err);
+                console.error('📝 Failed to load journal entries:', err);
+                const list = document.getElementById('journal-entries-list');
+                if (list) {
+                    list.innerHTML = '<p style="text-align: center; color: var(--danger); padding: 1rem;">Error loading journal entries. Please try again.</p>';
+                }
             }
         }
         
@@ -2075,11 +2124,26 @@
         switchEnvironment('forest');
         
         // Save activity planner data
-        async function saveActivityPlanner() {
+        async function saveActivityPlanner(isAutoSave = false) {
             const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            if (!currentUser) return;
+            if (!currentUser) {
+                console.log('📅 No user found for activity planner save');
+                return;
+            }
             
-            document.querySelectorAll('.day-column').forEach(async dayCol => {
+            console.log(`📅 ${isAutoSave ? 'Auto-' : 'Manual '}saving activity planner for user:`, currentUser.id);
+            
+            // Show auto-save indicator
+            const statusDiv = document.getElementById('activity-save-status');
+            if (isAutoSave && statusDiv) {
+                statusDiv.style.display = 'block';
+                statusDiv.style.background = '#fff3cd';
+                statusDiv.style.color = '#856404';
+                statusDiv.innerHTML = '🔄 Auto-saving...';
+            }
+            
+            const savePromises = [];
+            document.querySelectorAll('.day-column').forEach(dayCol => {
                 const day = dayCol.querySelector('h4').textContent;
                 const activities = [];
                 dayCol.querySelectorAll('.activity-slot').forEach(slot => {
@@ -2089,31 +2153,81 @@
                     }
                 });
                 
-                try {
-                    await fetch(`${API_BASE}/api/data?type=activities`, {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        body: JSON.stringify({
-                            userId: currentUser.id,
-                            dayName: day,
-                            activities: activities
-                        })
-                    });
-                } catch (err) {
-                    console.error('Failed to save activities:', err);
-                }
+                console.log(`📅 ${day}: ${activities.length} activities`);
+                
+                const savePromise = fetch(`${API_BASE}/api/data?type=activities`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUser.id,
+                        dayName: day,
+                        activities: activities
+                    })
+                }).then(response => response.json())
+                .then(result => {
+                    if (result.success) {
+                        console.log(`✅ ${day} activities saved successfully`);
+                    } else {
+                        console.error(`❌ Failed to save ${day} activities:`, result.error);
+                        throw new Error(`Failed to save ${day} activities: ${result.error}`);
+                    }
+                }).catch(err => {
+                    console.error(`❌ Network error saving ${day} activities:`, err);
+                    throw err;
+                });
+                
+                savePromises.push(savePromise);
             });
+            
+            try {
+                await Promise.all(savePromises);
+                console.log(`📅 All activity planner data ${isAutoSave ? 'auto-' : ''}saved successfully`);
+                
+                // Show auto-save success briefly
+                if (isAutoSave && statusDiv) {
+                    statusDiv.style.background = '#d4edda';
+                    statusDiv.style.color = '#155724';
+                    statusDiv.innerHTML = '✅ Auto-saved';
+                    
+                    setTimeout(() => {
+                        statusDiv.style.display = 'none';
+                    }, 2000);
+                }
+                
+            } catch (err) {
+                console.error('📅 Error in activity planner save:', err);
+                
+                // Show auto-save error
+                if (isAutoSave && statusDiv) {
+                    statusDiv.style.background = '#f8d7da';
+                    statusDiv.style.color = '#721c24';
+                    statusDiv.innerHTML = '❌ Auto-save failed';
+                    
+                    setTimeout(() => {
+                        statusDiv.style.display = 'none';
+                    }, 3000);
+                }
+                
+                throw err;
+            }
         }
         
         // Load activity planner data
         async function loadActivityPlanner() {
             const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-            if (!currentUser) return;
+            if (!currentUser) {
+                console.log('📅 No user found for activity planner load');
+                return;
+            }
             
             try {
+                console.log('📅 Loading activity planner for user:', currentUser.id);
                 const response = await fetch(`${API_BASE}/api/data?type=activities&userId=${currentUser.id}`);
                 const data = await response.json();
+                console.log('📅 Activity planner response:', data);
+                
                 const activitiesData = data.activities || [];
+                console.log('📅 Found activities data:', activitiesData.length, 'entries');
                 
                 document.querySelectorAll('.day-column').forEach(dayCol => {
                     const day = dayCol.querySelector('h4').textContent;
@@ -2121,27 +2235,152 @@
                     const dayData = activitiesData.find(a => a.day_name === day);
                     const activities = dayData ? dayData.activities : [];
                     
+                    console.log(`📅 ${day}: loading ${activities.length} activities`);
+                    
+                    // Clear existing content first
+                    slots.forEach(slot => {
+                        slot.textContent = 'Add activity...';
+                        slot.removeAttribute('data-filled');
+                    });
+                    
+                    // Load saved activities
                     slots.forEach((slot, index) => {
                         if (activities[index]) {
                             slot.textContent = activities[index];
                             slot.setAttribute('data-filled', 'true');
+                            console.log(`📅 ${day} slot ${index}: ${activities[index]}`);
                         }
                     });
                 });
+                
+                console.log('📅 Activity planner loaded successfully');
             } catch (err) {
-                console.error('Failed to load activities:', err);
+                console.error('📅 Failed to load activities:', err);
             }
         }
         
-        // Auto-save planner on changes
-        document.addEventListener('input', (e) => {
-            if (e.target.classList.contains('activity-slot')) {
-                setTimeout(saveActivityPlanner, 500);
+        // Manual save button functionality
+        document.getElementById('save-activity-planner-btn')?.addEventListener('click', async () => {
+            console.log('📅 Manual save button clicked');
+            const saveBtn = document.getElementById('save-activity-planner-btn');
+            const statusDiv = document.getElementById('activity-save-status');
+            
+            // Clear any pending auto-save
+            clearTimeout(activitySaveTimeout);
+            
+            // Show loading state
+            saveBtn.innerHTML = '⏳ Saving...';
+            saveBtn.disabled = true;
+            
+            try {
+                await saveActivityPlanner();
+                
+                // Show success message
+                statusDiv.style.display = 'block';
+                statusDiv.style.background = '#d4edda';
+                statusDiv.style.color = '#155724';
+                statusDiv.innerHTML = '✅ Activity plan saved successfully!';
+                
+                console.log('📅 Manual save completed successfully');
+                
+                // Hide success message after 3 seconds
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 3000);
+                
+            } catch (err) {
+                console.error('📅 Manual save failed:', err);
+                
+                // Show error message
+                statusDiv.style.display = 'block';
+                statusDiv.style.background = '#f8d7da';
+                statusDiv.style.color = '#721c24';
+                statusDiv.innerHTML = '❌ Failed to save activity plan. Please try again.';
+                
+                // Hide error message after 5 seconds
+                setTimeout(() => {
+                    statusDiv.style.display = 'none';
+                }, 5000);
+            } finally {
+                // Restore button state
+                saveBtn.innerHTML = '💾 Save Activity Plan';
+                saveBtn.disabled = false;
             }
         });
         
-        // Load saved planner data on page load
-        loadActivityPlanner();
+        // Clear all activities button
+        document.getElementById('clear-activity-planner-btn')?.addEventListener('click', async () => {
+            if (confirm('Are you sure you want to clear all activities? This action cannot be undone.')) {
+                // Clear any pending auto-save
+                clearTimeout(activitySaveTimeout);
+                
+                document.querySelectorAll('.activity-slot').forEach(slot => {
+                    slot.textContent = 'Add activity...';
+                    slot.removeAttribute('data-filled');
+                });
+                
+                // Save the cleared state (manual save)
+                try {
+                    await saveActivityPlanner(false); // false = manual save
+                    
+                    const statusDiv = document.getElementById('activity-save-status');
+                    statusDiv.style.display = 'block';
+                    statusDiv.style.background = '#fff3cd';
+                    statusDiv.style.color = '#856404';
+                    statusDiv.innerHTML = '🗑️ All activities cleared and saved!';
+                    
+                    setTimeout(() => {
+                        statusDiv.style.display = 'none';
+                    }, 3000);
+                } catch (err) {
+                    console.error('Failed to save cleared activities:', err);
+                    alert('Activities cleared but failed to save. Please try saving manually.');
+                }
+            }
+        });
+        
+        // Auto-save planner on changes with debouncing
+        let activitySaveTimeout;
+        
+        // Auto-save on input changes
+        document.addEventListener('input', (e) => {
+            if (e.target.classList.contains('activity-slot')) {
+                console.log('📅 Activity slot changed, scheduling auto-save...');
+                clearTimeout(activitySaveTimeout);
+                activitySaveTimeout = setTimeout(async () => {
+                    console.log('📅 Auto-saving activity planner...');
+                    try {
+                        await saveActivityPlanner(true); // true = isAutoSave
+                        console.log('📅 Auto-save completed successfully');
+                    } catch (err) {
+                        console.error('📅 Auto-save failed:', err);
+                    }
+                }, 3000); // 3 second delay for auto-save
+            }
+        });
+        
+        // Auto-save on blur (when user clicks away from a slot)
+        document.addEventListener('focusout', (e) => {
+            if (e.target.classList.contains('activity-slot')) {
+                console.log('📅 Activity slot lost focus, scheduling immediate save...');
+                clearTimeout(activitySaveTimeout);
+                activitySaveTimeout = setTimeout(async () => {
+                    console.log('📅 Auto-saving on blur...');
+                    try {
+                        await saveActivityPlanner(true); // true = isAutoSave
+                        console.log('📅 Blur auto-save completed');
+                    } catch (err) {
+                        console.error('📅 Blur auto-save failed:', err);
+                    }
+                }, 1000); // 1 second delay on blur
+            }
+        });
+        
+        // Load saved planner and journal data on page load
+        setTimeout(() => {
+            loadActivityPlanner();
+            loadJournalEntries();
+        }, 500);
         
         // Mood Tracker functionality
         const moodSlider = document.getElementById('mood-slider');
@@ -4839,6 +5078,180 @@
         document.getElementById('mindfulness-meditation-btn')?.addEventListener('click', () => showScreen('mindfulness-meditation-screen'));
         document.getElementById('relax-environment-btn')?.addEventListener('click', () => showScreen('relax-environment-screen'));
         
+        // Back buttons for wellness screens
+        document.getElementById('resources-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        document.getElementById('depression-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('behavioral-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('breathing-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('journal-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('mindfulness-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('relax-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        
+        // Assessment and progress navigation
+        document.getElementById('go-to-assessment-btn')?.addEventListener('click', () => startAssessment());
+        document.getElementById('assessment-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        document.getElementById('results-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        document.getElementById('go-to-progress-btn')?.addEventListener('click', () => showScreen('progress-screen'));
+        document.getElementById('progress-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        
+        // Assessment consent and navigation
+        document.getElementById('assessment-data-consent')?.addEventListener('change', (e) => {
+            const startBtn = document.getElementById('start-assessment-btn');
+            if (startBtn) {
+                startBtn.disabled = !e.target.checked;
+            }
+        });
+        
+        document.getElementById('start-assessment-btn')?.addEventListener('click', () => {
+            document.getElementById('assessment-consent').style.display = 'none';
+            document.getElementById('assessment-content').style.display = 'block';
+            currentQuestionIndex = 0;
+            userAnswers = {};
+            renderCurrentQuestion();
+        });
+        
+        document.getElementById('prev-question-btn')?.addEventListener('click', () => {
+            if (currentQuestionIndex > 0) {
+                currentQuestionIndex--;
+                renderCurrentQuestion();
+            }
+        });
+        
+        document.getElementById('next-question-btn')?.addEventListener('click', () => {
+            if (saveCurrentAnswer()) {
+                if (currentQuestionIndex < allQuestions.length - 1) {
+                    currentQuestionIndex++;
+                    renderCurrentQuestion();
+                } else {
+                    calculateScores();
+                }
+            } else {
+                alert('Please select an answer before continuing.');
+            }
+        });
+        
+        // Booking navigation
+        document.getElementById('go-to-booking-btn')?.addEventListener('click', () => {
+            loadTherapists();
+            showScreen('booking-screen');
+        });
+        document.getElementById('booking-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        document.getElementById('view-requests-btn')?.addEventListener('click', () => {
+            loadBookingRequests();
+            showScreen('requests-screen');
+        });
+        document.getElementById('requests-back-btn')?.addEventListener('click', () => showScreen('booking-screen'));
+        
+        // Privacy and data management
+        document.getElementById('data-privacy-btn')?.addEventListener('click', () => {
+            loadDataPrivacyInfo();
+            showScreen('data-privacy-screen');
+        });
+        document.getElementById('data-privacy-back-btn')?.addEventListener('click', () => showScreen('profile-screen'));
+        document.getElementById('view-privacy-policy-btn')?.addEventListener('click', () => showScreen('privacy-policy-screen'));
+        document.getElementById('privacy-policy-link')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            showScreen('privacy-policy-screen');
+        });
+        document.getElementById('assessment-privacy-link')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            showScreen('privacy-policy-screen');
+        });
+        document.getElementById('privacy-back-btn')?.addEventListener('click', () => showScreen('data-privacy-screen'));
+        
+        // Export and delete account
+        document.getElementById('export-all-data-btn')?.addEventListener('click', () => showModal('export-modal'));
+        document.getElementById('delete-account-btn')?.addEventListener('click', () => showModal('delete-account-modal'));
+        
+        // Modal handlers
+        document.getElementById('grant-permissions-btn')?.addEventListener('click', () => {
+            hideModals();
+            showScreen('dashboard-screen');
+        });
+        
+        document.getElementById('privacy-consent')?.addEventListener('change', (e) => {
+            const grantBtn = document.getElementById('grant-permissions-btn');
+            if (grantBtn) {
+                grantBtn.disabled = !e.target.checked;
+            }
+        });
+        
+        document.getElementById('limit-modal-login-btn')?.addEventListener('click', () => {
+            hideModals();
+            showScreen('login-screen');
+        });
+        
+        document.getElementById('limit-modal-close-btn')?.addEventListener('click', hideModals);
+        
+        // Therapist swipe actions
+        document.getElementById('pass-btn')?.addEventListener('click', passCurrentTherapist);
+        document.getElementById('book-btn')?.addEventListener('click', bookCurrentTherapist);
+        
+        // Wellness resource navigation
+        document.getElementById('understanding-depression-btn')?.addEventListener('click', () => showScreen('understanding-depression-screen'));
+        document.getElementById('behavioral-activation-btn')?.addEventListener('click', () => showScreen('behavioral-activation-screen'));
+        document.getElementById('breathing-exercise-btn')?.addEventListener('click', () => showScreen('breathing-exercise-screen'));
+        document.getElementById('writing-journal-btn')?.addEventListener('click', () => showScreen('writing-journal-screen'));
+        document.getElementById('mindfulness-meditation-btn')?.addEventListener('click', () => showScreen('mindfulness-meditation-screen'));
+        document.getElementById('relax-environment-btn')?.addEventListener('click', () => showScreen('relax-environment-screen'));
+        
+        // Back buttons for wellness screens
+        document.getElementById('resources-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        document.getElementById('depression-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('behavioral-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('breathing-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('journal-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('mindfulness-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('relax-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        
+        // Assessment and progress navigation
+        document.getElementById('go-to-assessment-btn')?.addEventListener('click', () => startAssessment());
+        document.getElementById('assessment-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        document.getElementById('results-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+
+        document.getElementById('progress-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        
+        // Booking navigation
+        document.getElementById('go-to-booking-btn')?.addEventListener('click', () => {
+            loadTherapists();
+            showScreen('booking-screen');
+        });
+        document.getElementById('booking-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        document.getElementById('view-requests-btn')?.addEventListener('click', () => {
+            loadBookingRequests();
+            showScreen('requests-screen');
+        });
+        document.getElementById('requests-back-btn')?.addEventListener('click', () => showScreen('booking-screen'));
+        
+        // Privacy and data management
+        document.getElementById('data-privacy-btn')?.addEventListener('click', () => {
+            loadDataPrivacyInfo();
+            showScreen('data-privacy-screen');
+        });
+        document.getElementById('data-privacy-back-btn')?.addEventListener('click', () => showScreen('profile-screen'));
+        document.getElementById('view-privacy-policy-btn')?.addEventListener('click', () => showScreen('privacy-policy-screen'));
+        document.getElementById('privacy-policy-link')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            showScreen('privacy-policy-screen');
+        });
+        document.getElementById('assessment-privacy-link')?.addEventListener('click', (e) => {
+            e.preventDefault();
+            showScreen('privacy-policy-screen');
+        });
+        document.getElementById('privacy-back-btn')?.addEventListener('click', () => showScreen('data-privacy-screen'));
+        
+        // Export and delete account
+        document.getElementById('export-all-data-btn')?.addEventListener('click', () => showModal('export-modal'));
+        document.getElementById('delete-account-btn')?.addEventListener('click', () => showModal('delete-account-modal'));
+        
+        // Wellness resource navigation
+        document.getElementById('understanding-depression-btn')?.addEventListener('click', () => showScreen('understanding-depression-screen'));
+        document.getElementById('behavioral-activation-btn')?.addEventListener('click', () => showScreen('behavioral-activation-screen'));
+        document.getElementById('breathing-exercise-btn')?.addEventListener('click', () => showScreen('breathing-exercise-screen'));
+        document.getElementById('writing-journal-btn')?.addEventListener('click', () => showScreen('writing-journal-screen'));
+        document.getElementById('mindfulness-meditation-btn')?.addEventListener('click', () => showScreen('mindfulness-meditation-screen'));
+        document.getElementById('relax-environment-btn')?.addEventListener('click', () => showScreen('relax-environment-screen'));
+        
         // Back buttons for wellness resources
         document.getElementById('depression-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
         document.getElementById('behavioral-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
@@ -5033,4 +5446,11 @@
     });
     
     initializeApp();
+});
+// Add event listeners for new anxiety and stress screens
+document.addEventListener('DOMContentLoaded', () => {
+    document.getElementById('understanding-anxiety-btn')?.addEventListener('click', () => showScreen('understanding-anxiety-screen'));
+    document.getElementById('understanding-stress-btn')?.addEventListener('click', () => showScreen('understanding-stress-screen'));
+    document.getElementById('anxiety-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+    document.getElementById('stress-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
 });

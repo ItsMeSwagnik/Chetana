@@ -93,33 +93,51 @@ export default async function handler(req, res) {
     if (dataType === 'journal') {
         if (method === 'POST') {
             let { userId, entryText, moodRating } = req.body;
+            console.log('📝 Journal - Saving entry:', { userId, entryLength: entryText?.length, moodRating });
+            
             if (userId === 'admin') {
-                const adminResult = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
-                userId = adminResult.rows.length > 0 ? adminResult.rows[0].id : 1;
+                try {
+                    const adminResult = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
+                    userId = adminResult.rows.length > 0 ? adminResult.rows[0].id : 1;
+                } catch (err) {
+                    console.error('Admin lookup error:', err);
+                    userId = 1;
+                }
             }
+            
             try {
-                await pool.query(
-                    'INSERT INTO journal_entries (user_id, entry_text, mood_rating) VALUES ($1, $2, $3)',
+                const result = await pool.query(
+                    'INSERT INTO journal_entries (user_id, entry_text, mood_rating) VALUES ($1, $2, $3) RETURNING *',
                     [userId, entryText, moodRating]
                 );
-                return res.json({ success: true, message: 'Journal entry saved' });
+                console.log('✅ Journal entry saved successfully:', result.rows[0].id);
+                return res.json({ success: true, message: 'Journal entry saved', data: result.rows[0] });
             } catch (err) {
-                return res.status(500).json({ success: false, error: 'Failed to save journal entry' });
+                console.error('❌ Journal save error:', err);
+                return res.status(500).json({ success: false, error: 'Failed to save journal entry: ' + err.message });
             }
         }
         if (method === 'GET' && userId) {
             let actualUserId = userId;
             if (userId === 'admin') {
-                const adminResult = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
-                actualUserId = adminResult.rows.length > 0 ? adminResult.rows[0].id : 1;
+                try {
+                    const adminResult = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
+                    actualUserId = adminResult.rows.length > 0 ? adminResult.rows[0].id : 1;
+                } catch (err) {
+                    console.error('Admin lookup error:', err);
+                    actualUserId = 1;
+                }
             }
             try {
+                console.log('📝 Journal - Loading entries for user:', actualUserId);
                 const result = await pool.query(
-                    'SELECT * FROM journal_entries WHERE user_id = $1 ORDER BY entry_date DESC, created_at DESC LIMIT 10',
+                    'SELECT *, TO_CHAR(entry_date, \'YYYY-MM-DD\') as formatted_date, TO_CHAR(created_at, \'YYYY-MM-DD HH24:MI\') as formatted_time FROM journal_entries WHERE user_id = $1 ORDER BY entry_date DESC, created_at DESC LIMIT 10',
                     [actualUserId]
                 );
+                console.log('📝 Journal - Found entries:', result.rows.length);
                 return res.json({ success: true, entries: result.rows });
             } catch (err) {
+                console.error('❌ Journal load error:', err);
                 return res.json({ success: true, entries: [] });
             }
         }
@@ -128,33 +146,51 @@ export default async function handler(req, res) {
     if (dataType === 'activities') {
         if (method === 'POST') {
             let { userId, dayName, activities } = req.body;
+            console.log('📅 Activity Planner - Saving data:', { userId, dayName, activities });
+            
             if (userId === 'admin') {
-                const adminResult = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
-                userId = adminResult.rows.length > 0 ? adminResult.rows[0].id : 1;
+                try {
+                    const adminResult = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
+                    userId = adminResult.rows.length > 0 ? adminResult.rows[0].id : 1;
+                } catch (err) {
+                    console.error('Admin lookup error:', err);
+                    userId = 1;
+                }
             }
+            
             try {
-                await pool.query(
-                    'INSERT INTO activity_planner (user_id, day_name, activities) VALUES ($1, $2, $3) ON CONFLICT (user_id, day_name) DO UPDATE SET activities = $3, updated_at = CURRENT_TIMESTAMP',
+                const result = await pool.query(
+                    'INSERT INTO activity_planner (user_id, day_name, activities) VALUES ($1, $2, $3) ON CONFLICT (user_id, day_name) DO UPDATE SET activities = $3, updated_at = CURRENT_TIMESTAMP RETURNING *',
                     [userId, dayName, activities]
                 );
-                return res.json({ success: true, message: 'Activities saved' });
+                console.log('✅ Activity saved successfully:', result.rows[0]);
+                return res.json({ success: true, message: 'Activities saved', data: result.rows[0] });
             } catch (err) {
-                return res.status(500).json({ success: false, error: 'Failed to save activities' });
+                console.error('❌ Activity save error:', err);
+                return res.status(500).json({ success: false, error: 'Failed to save activities: ' + err.message });
             }
         }
         if (method === 'GET' && userId) {
             let actualUserId = userId;
             if (userId === 'admin') {
-                const adminResult = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
-                actualUserId = adminResult.rows.length > 0 ? adminResult.rows[0].id : 1;
+                try {
+                    const adminResult = await pool.query('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
+                    actualUserId = adminResult.rows.length > 0 ? adminResult.rows[0].id : 1;
+                } catch (err) {
+                    console.error('Admin lookup error:', err);
+                    actualUserId = 1;
+                }
             }
             try {
+                console.log('📅 Activity Planner - Loading data for user:', actualUserId);
                 const result = await pool.query(
-                    'SELECT * FROM activity_planner WHERE user_id = $1',
+                    'SELECT * FROM activity_planner WHERE user_id = $1 ORDER BY day_name',
                     [actualUserId]
                 );
+                console.log('📅 Activity Planner - Found activities:', result.rows.length);
                 return res.json({ success: true, activities: result.rows });
             } catch (err) {
+                console.error('❌ Activity load error:', err);
                 return res.json({ success: true, activities: [] });
             }
         }

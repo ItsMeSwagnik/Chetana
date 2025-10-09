@@ -214,6 +214,8 @@ async function initDB() {
       await queryWithRetry(`CREATE TABLE IF NOT EXISTS activity_planner (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, day_name VARCHAR(20) NOT NULL, activities TEXT[], created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, day_name))`);
       
       console.log('✅ Database tables initialized successfully');
+      console.log('📅 Activity planner table: user_id, day_name, activities[]');
+      console.log('📝 Journal entries table: user_id, entry_text, mood_rating, entry_date');
       return;
       
     } catch (err) {

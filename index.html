@@ -283,13 +283,27 @@
         </header>
         <div class="page-content">
             <div class="page-section">
-                <h2>Understanding Mental Health</h2>
+                <h2 style="text-align: center;">Understanding Mental Health</h2>
                 <div class="resources-grid">
                     <div class="resource-card" id="understanding-depression-btn">
                         <span class="resource-icon">📖</span>
                         <div>
                             <h4 class="resource-title">Understanding Depression</h4>
                             <p class="resource-description">Learn about signs, symptoms, and coping strategies.</p>
+                        </div>
+                    </div>
+                    <div class="resource-card" id="understanding-anxiety-btn">
+                        <span class="resource-icon">😰</span>
+                        <div>
+                            <h4 class="resource-title">Understanding Anxiety</h4>
+                            <p class="resource-description">Learn about anxiety types, symptoms, and management techniques.</p>
+                        </div>
+                    </div>
+                    <div class="resource-card" id="understanding-stress-btn">
+                        <span class="resource-icon">😤</span>
+                        <div>
+                            <h4 class="resource-title">Understanding Stress</h4>
+                            <p class="resource-description">Learn about stress types, effects, and healthy coping mechanisms.</p>
                         </div>
                     </div>
                     <div class="resource-card" id="behavioral-activation-btn">
@@ -302,7 +316,7 @@
                 </div>
             </div>
             <div class="page-section">
-                <h2>Relaxation & Mindfulness</h2>
+                <h2 style="text-align: center;">Relaxation & Mindfulness</h2>
                 <div class="resources-grid">
                     <div class="resource-card" id="breathing-exercise-btn">
                         <span class="resource-icon">🧘</span>
@@ -321,7 +335,7 @@
                 </div>
             </div>
              <div class="page-section">
-                <h2>Self-Care Tools</h2>
+                <h2 style="text-align: center;">Self-Care Tools</h2>
                 <div class="resources-grid">
                     <div class="resource-card" id="mindfulness-meditation-btn">
                         <span class="resource-icon">🎧</span>
@@ -639,6 +653,33 @@
                             <div class="activity-slot" contenteditable="true">Add activity...</div>
                             <div class="activity-slot" contenteditable="true">Add activity...</div>
                         </div>
+                        <div class="day-column">
+                            <h4>Thursday</h4>
+                            <div class="activity-slot" contenteditable="true">Add activity...</div>
+                            <div class="activity-slot" contenteditable="true">Add activity...</div>
+                        </div>
+                        <div class="day-column">
+                            <h4>Friday</h4>
+                            <div class="activity-slot" contenteditable="true">Add activity...</div>
+                            <div class="activity-slot" contenteditable="true">Add activity...</div>
+                        </div>
+                        <div class="day-column">
+                            <h4>Saturday</h4>
+                            <div class="activity-slot" contenteditable="true">Add activity...</div>
+                            <div class="activity-slot" contenteditable="true">Add activity...</div>
+                        </div>
+                        <div class="day-column">
+                            <h4>Sunday</h4>
+                            <div class="activity-slot" contenteditable="true">Add activity...</div>
+                            <div class="activity-slot" contenteditable="true">Add activity...</div>
+                        </div>
+                    </div>
+                    <div class="planner-actions">
+                        <button id="save-activity-planner-btn" class="btn btn--primary">💾 Save Activity Plan</button>
+                        <button id="clear-activity-planner-btn" class="btn btn--outline">🗑️ Clear All</button>
+                    </div>
+                    <div class="save-status" id="activity-save-status" style="display: none; text-align: center; margin-top: 1rem; padding: 0.5rem; border-radius: 4px; background: #d4edda; color: #155724; border: 1px solid #c3e6cb;">
+                        ✅ Activity plan saved successfully!
                     </div>
                 </div>
 
@@ -1229,3 +1270,222 @@
     <script src="script.js"></script>
 </body>
 </html>
+    <!-- Understanding Anxiety Screen -->
+    <div id="understanding-anxiety-screen" class="screen">
+        <header class="page-header">
+            <div class="header-side-panel"><button id="anxiety-back-btn" class="back-btn">🏠</button></div>
+            <h2 class="header-title">Understanding Anxiety</h2>
+            <div class="header-controls">
+                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+            </div>
+        </header>
+        <div class="page-content">
+            <div class="wellness-content">
+                <h3>What is Anxiety?</h3>
+                <p>Anxiety is a natural response to stress, but when it becomes excessive or persistent, it can interfere with daily activities and quality of life.</p>
+                
+                <h3>Types of Anxiety Disorders</h3>
+                <div class="anxiety-types">
+                    <div class="type-card">
+                        <h4>🌪️ Generalized Anxiety Disorder (GAD)</h4>
+                        <p>Excessive worry about everyday situations and events.</p>
+                    </div>
+                    <div class="type-card">
+                        <h4>😰 Panic Disorder</h4>
+                        <p>Sudden episodes of intense fear with physical symptoms.</p>
+                    </div>
+                    <div class="type-card">
+                        <h4>👥 Social Anxiety</h4>
+                        <p>Fear of social situations and being judged by others.</p>
+                    </div>
+                    <div class="type-card">
+                        <h4>🕷️ Specific Phobias</h4>
+                        <p>Intense fear of specific objects or situations.</p>
+                    </div>
+                </div>
+
+                <h3>Common Symptoms</h3>
+                <ul>
+                    <li>Excessive worry or fear</li>
+                    <li>Restlessness or feeling on edge</li>
+                    <li>Rapid heartbeat or palpitations</li>
+                    <li>Sweating or trembling</li>
+                    <li>Difficulty concentrating</li>
+                    <li>Sleep disturbances</li>
+                    <li>Muscle tension</li>
+                    <li>Avoidance of anxiety-provoking situations</li>
+                </ul>
+
+                <h3>Coping Strategies</h3>
+                <div class="coping-strategies">
+                    <div class="strategy-card">
+                        <h4>🧘 Deep Breathing</h4>
+                        <p>Practice slow, deep breathing to activate the body's relaxation response.</p>
+                    </div>
+                    <div class="strategy-card">
+                        <h4>🎯 Grounding Techniques</h4>
+                        <p>Use 5-4-3-2-1 technique: 5 things you see, 4 you touch, 3 you hear, 2 you smell, 1 you taste.</p>
+                    </div>
+                    <div class="strategy-card">
+                        <h4>💭 Challenge Negative Thoughts</h4>
+                        <p>Question anxious thoughts and replace them with more realistic ones.</p>
+                    </div>
+                    <div class="strategy-card">
+                        <h4>📝 Gradual Exposure</h4>
+                        <p>Gradually face feared situations in small, manageable steps.</p>
+                    </div>
+                    <div class="strategy-card">
+                        <h4>🏃 Regular Exercise</h4>
+                        <p>Physical activity helps reduce anxiety and improve mood naturally.</p>
+                    </div>
+                    <div class="strategy-card">
+                        <h4>😴 Sleep Hygiene</h4>
+                        <p>Maintain regular sleep schedule and create a calming bedtime routine.</p>
+                    </div>
+                </div>
+
+                <div class="help-section">
+                    <h3>When to Seek Professional Help</h3>
+                    <p>Consider professional support if anxiety:</p>
+                    <ul>
+                        <li>Interferes with work, school, or relationships</li>
+                        <li>Causes physical symptoms like panic attacks</li>
+                        <li>Leads to avoidance of important activities</li>
+                        <li>Persists for several weeks or months</li>
+                        <li>Includes thoughts of self-harm</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Understanding Stress Screen -->
+    <div id="understanding-stress-screen" class="screen">
+        <header class="page-header">
+            <div class="header-side-panel"><button id="stress-back-btn" class="back-btn">🏠</button></div>
+            <h2 class="header-title">Understanding Stress</h2>
+            <div class="header-controls">
+                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+            </div>
+        </header>
+        <div class="page-content">
+            <div class="wellness-content">
+                <h3>What is Stress?</h3>
+                <p>Stress is the body's natural response to challenges or demands. While some stress can be motivating, chronic stress can negatively impact physical and mental health.</p>
+                
+                <h3>Types of Stress</h3>
+                <div class="stress-types">
+                    <div class="type-card">
+                        <h4>⚡ Acute Stress</h4>
+                        <p>Short-term stress from immediate pressures or demands. Usually manageable and temporary.</p>
+                    </div>
+                    <div class="type-card">
+                        <h4>🔄 Episodic Acute Stress</h4>
+                        <p>Frequent episodes of acute stress, often in people who take on too much.</p>
+                    </div>
+                    <div class="type-card">
+                        <h4>📈 Chronic Stress</h4>
+                        <p>Long-term stress from ongoing situations like work pressure or relationship problems.</p>
+                    </div>
+                    <div class="type-card">
+                        <h4>✨ Eustress</h4>
+                        <p>Positive stress that motivates and energizes, like starting a new job or getting married.</p>
+                    </div>
+                </div>
+
+                <h3>Common Stress Symptoms</h3>
+                <div class="symptom-categories">
+                    <div class="symptom-group">
+                        <h4>🧠 Emotional Symptoms</h4>
+                        <ul>
+                            <li>Irritability or anger</li>
+                            <li>Anxiety or restlessness</li>
+                            <li>Feeling overwhelmed</li>
+                            <li>Low motivation</li>
+                            <li>Sadness or depression</li>
+                        </ul>
+                    </div>
+                    <div class="symptom-group">
+                        <h4>🏃 Physical Symptoms</h4>
+                        <ul>
+                            <li>Headaches</li>
+                            <li>Muscle tension</li>
+                            <li>Fatigue</li>
+                            <li>Sleep problems</li>
+                            <li>Digestive issues</li>
+                        </ul>
+                    </div>
+                    <div class="symptom-group">
+                        <h4>🤔 Cognitive Symptoms</h4>
+                        <ul>
+                            <li>Racing thoughts</li>
+                            <li>Forgetfulness</li>
+                            <li>Difficulty concentrating</li>
+                            <li>Poor judgment</li>
+                            <li>Constant worrying</li>
+                        </ul>
+                    </div>
+                </div>
+
+                <h3>Healthy Coping Mechanisms</h3>
+                <div class="coping-strategies">
+                    <div class="strategy-card">
+                        <h4>⏰ Time Management</h4>
+                        <p>Prioritize tasks, set realistic goals, and break large projects into smaller steps.</p>
+                    </div>
+                    <div class="strategy-card">
+                        <h4>🧘 Relaxation Techniques</h4>
+                        <p>Practice meditation, progressive muscle relaxation, or yoga.</p>
+                    </div>
+                    <div class="strategy-card">
+                        <h4>🤝 Social Support</h4>
+                        <p>Connect with friends, family, or support groups. Don't isolate yourself.</p>
+                    </div>
+                    <div class="strategy-card">
+                        <h4>🏃 Physical Activity</h4>
+                        <p>Regular exercise releases endorphins and reduces stress hormones.</p>
+                    </div>
+                    <div class="strategy-card">
+                        <h4>🎨 Hobbies & Interests</h4>
+                        <p>Engage in activities you enjoy to provide mental breaks and fulfillment.</p>
+                    </div>
+                    <div class="strategy-card">
+                        <h4>🚫 Healthy Boundaries</h4>
+                        <p>Learn to say no to excessive demands and protect your personal time.</p>
+                    </div>
+                </div>
+
+                <h3>Unhealthy Coping Mechanisms to Avoid</h3>
+                <div class="avoid-strategies">
+                    <div class="avoid-card">
+                        <h4>🍷 Substance Use</h4>
+                        <p>Alcohol, drugs, or excessive caffeine can worsen stress and create dependency.</p>
+                    </div>
+                    <div class="avoid-card">
+                        <h4>🍔 Emotional Eating</h4>
+                        <p>Using food to cope can lead to health problems and guilt.</p>
+                    </div>
+                    <div class="avoid-card">
+                        <h4>😴 Avoidance</h4>
+                        <p>Procrastination or avoiding responsibilities often increases stress.</p>
+                    </div>
+                    <div class="avoid-card">
+                        <h4>😡 Aggression</h4>
+                        <p>Taking stress out on others damages relationships and doesn't solve problems.</p>
+                    </div>
+                </div>
+
+                <div class="help-section">
+                    <h3>When Stress Becomes a Problem</h3>
+                    <p>Seek professional help if stress:</p>
+                    <ul>
+                        <li>Significantly impacts your daily functioning</li>
+                        <li>Causes persistent physical symptoms</li>
+                        <li>Leads to substance abuse or other harmful behaviors</li>
+                        <li>Results in thoughts of self-harm</li>
+                        <li>Doesn't improve with self-care strategies</li>
+                    </ul>
+                </div>
+            </div>
+        </div>
+    </div>

@@ -403,11 +403,19 @@
             return;
         }
         
-        // Validate date format if manually typed (DD/MM/YYYY)
-        if (dob && dob.includes('/')) {
-            const dateRegex = /^(0[1-9]|[12][0-9]|3[01])\/(0[1-9]|1[0-2])\/\d{4}$/;
-            if (!dateRegex.test(dob)) {
-                alert('Please enter date in DD/MM/YYYY format (e.g., 15/03/1990)');
+        // Validate date input (now using HTML5 date input)
+        if (dob) {
+            const dateObj = new Date(dob);
+            const today = new Date();
+            const minAge = new Date(today.getFullYear() - 120, today.getMonth(), today.getDate());
+            const maxAge = new Date(today.getFullYear() - 13, today.getMonth(), today.getDate());
+            
+            if (dateObj > maxAge) {
+                alert('You must be at least 13 years old to register.');
+                return;
+            }
+            if (dateObj < minAge) {
+                alert('Please enter a valid birth date.');
                 return;
             }
         }
@@ -3236,16 +3244,7 @@
         document.getElementById('go-to-register-btn')?.addEventListener('click', () => showScreen('register-screen'));
         document.getElementById('create-account-btn')?.addEventListener('click', handleCreateAccount);
         
-        // DOB input type switching
-        const dobInput = document.getElementById('register-dob');
-        if (dobInput) {
-            dobInput.addEventListener('focus', () => {
-                dobInput.type = 'date';
-            });
-            dobInput.addEventListener('blur', () => {
-                if (!dobInput.value) dobInput.type = 'text';
-            });
-        }
+        // DOB input is now always type="date" for consistent behavior
         document.getElementById('back-to-login-btn')?.addEventListener('click', () => showScreen('login-screen'));
         document.getElementById('guest-login-btn')?.addEventListener('click', () => { 
             showScreen('demo-chat-screen'); 

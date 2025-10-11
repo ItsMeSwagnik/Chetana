@@ -1,4 +1,4 @@
-﻿document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', () => {
     // --- STATE VARIABLES ---
     let currentScreen = 'login-screen';
     let chatCount = parseInt(localStorage.getItem('demoChatCount')) || 0;
@@ -116,7 +116,7 @@
         document.body.setAttribute('data-theme', theme);
         localStorage.setItem('theme', theme);
         document.querySelectorAll('.theme-icon').forEach(icon => { 
-            icon.textContent = theme === 'dark' ? '☀' : '🌙'; 
+            icon.innerHTML = theme === 'dark' ? '☀' : '<i class="moon-icon"></i>'; 
         });
         if (progressChart) {
             const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary');
@@ -366,11 +366,7 @@
                 }
             } else {
                 console.log('❌ Frontend: Login failed:', data.error);
-                if (data.error.includes('ENOTFOUND')) {
-                    alert('Connection error. Try:\n• demo@chetana.com / demo123\n• user@example.com / password\n• test@test.com / 123456');
-                } else {
-                    alert(data.error || 'Login failed');
-                }
+                alert(data.error || 'Login failed. Please check your credentials.');
             }
         } catch (err) {
             console.error('🔴 Frontend: Login error details:', {
@@ -379,7 +375,7 @@
                 name: err.name,
                 timestamp: new Date().toISOString()
             });
-            alert('Connection error. Please try again.');
+            alert('Connection error. Please check your internet connection and try again.');
         } finally {
             loginBtn.innerHTML = 'Login';
             loginBtn.classList.remove('loading');
@@ -503,7 +499,8 @@
             // Load assessment count
             const assessmentResponse = await fetch(`${API_BASE}/api/assessments?userId=${currentUser.id}`);
             const assessmentData = await assessmentResponse.json();
-            const assessmentCount = assessmentData.assessments ? assessmentData.assessments.length : 0;
+            const assessments = (assessmentData.success && assessmentData.assessments) ? assessmentData.assessments : (assessmentData.assessments || []);
+            const assessmentCount = assessments.length;
             document.getElementById('assessment-count').textContent = `${assessmentCount} assessments completed`;
             
             // Load mood count
@@ -702,7 +699,7 @@
         try {
             const response = await fetch(`${API_BASE}/api/assessments?userId=${currentUser.id}`);
             const data = await response.json();
-            const history = data.assessments || [];
+            const history = (data.success && data.assessments) ? data.assessments : (data.assessments || []);
             
             if (history.length === 0) {
                 chartEl.style.display = 'none';
@@ -896,6 +893,13 @@
                 return;
             }
             
+
+            
+            // Remove existing event listeners and add new ones
+            const newUsersList = usersList.cloneNode(false);
+            usersList.parentNode.replaceChild(newUsersList, usersList);
+            
+            // Re-append all user cards to the new container
             regularUsers.forEach(user => {
                 const userCard = document.createElement('div');
                 userCard.className = 'user-card';
@@ -909,14 +913,27 @@
                         <button class="delete-user-btn" data-user-id="${user.id}">Delete</button>
                     </div>
                     <div class="user-details">
-                        <div>DOB: ${user.dob || 'N/A'}</div>
+                        <div>DOB: ${user.dob ? user.dob.split('T')[0] : 'N/A'}</div>
                         <div>Assessments: ${user.assessment_count || 0}</div>
                         <div>Last Assessment: ${user.last_assessment ? new Date(user.last_assessment).toLocaleDateString() : 'Never'}</div>
                         <div>Joined: ${user.created_at ? new Date(user.created_at).toLocaleDateString() : 'Unknown'}</div>
                     </div>
                 `;
-                usersList.appendChild(userCard);
+                newUsersList.appendChild(userCard);
             });
+            
+            // Add single event listener to new container
+            newUsersList.addEventListener('click', (e) => {
+                if (e.target.classList.contains('view-reports-btn')) {
+                    const userId = e.target.getAttribute('data-user-id');
+                    const userName = e.target.getAttribute('data-user-name');
+                    viewUserReports(userId, userName);
+                } else if (e.target.classList.contains('delete-user-btn')) {
+                    const userId = e.target.getAttribute('data-user-id');
+                    deleteUser(userId);
+                }
+            });
+            
         } catch (err) {
             console.error('Failed to load admin data:', err);
             document.getElementById('users-list').innerHTML = `<p>Error loading admin data: ${err.message}</p>`;
@@ -1000,44 +1017,57 @@
     window.resolveReport = resolveReport;
     
     async function deleteUser(userId) {
-        if (confirm('Are you sure you want to delete this user?')) {
+        if (confirm('Are you sure you want to delete this user? This action cannot be undone.')) {
             try {
-                await fetch(`${API_BASE}/api/admin/users?userId=${userId}`, { method: 'DELETE' });
-                loadAdminPanel();
+                console.log('🗑️ Deleting user:', userId);
+                const response = await fetch(`${API_BASE}/api/admin/users?userId=${userId}`, { 
+                    method: 'DELETE' 
+                });
+                
+                if (!response.ok) {
+                    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+                }
+                
+                const result = await response.json();
+                console.log('🗑️ Delete result:', result);
+                
+                if (result.success) {
+                    alert('User deleted successfully!');
+                    loadAdminPanel(); // Reload the admin panel
+                } else {
+                    throw new Error(result.error || 'Failed to delete user');
+                }
             } catch (err) {
-                alert('Failed to delete user');
+                console.error('❌ Failed to delete user:', err);
+                alert('Failed to delete user: ' + err.message);
             }
         }
     }
     
     async function viewUserReports(userId, userName) {
         try {
-            console.log('Loading reports for user:', userId, userName);
+            console.log('📊 Loading reports for user:', userId, userName);
             const response = await fetch(`${API_BASE}/api/assessments?userId=${userId}`);
-            console.log('Response status:', response.status);
+            console.log('📊 Response status:', response.status);
             
-            const responseText = await response.text();
-            console.log('Raw response:', responseText);
-            
-            let data;
-            try {
-                data = JSON.parse(responseText);
-            } catch (parseErr) {
-                console.error('JSON parse error:', parseErr);
-                console.error('Response was HTML, likely 404 or server error');
-                throw new Error('API endpoint not found or server error');
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
-            console.log('Parsed data:', data);
+            const data = await response.json();
+            console.log('📊 Parsed data:', data);
             
-            if (data.assessments && data.assessments.length > 0) {
-                displayUserReports(userId, userName, data.assessments);
+            const assessments = (data.success && data.assessments) ? data.assessments : (data.assessments || []);
+            console.log('📊 Processed assessments:', assessments.length, 'found');
+            
+            if (assessments.length > 0) {
+                displayUserReports(userId, userName, assessments);
                 showScreen('user-reports-screen');
             } else {
                 alert(`${userName} has no assessment reports yet.`);
             }
         } catch (err) {
-            console.error('Failed to load user reports:', err);
+            console.error('❌ Failed to load user reports:', err);
             alert('Failed to load user reports: ' + err.message);
         }
     }
@@ -3239,6 +3269,22 @@
         
         setTimeout(() => showToast(), 500);
 
+        // Password toggle functionality
+        document.querySelectorAll('.password-toggle').forEach(toggle => {
+            toggle.addEventListener('click', () => {
+                const targetId = toggle.getAttribute('data-target');
+                const passwordInput = document.getElementById(targetId);
+                const eyeIcon = toggle.querySelector('.eye-icon');
+                if (passwordInput.type === 'password') {
+                    passwordInput.type = 'text';
+                    eyeIcon.classList.add('eye-slash');
+                } else {
+                    passwordInput.type = 'password';
+                    eyeIcon.classList.remove('eye-slash');
+                }
+            });
+        });
+
         // Add all event listeners
         document.getElementById('login-btn')?.addEventListener('click', handleLogin);
         document.getElementById('go-to-register-btn')?.addEventListener('click', () => showScreen('register-screen'));
@@ -4638,7 +4684,7 @@
                 <div class="header-side-panel"></div>
                 <h2 class="header-title">Privacy & Policy</h2>
                 <div class="header-controls">
-                    <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                    <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
                 </div>
             `;
             
@@ -4689,7 +4735,7 @@
                     <div class="header-side-panel"><button id="privacy-back-btn" class="back-btn">🏠</button></div>
                     <h2 class="header-title">Privacy & Policy</h2>
                     <div class="header-controls">
-                        <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                        <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
                     </div>
                 `;
                 privacyContent.innerHTML = existingContent;

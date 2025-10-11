@@ -20,13 +20,13 @@
         <div class="auth-container">
             <div class="auth-header">
                 <div class="logo-section"><h1 class="logo">चेtanā</h1><p class="tagline">Awakening Minds, Nurturing Wellbeing</p></div>
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
             <form class="auth-form">
-                <div class="form-group"><div class="input-group"><span class="input-icon">📧</span><input id="login-email" type="email" placeholder="Email / Username" required /></div></div>
-                <div class="form-group"><div class="input-group"><span class="input-icon">🔒</span><input id="login-password" type="password" placeholder="Password" required /></div></div>
+                <div class="form-group"><div class="input-group"><span class="input-icon"><i class="email-icon"></i></span><input id="login-email" type="email" placeholder="Email / Username" required /></div></div>
+                <div class="form-group"><div class="input-group"><span class="input-icon"><i class="lock-icon"></i></span><input id="login-password" type="password" placeholder="Password" required /><span class="password-toggle" data-target="login-password"><i class="eye-icon"></i></span></div></div>
                 <button type="button" id="login-btn" class="btn btn--primary">Login</button>
-                <button type="button" id="guest-login-btn" class="btn btn--outline">Continue as Guest (Demo)</button>
+                <button type="button" id="guest-login-btn" class="btn btn--outline">Continue as Guest</button>
                 <p class="signup-link">Don't have an account? <a href="#" id="go-to-register-btn">Signup</a></p>
             </form>
         </div>
@@ -36,13 +36,13 @@
         <div class="auth-container">
             <div class="auth-header">
                 <div class="logo-section"><h1 class="logo">चेtanā</h1><p class="tagline">Create your Account</p></div>
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
             <form class="auth-form">
-                <div class="form-group"><div class="input-group"><span class="input-icon">👤</span><input id="register-name" type="text" placeholder="Full Name" required /></div></div>
-                <div class="form-group"><div class="input-group"><span class="input-icon">🎂</span><input id="register-dob" type="date" placeholder="Date of Birth" required /></div></div>
-                <div class="form-group"><div class="input-group"><span class="input-icon">📧</span><input id="register-email" type="email" placeholder="Email Address" required /></div></div>
-                <div class="form-group"><div class="input-group"><span class="input-icon">🔒</span><input id="register-password" type="password" placeholder="Password" required /></div></div>
+                <div class="form-group"><div class="input-group"><span class="input-icon"><i class="user-icon"></i></span><input id="register-name" type="text" placeholder="Full Name" required /></div></div>
+                <div class="form-group"><div class="input-group"><span class="input-icon"><i class="calendar-icon2"></i></span><input id="register-dob" type="date" placeholder="Date of Birth" required /></div></div>
+                <div class="form-group"><div class="input-group"><span class="input-icon"><i class="email-icon"></i></span><input id="register-email" type="email" placeholder="Email Address" required /></div></div>
+                <div class="form-group"><div class="input-group"><span class="input-icon"><i class="lock-icon"></i></span><input id="register-password" type="password" placeholder="Password" required /><span class="password-toggle" data-target="register-password"><i class="eye-icon"></i></span></div></div>
                 <button type="button" id="create-account-btn" class="btn btn--primary">Create Account</button>
                 <button type="button" id="back-to-login-btn" class="btn btn--outline">Back to Login</button>
             </form>
@@ -52,20 +52,20 @@
     <div id="dashboard-screen" class="screen">
         <header class="page-header">
             <div class="header-side-panel">
-                <button id="profile-btn" class="back-btn">👤</button>
+                <button id="profile-btn" class="back-btn"><i class="user-icon"></i></button>
             </div>
             <h2 class="header-title" id="welcome-heading">Welcome, User</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <main class="dashboard-main">
-            <div class="card card--primary" id="go-to-therapist-chat-btn"><h3>🧠 AI Therapist Chat (Unlimited)</h3></div>
-            <div class="card card--secondary" id="go-to-assessment-btn"><h3>📊 Take Self-Assessment</h3></div>
-            <div class="card card--primary" id="go-to-booking-btn"><h3>📅 Book Appointment</h3></div>
-            <div class="card card--secondary" id="go-to-forum-btn"><h3>💬 Community Forum</h3></div>
-            <div class="card card--primary" id="go-to-progress-btn"><h3>📈 My Progress Dashboard</h3></div>
-            <div class="card card--secondary" id="go-to-resources-btn"><h3>🌿 Wellness Resources</h3></div>
+            <div class="card card--primary" id="go-to-therapist-chat-btn"><h3><i class="chat-icon"></i> Chat With AI Therapist</h3></div>
+            <div class="card card--secondary" id="go-to-assessment-btn"><h3><i class="chart-icon"></i> Take Self-Assessment</h3></div>
+            <div class="card card--primary" id="go-to-booking-btn"><h3><i class="calendar-icon"></i> Book Appointment</h3></div>
+            <div class="card card--secondary" id="go-to-forum-btn"><h3><i class="group-icon"></i> Community Forum</h3></div>
+            <div class="card card--primary" id="go-to-progress-btn"><h3><i class="progress-icon"></i> My Progress Dashboard</h3></div>
+            <div class="card card--secondary" id="go-to-resources-btn"><h3><i class="book-icon"></i> Wellness Resources</h3></div>
 
         </main>
         <div class="app-branding">
@@ -77,16 +77,16 @@
 
     <div id="profile-screen" class="screen">
         <header class="page-header">
-            <div class="header-side-panel"><button id="profile-back-btn" class="back-btn">🏠</button></div>
+            <div class="header-side-panel"><button id="profile-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
             <h2 class="header-title">Profile & Settings</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
             <div class="profile-section">
                 <div class="profile-info">
-                    <div class="profile-avatar">👤</div>
+                    <div class="profile-avatar"><i class="user-icon"></i></div>
                     <h3 id="profile-name">User Name</h3>
                     <p id="profile-email">user@example.com</p>
                     <p class="profile-forum-uid">Forum ID: <span id="profile-forum-uid">Not set</span></p>
@@ -95,30 +95,30 @@
             <div class="settings-section">
                 <h3>Settings</h3>
                 <div class="setting-item">
-                    <span>🌙 Theme</span>
+                    <span><i class="moon-icon"></i> Theme</span>
                     <button id="profile-theme-toggle" class="setting-toggle">Dark</button>
                 </div>
                 <div class="setting-item">
-                    <span>🔔 Notifications</span>
+                    <span><i class="bell-icon"></i> Notifications</span>
                     <button class="setting-toggle">On</button>
                 </div>
                 <div class="setting-item" id="data-privacy-btn">
-                    <span>📊 Data & Privacy</span>
+                    <span><i class="chart-icon"></i> Data & Privacy</span>
                     <button class="setting-toggle">Manage</button>
                 </div>
             </div>
             <div class="logout-section">
-                <button id="logout-btn" class="btn btn--outline logout-btn">🚪 Logout</button>
+                <button id="logout-btn" class="btn btn--outline logout-btn"><i class="logout-icon"></i> Logout</button>
             </div>
         </div>
     </div>
 
     <div id="admin-screen" class="screen">
         <header class="page-header">
-            <div class="header-side-panel"><button id="admin-logout-btn" class="back-btn">🚪</button></div>
+            <div class="header-side-panel"><button id="admin-logout-btn" class="back-btn"><i class="logout-icon"></i></button></div>
             <h2 class="header-title">Admin Panel</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
@@ -133,9 +133,9 @@
                 </div>
             </div>
             <div class="admin-actions">
-                <button id="admin-forum-btn" class="btn btn--primary">💬 Community Forum</button>
-                <button id="admin-reports-btn" class="btn btn--secondary">🚩 View Reports</button>
-                <button id="cleanup-admin-posts-btn" class="btn btn--outline">🧹 Clean Duplicate Posts</button>
+                <button id="admin-forum-btn" class="btn btn--primary"><i class="chat-icon"></i> Community Forum</button>
+                <button id="admin-reports-btn" class="btn btn--secondary"><i class="flag-icon"></i> View Reports</button>
+                <button id="cleanup-admin-posts-btn" class="btn btn--outline"><i class="clean-icon"></i> Clean Duplicate Posts</button>
             </div>
             <div class="users-section">
                 <h3>Registered Users</h3>
@@ -146,10 +146,10 @@
 
     <div id="user-reports-screen" class="screen">
         <header class="page-header">
-            <div class="header-side-panel"><button id="user-reports-back-btn" class="back-btn">🏠</button></div>
+            <div class="header-side-panel"><button id="user-reports-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
             <h2 class="header-title" id="user-reports-title">User Assessment Reports</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
@@ -165,7 +165,7 @@
                 <canvas id="user-progress-chart"></canvas>
             </div>
             <div style="text-align: center; margin-top: 20px;">
-                <button id="user-reports-dashboard-btn" class="btn btn--secondary">🏠 Back to Dashboard</button>
+                <button id="user-reports-dashboard-btn" class="btn btn--secondary"><i class="home-icon"></i> Back to Dashboard</button>
             </div>
         </div>
     </div>
@@ -174,9 +174,9 @@
         <div class="chat-wrapper">
             <header class="page-header">
                 <div class="header-side-panel"><button id="demo-chat-login-btn" class="btn-header-login">Login</button></div>
-                <h2 class="header-title">Demo AI Chat</h2>
+                <h2 class="header-title">Demo AI Therapist Chat</h2>
                 <div class="header-controls">
-                    <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                    <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
                 </div>
             </header>
             <div class="chat-messages-container"><div id="demo-chat-messages" class="chat-messages"></div></div>
@@ -199,10 +199,10 @@
     <div id="therapist-chat-screen" class="screen">
         <div class="chat-wrapper">
             <header class="page-header">
-                <div class="header-side-panel"><button id="therapist-chat-home-btn" class="back-btn">🏠</button></div>
+                <div class="header-side-panel"><button id="therapist-chat-home-btn" class="back-btn"><i class="home-icon"></i></button></div>
                 <h2 class="header-title">AI Therapist</h2>
                 <div class="header-controls">
-                    <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                    <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
                 </div>
             </header>
             <div class="chat-messages-container"><div id="therapist-chat-messages" class="chat-messages"></div></div>
@@ -224,10 +224,10 @@
 
     <div id="assessment-screen" class="screen">
         <header class="page-header">
-            <div class="header-side-panel"><button id="assessment-back-btn" class="back-btn">🏠</button></div>
+            <div class="header-side-panel"><button id="assessment-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
             <h2 class="header-title">Self-Assessment</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
@@ -258,10 +258,10 @@
 
     <div id="results-screen" class="screen">
         <header class="page-header">
-            <div class="header-side-panel"><button id="results-back-btn" class="back-btn">🏠</button></div>
+            <div class="header-side-panel"><button id="results-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
             <h2 class="header-title">Your Results</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content results-container">
@@ -269,16 +269,16 @@
             <div id="phq9-results" class="score-card"></div>
             <div id="gad7-results" class="score-card"></div>
             <div id="pss-results" class="score-card"></div>
-            <button id="results-view-progress-btn" class="btn btn--primary" style="margin-top: 20px;">📈 View My Progress</button>
+            <button id="results-view-progress-btn" class="btn btn--primary" style="margin-top: 20px;"><i class="progress-icon"></i> View My Progress</button>
         </div>
     </div>
 
     <div id="resources-screen" class="screen">
         <header class="page-header">
-            <div class="header-side-panel"><button id="resources-back-btn" class="back-btn">🏠</button></div>
+            <div class="header-side-panel"><button id="resources-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
             <h2 class="header-title">Wellness Resources</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
@@ -360,10 +360,10 @@
     
     <div id="progress-screen" class="screen">
         <header class="page-header">
-            <div class="header-side-panel"><button id="progress-back-btn" class="back-btn">🏠</button></div>
+            <div class="header-side-panel"><button id="progress-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
             <h2 class="header-title">My Progress</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
@@ -403,13 +403,13 @@
                     </div>
                 </div>
                 <div class="export-section">
-                    <button id="export-progress-btn" class="btn btn--outline">📊 Export My Data</button>
+                    <button id="export-progress-btn" class="btn btn--outline"><i class="chart-icon"></i> Export My Data</button>
                 </div>
             </div>
 
             <!-- Milestones -->
             <div class="page-section">
-                <h2>Your Milestones 🎉</h2>
+                <h2>Your Milestones <i class="trophy-icon"></i></h2>
                 <div id="milestones-container" class="milestones-container">
                     <p class="section-prompt">Complete assessments to unlock milestones!</p>
                 </div>
@@ -450,10 +450,10 @@
 
     <div id="booking-screen" class="screen">
         <header class="page-header">
-            <div class="header-side-panel"><button id="booking-back-btn" class="back-btn">🏠</button></div>
+            <div class="header-side-panel"><button id="booking-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
             <h2 class="header-title">Find Your Therapist</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="swipe-container">
@@ -462,19 +462,19 @@
             </div>
             <div id="therapist-card" class="therapist-swipe-card"></div>
             <div class="swipe-actions">
-                <button id="pass-btn" class="swipe-btn pass">❌</button>
-                <button id="book-btn" class="swipe-btn book">💚</button>
+                <button id="pass-btn" class="swipe-btn pass"><i class="cross-icon"></i></button>
+                <button id="book-btn" class="swipe-btn book"><i class="heart-icon"></i></button>
             </div>
-            <button id="view-requests-btn" class="requests-floating-btn">📋</button>
+            <button id="view-requests-btn" class="requests-floating-btn"><i class="clipboard-icon"></i></button>
         </div>
     </div>
 
     <div id="requests-screen" class="screen">
         <header class="page-header">
-            <div class="header-side-panel"><button id="requests-back-btn" class="back-btn">🏠</button></div>
+            <div class="header-side-panel"><button id="requests-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
             <h2 class="header-title">My Booking Requests</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
@@ -489,33 +489,33 @@
              <div class="permissions-list">
                 <label class="permission-item">
                     <input type="checkbox" id="location-permission" checked>
-                    <span class="permission-icon">📍</span>
+                    <span class="permission-icon"><i class="location-icon"></i></span>
                     <div class="permission-text">
                         <strong>Location</strong>
-                        <small>For localized emergency resources.</small>
+                        <small>For therapist booking.</small>
                     </div>
                 </label>
                 <label class="permission-item">
                     <input type="checkbox" id="microphone-permission" checked>
-                    <span class="permission-icon">🎤</span>
+                    <span class="permission-icon"><i class="mic-icon"></i></span>
                     <div class="permission-text">
                         <strong>Microphone</strong>
-                        <small>For future voice-to-text features.</small>
+                        <small>For voice-to-text AI chat.</small>
                     </div>
                 </label>
                 <label class="permission-item">
                     <input type="checkbox" id="notifications-permission" checked>
-                    <span class="permission-icon">🔔</span>
+                    <span class="permission-icon"><i class="bell-icon"></i></span>
                     <div class="permission-text">
                         <strong>Notifications</strong>
-                        <small>For appointment reminders.</small>
+                        <small>For daily reminders and check-ins.</small>
                     </div>
                 </label>
              </div>
              <div class="privacy-consent">
                 <label class="permission-item privacy-item">
                     <input type="checkbox" id="privacy-consent" required>
-                    <span class="permission-icon">🔒</span>
+                    <span class="permission-icon"><i class="shield-icon"></i></span>
                     <div class="permission-text">
                         <strong>I agree to the <a href="#" id="privacy-policy-link" style="color: var(--primary-color); text-decoration: underline;">Privacy Policy & DPDP Act Compliance</a></strong>
                         <small>Required to use the app and store your health data securely.</small>
@@ -570,10 +570,10 @@
     <!-- New Wellness Resource Screens -->
     <div id="understanding-depression-screen" class="screen">
         <header class="page-header">
-            <div class="header-side-panel"><button id="depression-back-btn" class="back-btn">🏠</button></div>
+            <div class="header-side-panel"><button id="depression-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
             <h2 class="header-title">Understanding Depression</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
@@ -621,10 +621,10 @@
 
     <div id="behavioral-activation-screen" class="screen">
         <header class="page-header">
-            <div class="header-side-panel"><button id="behavioral-back-btn" class="back-btn">🏠</button></div>
+            <div class="header-side-panel"><button id="behavioral-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
             <h2 class="header-title">Behavioral Activation</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
@@ -700,10 +700,10 @@
 
     <div id="breathing-exercise-screen" class="screen">
         <header class="page-header">
-            <div class="header-side-panel"><button id="breathing-back-btn" class="back-btn">🏠</button></div>
+            <div class="header-side-panel"><button id="breathing-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
             <h2 class="header-title">Breathing Exercise</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
@@ -745,10 +745,10 @@
 
     <div id="mindfulness-meditation-screen" class="screen">
         <header class="page-header">
-            <div class="header-side-panel"><button id="mindfulness-back-btn" class="back-btn">🏠</button></div>
+            <div class="header-side-panel"><button id="mindfulness-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
             <h2 class="header-title">Mindfulness Meditation</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
@@ -787,10 +787,10 @@
 
     <div id="writing-journal-screen" class="screen">
         <header class="page-header">
-            <div class="header-side-panel"><button id="journal-back-btn" class="back-btn">🏠</button></div>
+            <div class="header-side-panel"><button id="journal-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
             <h2 class="header-title">Writing Journal</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
@@ -837,10 +837,10 @@
 
     <div id="privacy-policy-screen" class="screen">
         <header class="page-header">
-            <div class="header-side-panel"><button id="privacy-back-btn" class="back-btn">🏠</button></div>
+            <div class="header-side-panel"><button id="privacy-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
             <h2 class="header-title">Privacy & Policy</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
@@ -914,7 +914,7 @@
                 </ul>
 
                 <div class="policy-footer">
-                    <p><strong>Last Updated:</strong> December 2024</p>
+                    <p><strong>Last Updated:</strong> October 2025</p>
                     <p><strong>Effective Date:</strong> In compliance with DPDP Act 2023</p>
                 </div>
             </div>
@@ -923,10 +923,10 @@
 
     <div id="data-privacy-screen" class="screen">
         <header class="page-header">
-            <div class="header-side-panel"><button id="data-privacy-back-btn" class="back-btn">🏠</button></div>
+            <div class="header-side-panel"><button id="data-privacy-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
             <h2 class="header-title">Data & Privacy Management</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
@@ -1003,10 +1003,10 @@
 
     <div id="admin-reports-screen" class="screen">
         <header class="page-header">
-            <div class="header-side-panel"><button id="admin-reports-back-btn" class="back-btn">🏠</button></div>
+            <div class="header-side-panel"><button id="admin-reports-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
             <h2 class="header-title">Content Reports</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
@@ -1016,10 +1016,10 @@
 
     <div id="forum-screen" class="screen">
         <header class="page-header">
-            <div class="header-side-panel"><button id="forum-back-btn" class="back-btn">🏠</button></div>
+            <div class="header-side-panel"><button id="forum-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
             <h2 class="header-title">Community Forum</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
@@ -1063,7 +1063,7 @@
             <div class="header-side-panel"><button id="community-back-btn" class="back-btn">←</button></div>
             <h2 class="header-title" id="community-title">c/depression</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
@@ -1079,7 +1079,7 @@
             <div class="header-side-panel"><button id="post-back-btn" class="back-btn">←</button></div>
             <h2 class="header-title">Post</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
@@ -1159,10 +1159,10 @@
 
     <div id="relax-environment-screen" class="screen">
         <header class="page-header">
-            <div class="header-side-panel"><button id="relax-back-btn" class="back-btn">🏠</button></div>
+            <div class="header-side-panel"><button id="relax-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
             <h2 class="header-title">Virtual Relax Space</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
@@ -1273,10 +1273,10 @@
     <!-- Understanding Anxiety Screen -->
     <div id="understanding-anxiety-screen" class="screen">
         <header class="page-header">
-            <div class="header-side-panel"><button id="anxiety-back-btn" class="back-btn">🏠</button></div>
+            <div class="header-side-panel"><button id="anxiety-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
             <h2 class="header-title">Understanding Anxiety</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
@@ -1362,10 +1362,10 @@
     <!-- Understanding Stress Screen -->
     <div id="understanding-stress-screen" class="screen">
         <header class="page-header">
-            <div class="header-side-panel"><button id="stress-back-btn" class="back-btn">🏠</button></div>
+            <div class="header-side-panel"><button id="stress-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
             <h2 class="header-title">Understanding Stress</h2>
             <div class="header-controls">
-                <button class="theme-toggle"><span class="theme-icon">🌙</span></button>
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
@@ -1488,4 +1488,5 @@
                 </div>
             </div>
         </div>
+    </div>  </div>
     </div>

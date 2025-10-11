@@ -341,6 +341,7 @@ app.all('/api/users', async (req, res) => {
   }
   
   if (action === 'admin' && req.method === 'GET') {
+    console.log('📊 Admin action requested, redirecting to admin users endpoint');
     // Redirect to admin handler
     req.url = '/api/admin/users';
     return app._router.handle(req, res);
@@ -612,11 +613,11 @@ app.get('/api/assessments', async (req, res) => {
           actualUserId = adminResult.rows[0].id;
         } else {
           console.log('❌ Admin user not found in database');
-          return res.json({ assessments: [] });
+          return res.json({ success: true, assessments: [] });
         }
       } catch (adminErr) {
         console.error('❌ Error finding admin user:', adminErr);
-        return res.json({ assessments: [] });
+        return res.json({ success: true, assessments: [] });
       }
     }
     
@@ -633,7 +634,7 @@ app.get('/api/assessments', async (req, res) => {
     );
     
     console.log('✅ Found', result.rows.length, 'assessments for user', actualUserId);
-    res.json({ assessments: result.rows });
+    res.json({ success: true, assessments: result.rows });
   } catch (err) {
     console.error('❌ Assessment fetch error:', err);
     res.status(500).json({ error: 'Failed to fetch assessments: ' + err.message });
@@ -642,8 +643,13 @@ app.get('/api/assessments', async (req, res) => {
 
 app.get('/api/admin/users', async (req, res) => {
   try {
+    console.log('📊 Admin endpoint: Fetching users and assessments data');
+    
     const usersResult = await queryWithRetry(`
-      SELECT u.id, u.name, u.email, u.dob, u.created_at, COUNT(a.id) as assessment_count 
+      SELECT u.id, u.name, u.email, 
+             TO_CHAR(u.dob, 'YYYY-MM-DD') as dob, 
+             u.created_at, COUNT(a.id) as assessment_count,
+             MAX(a.assessment_date) as last_assessment
       FROM users u 
       LEFT JOIN assessments a ON u.id = a.user_id 
       WHERE (u.isadmin IS NULL OR u.isadmin = false)
@@ -651,15 +657,23 @@ app.get('/api/admin/users', async (req, res) => {
       ORDER BY u.created_at DESC
     `);
     
-    const totalAssessments = await queryWithRetry('SELECT COUNT(*) FROM assessments');
+    console.log('📊 Admin endpoint: Found', usersResult.rows.length, 'users');
+    console.log('📊 Admin endpoint: Sample user data:', usersResult.rows[0]);
     
-    res.json({ 
+    const totalAssessments = await queryWithRetry('SELECT COUNT(*) as total FROM assessments');
+    const assessmentCount = parseInt(totalAssessments.rows[0].total) || 0;
+    
+    console.log('📊 Admin endpoint: Total assessments count:', assessmentCount);
+    
+    const responseData = { 
       users: usersResult.rows,
       totalUsers: usersResult.rows.length,
-      totalAssessments: parseInt(totalAssessments.rows[0].count)
-    });
+      totalAssessments: assessmentCount
+    };
+    
+    res.json(responseData);
   } catch (err) {
-    console.error('Admin users endpoint error:', err);
+    console.error('❌ Admin users endpoint error:', err);
     res.status(500).json({ error: 'Failed to fetch admin data: ' + err.message });
   }
 });
@@ -668,15 +682,24 @@ app.delete('/api/admin/users', async (req, res) => {
   try {
     const { userId } = req.query;
     
+    console.log('🗑️ Admin delete user request for userId:', userId);
+    
     if (!userId) {
       return res.status(400).json({ error: 'userId parameter required' });
     }
     
-    await queryWithRetry('DELETE FROM users WHERE id = $1', [userId]);
-    console.log('User deleted:', userId);
-    res.json({ success: true });
+    const result = await queryWithRetry('DELETE FROM users WHERE id = $1', [userId]);
+    
+    console.log('🗑️ User deletion result:', result.rowCount, 'rows affected');
+    
+    if (result.rowCount === 0) {
+      return res.status(404).json({ error: 'User not found' });
+    }
+    
+    console.log('✅ User deleted successfully:', userId);
+    res.json({ success: true, message: 'User deleted successfully' });
   } catch (err) {
-    console.error('Delete user error:', err);
+    console.error('❌ Delete user error:', err);
     res.status(500).json({ error: 'Failed to delete user: ' + err.message });
   }
 });

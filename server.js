@@ -9,11 +9,77 @@ import validator from 'validator';
 import dotenv from 'dotenv';
 import { fileURLToPath } from 'url';
 import { dirname } from 'path';
+import webpush from 'web-push';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = dirname(__filename);
 
 dotenv.config();
+
+// Generate new VAPID keys if not provided
+let VAPID_PUBLIC_KEY = process.env.VAPID_PUBLIC_KEY;
+let VAPID_PRIVATE_KEY = process.env.VAPID_PRIVATE_KEY;
+
+if (!VAPID_PUBLIC_KEY || !VAPID_PRIVATE_KEY) {
+  console.log('🔑 Generating new VAPID keys...');
+  const vapidKeys = webpush.generateVAPIDKeys();
+  VAPID_PUBLIC_KEY = vapidKeys.publicKey;
+  VAPID_PRIVATE_KEY = vapidKeys.privateKey;
+  console.log('🔑 New VAPID keys generated. Add these to your .env file:');
+  console.log(`VAPID_PUBLIC_KEY=${VAPID_PUBLIC_KEY}`);
+  console.log(`VAPID_PRIVATE_KEY=${VAPID_PRIVATE_KEY}`);
+}
+
+webpush.setVapidDetails(
+  'mailto:admin@chetana.com',
+  VAPID_PUBLIC_KEY,
+  VAPID_PRIVATE_KEY
+);
+
+// Push notification function with better error handling
+async function sendPushNotification(subscription, payload) {
+  try {
+    // Validate subscription format
+    if (!subscription || !subscription.endpoint || !subscription.keys) {
+      console.error('Invalid subscription format');
+      return false;
+    }
+
+    // Send notification with timeout
+    const options = {
+      TTL: 60 * 60 * 24, // 24 hours
+      urgency: 'normal',
+      timeout: 10000 // 10 seconds timeout
+    };
+
+    await webpush.sendNotification(subscription, JSON.stringify(payload), options);
+    return true;
+  } catch (error) {
+    console.error('Push notification error details:', {
+      statusCode: error.statusCode,
+      message: error.message,
+      endpoint: subscription.endpoint?.substring(0, 50) + '...'
+    });
+    
+    if (error.statusCode === 410 || error.statusCode === 404) {
+      // Subscription expired or invalid, remove from database
+      try {
+        await queryWithRetry('DELETE FROM push_subscriptions WHERE endpoint = $1', [subscription.endpoint]);
+        console.log('Removed invalid subscription from database');
+      } catch (dbError) {
+        console.error('Failed to remove invalid subscription:', dbError.message);
+      }
+    } else if (error.statusCode === 403) {
+      console.error('Push notification authentication failed - check VAPID keys');
+    } else if (error.statusCode === 413) {
+      console.error('Push payload too large');
+    } else if (error.statusCode === 429) {
+      console.error('Push service rate limited');
+    }
+    
+    return false;
+  }
+}
 
 const app = express();
 const port = process.env.PORT || 3000;
@@ -121,7 +187,11 @@ setInterval(async () => {
 }, 30000); // Check every 30 seconds
 
 // Graceful connection cleanup
+let isShuttingDown = false;
 const cleanupConnections = async () => {
+  if (isShuttingDown) return;
+  isShuttingDown = true;
+  
   try {
     await pool.end();
     console.log('✅ Database connections closed gracefully');
@@ -132,6 +202,10 @@ const cleanupConnections = async () => {
 
 // Database query wrapper with retry logic
 async function queryWithRetry(query, params = [], maxRetries = 3) {
+  if (isShuttingDown) {
+    throw new Error('Server is shutting down');
+  }
+  
   for (let attempt = 1; attempt <= maxRetries; attempt++) {
     let client;
     try {
@@ -142,13 +216,19 @@ async function queryWithRetry(query, params = [], maxRetries = 3) {
     } catch (err) {
       if (client) client.release(true); // Release with error flag
       
+      // Check if pool is ended
+      if (err.message.includes('Cannot use a pool after calling end')) {
+        console.error('❌ Database pool has been closed');
+        throw new Error('Database connection unavailable');
+      }
+      
       const isRetryableError = err.code === 'ECONNRESET' || 
                               err.code === 'ENOTFOUND' || 
                               err.code === 'ECONNREFUSED' ||
                               err.message.includes('Connection terminated') ||
                               err.message.includes('connection is closed');
       
-      if (attempt < maxRetries && isRetryableError) {
+      if (attempt < maxRetries && isRetryableError && !isShuttingDown) {
         console.log(`🔄 Retrying query (${attempt}/${maxRetries}) in ${attempt * 1000}ms...`);
         await new Promise(resolve => setTimeout(resolve, attempt * 1000));
         continue;
@@ -185,6 +265,230 @@ const validateInput = (req, res, next) => {
 
 app.use(validateInput);
 
+// Enhanced notification scheduler with push notifications and strict deadline enforcement
+function startNotificationScheduler() {
+  const assessmentReminders = [
+    "Time for your daily mental health check-in! 🧠",
+    "Your wellbeing matters - take a moment for yourself 💚",
+    "Keep your streak alive! Complete today's assessment 🔥",
+    "Don't break the chain! Your streak is waiting 🔗",
+    "Stay consistent with your wellness routine 💪",
+    "Your mental health journey continues - take the assessment! 🌟",
+    "A few minutes today for a healthier tomorrow 💚",
+    "Complete your assessment to maintain your streak! ⚡",
+    "Your daily wellness check awaits - don't miss it! 📋",
+    "Take 5 minutes for your mental health assessment 🕐"
+  ];
+  
+  const motivationalMessages = [
+    "You're stronger than you think! 💪",
+    "Every small step counts in your wellness journey 🌟",
+    "Your mental health is a priority, not a luxury 💎",
+    "Progress, not perfection - you're doing great! 🎯",
+    "Consistency is the key to lasting change 🔑",
+    "Your future self will thank you for this habit 🙏",
+    "Mental wellness is a daily practice - keep going! 🌱",
+    "Self-care isn't selfish - it's essential 💚",
+    "One assessment at a time, one day at a time 🌅",
+    "Your commitment to wellness inspires others 🌟",
+    "Believe in yourself - you've got this! ✨",
+    "Small daily improvements lead to stunning results 📈",
+    "Your wellness journey is unique and valuable 🌈",
+    "Take time to nurture your mind today 🧘‍♀️",
+    "You are worthy of care and attention 💝"
+  ];
+
+  // Send notifications at specific times - strategic reminders throughout the day
+  const reminderTimes = ['10:00', '14:00', '18:00', '21:00', '22:30', '23:15']; // Strategic timing with urgent late reminders
+  const motivationTimes = ['08:30', '12:30', '16:30', '19:30']; // Motivational boosts throughout day
+  
+  setInterval(async () => {
+    const now = new Date();
+    const currentTime = now.toTimeString().slice(0, 5);
+    const today = now.toISOString().split('T')[0];
+    
+    try {
+      // Assessment reminders - only for users who haven't completed today's assessment
+      if (reminderTimes.includes(currentTime)) {
+        const usersResult = await queryWithRetry(`
+          SELECT u.id, u.name, u.email, uns.notifications_enabled, ps.endpoint, ps.p256dh, ps.auth
+          FROM users u 
+          LEFT JOIN assessments a ON u.id = a.user_id AND a.assessment_date = $1
+          LEFT JOIN user_notification_settings uns ON u.id = uns.user_id
+          LEFT JOIN push_subscriptions ps ON u.id = ps.user_id
+          WHERE a.id IS NULL AND (u.isadmin IS NULL OR u.isadmin = false) AND uns.notifications_enabled = true
+        `, [today]);
+
+        for (const user of usersResult.rows) {
+          const randomMessage = assessmentReminders[Math.floor(Math.random() * assessmentReminders.length)];
+          
+          const streakResult = await queryWithRetry(
+            'SELECT current_streak FROM user_streaks WHERE user_id = $1',
+            [user.id]
+          );
+          
+          const currentStreak = streakResult.rows.length > 0 ? streakResult.rows[0].current_streak : 0;
+          let finalMessage = randomMessage;
+          let title = 'Assessment Reminder 🔔';
+          
+          if (currentStreak > 0) {
+            finalMessage += ` Don't lose your ${currentStreak}-day streak!`;
+          }
+          
+          // Add urgency based on time with stricter messaging
+          if (currentTime === '18:00') {
+            title = '🌅 Evening Check-in';
+            finalMessage = `${finalMessage} Remember: Complete before midnight (11:59 PM) to keep your streak!`;
+          } else if (currentTime === '21:00') {
+            title = '⏰ Important Reminder';
+            finalMessage = `${finalMessage} ⚠️ Only 3 hours left until midnight deadline!`;
+          } else if (currentTime === '22:30') {
+            title = '🚨 URGENT - 90 Minutes Left!';
+            finalMessage = `⏰ URGENT: Only 90 minutes until midnight! ${finalMessage} Don't lose your streak!`;
+          } else if (currentTime === '23:15') {
+            title = '🚨 FINAL CALL - 45 MINUTES!';
+            finalMessage = `🚨 FINAL WARNING: Only 45 minutes left! Complete NOW or lose your ${currentStreak > 0 ? currentStreak + '-day ' : ''}streak! Deadline: 11:59 PM`;
+          }
+          
+          await queryWithRetry(
+            'INSERT INTO notifications (user_id, title, message, type) VALUES ($1, $2, $3, $4)',
+            [user.id, title, finalMessage, 'reminder']
+          );
+          
+          // Send push notification if user has subscription
+          if (user.endpoint && user.p256dh && user.auth) {
+            const success = await sendPushNotification({
+              endpoint: user.endpoint,
+              keys: { p256dh: user.p256dh, auth: user.auth }
+            }, {
+              title: title,
+              body: finalMessage,
+              icon: '/icon-192x192.png',
+              badge: '/badge-72x72.png',
+              tag: 'assessment-reminder',
+              requireInteraction: ['21:00', '22:30', '23:15'].includes(currentTime),
+              vibrate: ['22:30', '23:15'].includes(currentTime) ? [200, 100, 200, 100, 200] : undefined,
+              actions: currentTime === '23:15' ? [
+                { action: 'take-assessment', title: 'Take Assessment Now', icon: '/icon-192x192.png' },
+                { action: 'dismiss', title: 'Dismiss', icon: '/icon-192x192.png' }
+              ] : undefined
+            });
+            
+            if (!success) {
+              console.error(`Failed to send notification to user ${user.id}: Received unexpected response code`);
+            }
+          }
+        }
+        
+        if (usersResult.rows.length > 0) {
+          console.log(`🔔 Sent ${usersResult.rows.length} assessment reminders at ${currentTime}`);
+        }
+      }
+      
+      // Daily motivation messages
+      if (motivationTimes.includes(currentTime)) {
+        const allUsersResult = await queryWithRetry(`
+          SELECT u.id, u.name, ps.endpoint, ps.p256dh, ps.auth
+          FROM users u 
+          LEFT JOIN user_notification_settings uns ON u.id = uns.user_id
+          LEFT JOIN push_subscriptions ps ON u.id = ps.user_id
+          WHERE (u.isadmin IS NULL OR u.isadmin = false) AND uns.notifications_enabled = true
+        `);
+        
+        for (const user of allUsersResult.rows) {
+          const randomMessage = motivationalMessages[Math.floor(Math.random() * motivationalMessages.length)];
+          
+          await queryWithRetry(
+            'INSERT INTO notifications (user_id, title, message, type) VALUES ($1, $2, $3, $4)',
+            [user.id, 'Daily Motivation ✨', randomMessage, 'motivation']
+          );
+          
+          // Send push notification if user has subscription
+          if (user.endpoint && user.p256dh && user.auth) {
+            const success = await sendPushNotification({
+              endpoint: user.endpoint,
+              keys: { p256dh: user.p256dh, auth: user.auth }
+            }, {
+              title: 'Daily Motivation ✨',
+              body: randomMessage,
+              icon: '/icon-192x192.png',
+              badge: '/badge-72x72.png',
+              tag: 'daily-motivation'
+            });
+            
+            if (!success) {
+              console.error(`Failed to send motivation to user ${user.id}: Received unexpected response code`);
+            }
+          }
+        }
+        
+        console.log(`✨ Sent daily motivation to ${allUsersResult.rows.length} users at ${currentTime}`);
+      }
+      
+      // Reset streaks at midnight (00:00) for users who didn't complete assessment by 11:59 PM
+      if (currentTime === '00:00') {
+        const yesterday = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+        
+        const incompleteUsersResult = await queryWithRetry(`
+          SELECT u.id, us.current_streak 
+          FROM users u 
+          JOIN user_streaks us ON u.id = us.user_id
+          LEFT JOIN assessments a ON u.id = a.user_id AND a.assessment_date = $1
+          WHERE a.id IS NULL AND us.current_streak > 0 AND (u.isadmin IS NULL OR u.isadmin = false)
+        `, [yesterday]);
+        
+        for (const user of incompleteUsersResult.rows) {
+          await queryWithRetry(
+            'UPDATE user_streaks SET current_streak = 0, updated_at = CURRENT_TIMESTAMP WHERE user_id = $1',
+            [user.id]
+          );
+          
+          await queryWithRetry(
+            'INSERT INTO notifications (user_id, title, message, type) VALUES ($1, $2, $3, $4)',
+            [user.id, 'Streak Lost 💔', `Your ${user.current_streak}-day streak has been reset. You missed yesterday's deadline (11:59 PM). Start fresh today!`, 'streak_lost']
+          );
+          
+          // Send push notification for streak loss
+          const streakLostUsersResult = await queryWithRetry(`
+            SELECT ps.endpoint, ps.p256dh, ps.auth
+            FROM push_subscriptions ps
+            JOIN user_notification_settings uns ON ps.user_id = uns.user_id
+            WHERE ps.user_id = $1 AND uns.notifications_enabled = true
+          `, [user.id]);
+          
+          if (streakLostUsersResult.rows.length > 0) {
+            const subscription = streakLostUsersResult.rows[0];
+            const success = await sendPushNotification({
+              endpoint: subscription.endpoint,
+              keys: { p256dh: subscription.p256dh, auth: subscription.auth }
+            }, {
+              title: 'Streak Lost 💔',
+              body: `Your ${user.current_streak}-day streak has been reset. You missed yesterday's deadline. Start fresh today!`,
+              icon: '/icon-192x192.png',
+              badge: '/badge-72x72.png',
+              tag: 'streak-lost',
+              requireInteraction: true,
+              vibrate: [300, 100, 300, 100, 300]
+            });
+            
+            if (!success) {
+              console.error(`Failed to send streak loss notification to user ${user.id}: Received unexpected response code`);
+            }
+          }
+        }
+        
+        if (incompleteUsersResult.rows.length > 0) {
+          console.log(`💔 Reset streaks for ${incompleteUsersResult.rows.length} users at midnight`);
+        }
+      }
+    } catch (err) {
+      console.error('Notification scheduler error:', err);
+    }
+  }, 60000); // Check every minute
+  
+  console.log('🔔 Enhanced notification scheduler with strict deadline enforcement started');
+}
+
 // Initialize database tables with retry logic
 async function initDB() {
   const maxRetries = 5;
@@ -213,9 +517,22 @@ async function initDB() {
       
       await queryWithRetry(`CREATE TABLE IF NOT EXISTS activity_planner (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, day_name VARCHAR(20) NOT NULL, activities TEXT[], created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, day_name))`);
       
+      await queryWithRetry(`CREATE TABLE IF NOT EXISTS user_streaks (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, current_streak INTEGER DEFAULT 0, longest_streak INTEGER DEFAULT 0, last_assessment_date DATE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id))`);
+      
+      await queryWithRetry(`CREATE TABLE IF NOT EXISTS notifications (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, title VARCHAR(255) NOT NULL, message TEXT NOT NULL, type VARCHAR(50) DEFAULT 'reminder', sent_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, read_at TIMESTAMP)`);
+      
+      await queryWithRetry(`CREATE TABLE IF NOT EXISTS user_notification_settings (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, notifications_enabled BOOLEAN DEFAULT FALSE, push_subscription TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id))`);
+      
+      await queryWithRetry(`CREATE TABLE IF NOT EXISTS push_subscriptions (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, endpoint TEXT NOT NULL, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id))`);
+      
       console.log('✅ Database tables initialized successfully');
       console.log('📅 Activity planner table: user_id, day_name, activities[]');
       console.log('📝 Journal entries table: user_id, entry_text, mood_rating, entry_date');
+      console.log('🔥 Streak system: user_streaks table initialized');
+      console.log('🔔 Notification system: notifications table initialized');
+      
+      // Start notification scheduler
+      startNotificationScheduler();
       return;
       
     } catch (err) {
@@ -357,22 +674,25 @@ app.post('/api/register', async (req, res) => {
     
     // Input validation
     if (!name || !email || !password) {
-      return res.status(400).json({ error: 'Missing required fields' });
+      return res.status(400).json({ success: false, error: 'Missing required fields' });
     }
     
     if (!validator.isEmail(email)) {
-      return res.status(400).json({ error: 'Invalid email format' });
+      return res.status(400).json({ success: false, error: 'Invalid email format' });
     }
     
     if (password.length < 6 || password.length > 128) {
-      return res.status(400).json({ error: 'Password must be between 6 and 128 characters' });
+      return res.status(400).json({ success: false, error: 'Password must be between 6 and 128 characters' });
     }
     
     if (name.length < 2 || name.length > 50) {
-      return res.status(400).json({ error: 'Name must be between 2 and 50 characters' });
+      return res.status(400).json({ success: false, error: 'Name must be between 2 and 50 characters' });
     }
     
-    const hashedPassword = await bcrypt.hash(password, 10);
+    // Hash password with bcrypt
+    console.log('Hashing password for user:', email);
+    const hashedPassword = await bcrypt.hash(password, 12);
+    console.log('Password hashed successfully, length:', hashedPassword.length);
     
     const result = await queryWithRetry(
       'INSERT INTO users (name, email, password, dob) VALUES ($1, $2, $3, $4) RETURNING id, name, email',
@@ -380,13 +700,14 @@ app.post('/api/register', async (req, res) => {
     );
     
     console.log('User registered successfully:', result.rows[0]);
+    console.log('Stored password hash length:', hashedPassword.length);
     res.json({ success: true, user: result.rows[0] });
   } catch (err) {
     console.error('Registration error:', err.message);
     if (err.code === '23505') {
-      res.status(400).json({ error: 'Email already exists' });
+      res.status(400).json({ success: false, error: 'Email already exists' });
     } else {
-      res.status(500).json({ error: 'Registration failed: ' + err.message });
+      res.status(500).json({ success: false, error: 'Registration failed: ' + err.message });
     }
   }
 });
@@ -500,15 +821,19 @@ app.post('/api/login', async (req, res) => {
     
     if (result.rows.length === 0) {
       console.log('User not found:', email);
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
     
     const user = result.rows[0];
+    console.log('Found user:', email, 'stored password length:', user.password?.length);
+    console.log('Password starts with $2b$ (bcrypt):', user.password?.startsWith('$2b$'));
+    
     const validPassword = await bcrypt.compare(password, user.password);
+    console.log('Password comparison result:', validPassword);
     
     if (!validPassword) {
       console.log('Invalid password for user:', email);
-      return res.status(401).json({ error: 'Invalid credentials' });
+      return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
     
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET);
@@ -586,6 +911,58 @@ app.post('/api/assessments', async (req, res) => {
       'INSERT INTO assessments (user_id, phq9_score, gad7_score, pss_score, assessment_date) VALUES ($1, $2, $3, $4, $5) RETURNING *',
       [userId, phq9, gad7, pss, dateToUse]
     );
+    
+    // Update streak after successful assessment (only if before 11:59 PM deadline)
+    try {
+      const now = new Date();
+      const today = now.toISOString().split('T')[0];
+      const currentHour = now.getHours();
+      const currentMinute = now.getMinutes();
+      // Strict deadline: must complete before 11:59 PM (23:59)
+      const isBeforeDeadline = currentHour < 23 || (currentHour === 23 && currentMinute <= 59);
+      
+      if (isBeforeDeadline) {
+        let streakResult = await queryWithRetry(
+          'SELECT * FROM user_streaks WHERE user_id = $1',
+          [userId]
+        );
+
+        if (streakResult.rows.length === 0) {
+          await queryWithRetry(
+            'INSERT INTO user_streaks (user_id, current_streak, longest_streak, last_assessment_date) VALUES ($1, 1, 1, $2)',
+            [userId, today]
+          );
+        } else {
+          const streak = streakResult.rows[0];
+          const lastDate = streak.last_assessment_date;
+          
+          let newStreak = 1;
+          if (lastDate) {
+            const lastDateObj = new Date(lastDate);
+            const todayObj = new Date(today);
+            const diffDays = Math.floor((todayObj - lastDateObj) / (1000 * 60 * 60 * 24));
+            
+            if (diffDays === 1) {
+              newStreak = streak.current_streak + 1;
+            } else if (diffDays === 0) {
+              newStreak = streak.current_streak; // Same day, don't increment
+            }
+          }
+
+          const newLongestStreak = Math.max(streak.longest_streak, newStreak);
+          
+          await queryWithRetry(
+            'UPDATE user_streaks SET current_streak = $1, longest_streak = $2, last_assessment_date = $3, updated_at = CURRENT_TIMESTAMP WHERE user_id = $4',
+            [newStreak, newLongestStreak, today, userId]
+          );
+        }
+      } else {
+        // Assessment completed after deadline - don't count for streak
+        console.log(`Assessment completed after 11:59 PM deadline for user ${userId} - streak not updated`);
+      }
+    } catch (streakErr) {
+      console.error('Streak update error:', streakErr);
+    }
     
     res.json({ success: true, assessment: result.rows[0] });
   } catch (err) {
@@ -1057,6 +1434,563 @@ app.put('/api/users/:id/consent', async (req, res) => {
       success: false, 
       error: 'Failed to update consent preferences. Please try again.' 
     });
+  }
+});
+
+// Streak API endpoints
+app.get('/api/streaks', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID required' });
+    }
+
+    let actualUserId = userId;
+    if (userId === 'admin') {
+      const adminResult = await queryWithRetry('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
+      if (adminResult.rows.length > 0) {
+        actualUserId = adminResult.rows[0].id;
+      } else {
+        return res.json({ success: true, streak: { current_streak: 0, longest_streak: 0 } });
+      }
+    }
+
+    const result = await queryWithRetry(
+      'SELECT * FROM user_streaks WHERE user_id = $1',
+      [parseInt(actualUserId)]
+    );
+
+    if (result.rows.length === 0) {
+      await queryWithRetry(
+        'INSERT INTO user_streaks (user_id) VALUES ($1)',
+        [parseInt(actualUserId)]
+      );
+      return res.json({ success: true, streak: { current_streak: 0, longest_streak: 0 } });
+    }
+
+    res.json({ success: true, streak: result.rows[0] });
+  } catch (err) {
+    console.error('Streak fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch streak' });
+  }
+});
+
+app.post('/api/streaks/update', async (req, res) => {
+  try {
+    let { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID required' });
+    }
+
+    if (userId === 'admin') {
+      const adminResult = await queryWithRetry('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
+      if (adminResult.rows.length > 0) {
+        userId = adminResult.rows[0].id;
+      } else {
+        return res.status(400).json({ error: 'Admin user not found' });
+      }
+    }
+
+    const now = new Date();
+    const today = now.toISOString().split('T')[0];
+    
+    // Strict deadline check: must complete before 11:59 PM (23:59)
+    const currentHour = now.getHours();
+    const currentMinute = now.getMinutes();
+    const isBeforeDeadline = currentHour < 23 || (currentHour === 23 && currentMinute <= 59);
+    
+    if (!isBeforeDeadline) {
+      return res.status(400).json({ 
+        error: 'Assessment must be completed before 11:59 PM to count for streak',
+        deadline_passed: true,
+        current_time: `${currentHour.toString().padStart(2, '0')}:${currentMinute.toString().padStart(2, '0')}`
+      });
+    }
+    
+    let streakResult = await queryWithRetry(
+      'SELECT * FROM user_streaks WHERE user_id = $1',
+      [parseInt(userId)]
+    );
+
+    if (streakResult.rows.length === 0) {
+      await queryWithRetry(
+        'INSERT INTO user_streaks (user_id, current_streak, longest_streak, last_assessment_date) VALUES ($1, 1, 1, $2)',
+        [parseInt(userId), today]
+      );
+      return res.json({ success: true, streak: { current_streak: 1, longest_streak: 1 } });
+    }
+
+    const streak = streakResult.rows[0];
+    const lastDate = streak.last_assessment_date;
+    
+    let newStreak = 1;
+    if (lastDate) {
+      const lastDateObj = new Date(lastDate);
+      const todayObj = new Date(today);
+      const diffDays = Math.floor((todayObj - lastDateObj) / (1000 * 60 * 60 * 24));
+      
+      if (diffDays === 0) {
+        // Same day assessment - don't increment but return current streak
+        return res.json({ success: true, streak, same_day: true });
+      } else if (diffDays === 1) {
+        // Consecutive day - increment streak
+        newStreak = streak.current_streak + 1;
+      } else {
+        // Gap in days - reset to 1
+        newStreak = 1;
+      }
+    }
+
+    const newLongestStreak = Math.max(streak.longest_streak, newStreak);
+    
+    await queryWithRetry(
+      'UPDATE user_streaks SET current_streak = $1, longest_streak = $2, last_assessment_date = $3, updated_at = CURRENT_TIMESTAMP WHERE user_id = $4',
+      [newStreak, newLongestStreak, today, parseInt(userId)]
+    );
+
+    res.json({ success: true, streak: { current_streak: newStreak, longest_streak: newLongestStreak } });
+  } catch (err) {
+    console.error('Streak update error:', err);
+    res.status(500).json({ error: 'Failed to update streak' });
+  }
+});
+
+app.post('/api/streaks/reset', async (req, res) => {
+  try {
+    let { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID required' });
+    }
+
+    if (userId === 'admin') {
+      const adminResult = await queryWithRetry('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
+      if (adminResult.rows.length > 0) {
+        userId = adminResult.rows[0].id;
+      } else {
+        return res.status(400).json({ error: 'Admin user not found' });
+      }
+    }
+
+    await queryWithRetry(
+      'UPDATE user_streaks SET current_streak = 0, updated_at = CURRENT_TIMESTAMP WHERE user_id = $1',
+      [parseInt(userId)]
+    );
+
+    res.json({ success: true, message: 'Streak reset successfully' });
+  } catch (err) {
+    console.error('Streak reset error:', err);
+    res.status(500).json({ error: 'Failed to reset streak' });
+  }
+});
+
+// Notifications API endpoints
+app.get('/api/notifications', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID required' });
+    }
+
+    let actualUserId = userId;
+    if (userId === 'admin') {
+      const adminResult = await queryWithRetry('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
+      if (adminResult.rows.length > 0) {
+        actualUserId = adminResult.rows[0].id;
+      } else {
+        return res.json({ success: true, notifications: [] });
+      }
+    }
+
+    const result = await queryWithRetry(
+      'SELECT * FROM notifications WHERE user_id = $1 ORDER BY sent_at DESC LIMIT 10',
+      [parseInt(actualUserId)]
+    );
+
+    res.json({ success: true, notifications: result.rows });
+  } catch (err) {
+    console.error('Notifications fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch notifications' });
+  }
+});
+
+app.post('/api/notifications/send', async (req, res) => {
+  try {
+    const { userId, title, message, type = 'reminder' } = req.body;
+    if (!userId || !title || !message) {
+      return res.status(400).json({ error: 'Missing required fields' });
+    }
+
+    await queryWithRetry(
+      'INSERT INTO notifications (user_id, title, message, type) VALUES ($1, $2, $3, $4)',
+      [parseInt(userId), title, message, type]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Send notification error:', err);
+    res.status(500).json({ error: 'Failed to send notification' });
+  }
+});
+
+app.get('/api/notifications/latest', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID required' });
+    }
+
+    let actualUserId = userId;
+    if (userId === 'admin') {
+      const adminResult = await queryWithRetry('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
+      if (adminResult.rows.length > 0) {
+        actualUserId = adminResult.rows[0].id;
+      } else {
+        return res.json({ success: true, notification: null });
+      }
+    }
+
+    const result = await queryWithRetry(
+      'SELECT * FROM notifications WHERE user_id = $1 AND read_at IS NULL ORDER BY sent_at DESC LIMIT 1',
+      [parseInt(actualUserId)]
+    );
+
+    const notification = result.rows.length > 0 ? result.rows[0] : null;
+    res.json({ success: true, notification });
+  } catch (err) {
+    console.error('Latest notification fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch latest notification' });
+  }
+});
+
+app.post('/api/notifications/mark-read', async (req, res) => {
+  try {
+    const { notificationId } = req.body;
+    if (!notificationId) {
+      return res.status(400).json({ error: 'Notification ID required' });
+    }
+
+    await queryWithRetry(
+      'UPDATE notifications SET read_at = CURRENT_TIMESTAMP WHERE id = $1',
+      [parseInt(notificationId)]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Mark notification read error:', err);
+    res.status(500).json({ error: 'Failed to mark notification as read' });
+  }
+});
+
+// Push subscription endpoints
+app.post('/api/push/subscribe', async (req, res) => {
+  try {
+    let { userId, subscription } = req.body;
+    if (!userId || !subscription) {
+      return res.status(400).json({ error: 'User ID and subscription required' });
+    }
+
+    // Validate subscription format
+    if (!subscription.endpoint || !subscription.keys || !subscription.keys.p256dh || !subscription.keys.auth) {
+      return res.status(400).json({ error: 'Invalid subscription format' });
+    }
+
+    if (userId === 'admin') {
+      const adminResult = await queryWithRetry('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
+      if (adminResult.rows.length > 0) {
+        userId = adminResult.rows[0].id;
+      } else {
+        return res.status(400).json({ error: 'Admin user not found' });
+      }
+    }
+
+    await queryWithRetry(
+      'INSERT INTO push_subscriptions (user_id, endpoint, p256dh, auth) VALUES ($1, $2, $3, $4) ON CONFLICT (user_id) DO UPDATE SET endpoint = $2, p256dh = $3, auth = $4, created_at = CURRENT_TIMESTAMP',
+      [parseInt(userId), subscription.endpoint, subscription.keys.p256dh, subscription.keys.auth]
+    );
+
+    console.log(`✅ Push subscription saved for user ${userId}`);
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Push subscription error:', err);
+    res.status(500).json({ error: 'Failed to save push subscription' });
+  }
+});
+
+app.delete('/api/push/unsubscribe', async (req, res) => {
+  try {
+    let { userId } = req.body;
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID required' });
+    }
+
+    if (userId === 'admin') {
+      const adminResult = await queryWithRetry('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
+      if (adminResult.rows.length > 0) {
+        userId = adminResult.rows[0].id;
+      } else {
+        return res.status(400).json({ error: 'Admin user not found' });
+      }
+    }
+
+    await queryWithRetry(
+      'DELETE FROM push_subscriptions WHERE user_id = $1',
+      [parseInt(userId)]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Push unsubscribe error:', err);
+    res.status(500).json({ error: 'Failed to remove push subscription' });
+  }
+});
+
+app.get('/api/push/vapid-key', (req, res) => {
+  res.json({ 
+    publicKey: VAPID_PUBLIC_KEY
+  });
+});
+
+// Notification settings endpoints
+app.post('/api/notifications/settings', async (req, res) => {
+  try {
+    let { userId, notificationsEnabled } = req.body;
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID required' });
+    }
+
+    if (userId === 'admin') {
+      const adminResult = await queryWithRetry('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
+      if (adminResult.rows.length > 0) {
+        userId = adminResult.rows[0].id;
+      } else {
+        return res.status(400).json({ error: 'Admin user not found' });
+      }
+    }
+
+    await queryWithRetry(
+      'INSERT INTO user_notification_settings (user_id, notifications_enabled) VALUES ($1, $2) ON CONFLICT (user_id) DO UPDATE SET notifications_enabled = $2, updated_at = CURRENT_TIMESTAMP',
+      [parseInt(userId), notificationsEnabled]
+    );
+
+    res.json({ success: true });
+  } catch (err) {
+    console.error('Update notification settings error:', err);
+    res.status(500).json({ error: 'Failed to update notification settings' });
+  }
+});
+
+app.get('/api/notifications/settings', async (req, res) => {
+  try {
+    const { userId } = req.query;
+    if (!userId) {
+      return res.status(400).json({ error: 'User ID required' });
+    }
+
+    let actualUserId = userId;
+    if (userId === 'admin') {
+      const adminResult = await queryWithRetry('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
+      if (adminResult.rows.length > 0) {
+        actualUserId = adminResult.rows[0].id;
+      } else {
+        return res.json({ success: true, settings: { notifications_enabled: false } });
+      }
+    }
+
+    const result = await queryWithRetry(
+      'SELECT notifications_enabled FROM user_notification_settings WHERE user_id = $1',
+      [parseInt(actualUserId)]
+    );
+
+    const settings = result.rows.length > 0 ? result.rows[0] : { notifications_enabled: false };
+    res.json({ success: true, settings });
+  } catch (err) {
+    console.error('Get notification settings error:', err);
+    res.status(500).json({ error: 'Failed to get notification settings' });
+  }
+});
+
+// Admin broadcast notification endpoint
+app.post('/api/admin/broadcast-notification', async (req, res) => {
+  try {
+    const { message } = req.body;
+    if (!message || !message.trim()) {
+      return res.status(400).json({ error: 'Message is required' });
+    }
+
+    // Get all users with notifications enabled
+    const usersResult = await queryWithRetry(`
+      SELECT u.id, u.name, ps.endpoint, ps.p256dh, ps.auth
+      FROM users u 
+      JOIN user_notification_settings uns ON u.id = uns.user_id
+      JOIN push_subscriptions ps ON u.id = ps.user_id
+      WHERE (u.isadmin IS NULL OR u.isadmin = false) AND uns.notifications_enabled = true
+    `);
+
+    let sentCount = 0;
+    for (const user of usersResult.rows) {
+      try {
+        // Save notification to database
+        await queryWithRetry(
+          'INSERT INTO notifications (user_id, title, message, type) VALUES ($1, $2, $3, $4)',
+          [user.id, 'Admin Announcement 📢', message.trim(), 'admin_broadcast']
+        );
+
+        // Send push notification
+        const success = await sendPushNotification({
+          endpoint: user.endpoint,
+          keys: { p256dh: user.p256dh, auth: user.auth }
+        }, {
+          title: 'Admin Announcement 📢',
+          body: message.trim(),
+          icon: '/icon-192x192.png',
+          badge: '/badge-72x72.png',
+          tag: 'admin-broadcast',
+          requireInteraction: true
+        });
+        
+        if (success) {
+          sentCount++;
+        }
+      } catch (err) {
+        console.error(`Failed to send notification to user ${user.id}:`, err.message);
+      }
+    }
+
+    res.json({ success: true, count: sentCount, message: `Notification sent to ${sentCount} users` });
+  } catch (err) {
+    console.error('Broadcast notification error:', err);
+    res.status(500).json({ error: 'Failed to send broadcast notification' });
+  }
+});
+
+// Admin send all reminders endpoint
+app.post('/api/admin/send-reminders', async (req, res) => {
+  try {
+    const assessmentReminders = [
+      "Time for your daily mental health check-in! 🧠",
+      "Your wellbeing matters - take a moment for yourself 💚",
+      "Keep your streak alive! Complete today's assessment 🔥",
+      "Don't break the chain! Your streak is waiting 🔗",
+      "Stay consistent with your wellness routine 💪"
+    ];
+    
+    const today = new Date().toISOString().split('T')[0];
+    const usersResult = await queryWithRetry(`
+      SELECT u.id, u.name, uns.notifications_enabled, ps.endpoint, ps.p256dh, ps.auth,
+             us.current_streak
+      FROM users u 
+      LEFT JOIN assessments a ON u.id = a.user_id AND a.assessment_date = $1
+      LEFT JOIN user_notification_settings uns ON u.id = uns.user_id
+      LEFT JOIN push_subscriptions ps ON u.id = ps.user_id
+      LEFT JOIN user_streaks us ON u.id = us.user_id
+      WHERE a.id IS NULL AND (u.isadmin IS NULL OR u.isadmin = false) AND uns.notifications_enabled = true
+    `, [today]);
+
+    let sentCount = 0;
+    for (const user of usersResult.rows) {
+      try {
+        const randomMessage = assessmentReminders[Math.floor(Math.random() * assessmentReminders.length)];
+        const currentStreak = user.current_streak || 0;
+        let finalMessage = randomMessage;
+        let title = '📋 Daily Assessment Reminder';
+        
+        if (currentStreak > 0) {
+          finalMessage += ` Don't lose your ${currentStreak}-day streak!`;
+        }
+        
+        await queryWithRetry(
+          'INSERT INTO notifications (user_id, title, message, type) VALUES ($1, $2, $3, $4)',
+          [user.id, title, finalMessage, 'reminder']
+        );
+
+        if (user.endpoint && user.p256dh && user.auth) {
+          const success = await sendPushNotification({
+            endpoint: user.endpoint,
+            keys: { p256dh: user.p256dh, auth: user.auth }
+          }, {
+            title: title,
+            body: finalMessage,
+            icon: '/icon-192x192.png',
+            badge: '/badge-72x72.png',
+            tag: 'assessment-reminder',
+            requireInteraction: true
+          });
+          
+          if (success) sentCount++;
+        } else {
+          sentCount++;
+        }
+      } catch (err) {
+        console.error(`Failed to send reminder to user ${user.id}:`, err.message);
+      }
+    }
+
+    res.json({ success: true, count: sentCount, message: `Sent reminders to ${sentCount} users` });
+  } catch (err) {
+    console.error('Send reminders error:', err);
+    res.status(500).json({ error: 'Failed to send reminders' });
+  }
+});
+
+// Admin send motivation endpoint
+app.post('/api/admin/send-motivation', async (req, res) => {
+  try {
+    const quotes = [
+      "You're stronger than you think! 💪",
+      "Every small step counts in your wellness journey 🌟",
+      "Your mental health is a priority, not a luxury 💎",
+      "Progress, not perfection - you're doing great! 🎯",
+      "Consistency is the key to lasting change 🔑",
+      "Your future self will thank you for this habit 🙏",
+      "Mental wellness is a daily practice - keep going! 🌱",
+      "Self-care isn't selfish - it's essential 💚",
+      "One assessment at a time, one day at a time 🌅",
+      "Believe in yourself - you've got this! ✨"
+    ];
+    
+    const usersResult = await queryWithRetry(`
+      SELECT u.id, u.name, ps.endpoint, ps.p256dh, ps.auth
+      FROM users u 
+      LEFT JOIN user_notification_settings uns ON u.id = uns.user_id
+      LEFT JOIN push_subscriptions ps ON u.id = ps.user_id
+      WHERE (u.isadmin IS NULL OR u.isadmin = false) AND uns.notifications_enabled = true
+    `);
+    
+    let sentCount = 0;
+    for (const user of usersResult.rows) {
+      try {
+        const randomQuote = quotes[Math.floor(Math.random() * quotes.length)];
+        
+        await queryWithRetry(
+          'INSERT INTO notifications (user_id, title, message, type) VALUES ($1, $2, $3, $4)',
+          [user.id, 'Daily Motivation ✨', randomQuote, 'motivation']
+        );
+        
+        if (user.endpoint && user.p256dh && user.auth) {
+          const success = await sendPushNotification({
+            endpoint: user.endpoint,
+            keys: { p256dh: user.p256dh, auth: user.auth }
+          }, {
+            title: 'Daily Motivation ✨',
+            body: randomQuote,
+            icon: '/icon-192x192.png',
+            badge: '/badge-72x72.png',
+            tag: 'daily-motivation'
+          });
+          
+          if (success) sentCount++;
+        } else {
+          sentCount++;
+        }
+      } catch (err) {
+        console.error(`Failed to send motivation to user ${user.id}:`, err.message);
+      }
+    }
+    
+    res.json({ success: true, count: sentCount, message: `Sent motivation to ${sentCount} users` });
+  } catch (err) {
+    console.error('Send motivation error:', err);
+    res.status(500).json({ error: 'Failed to send motivation' });
   }
 });
 

@@ -7,19 +7,39 @@ document.addEventListener('DOMContentLoaded', () => {
     let allQuestions = [];
     let currentQuestionIndex = 0;
     let userAnswers = {};
+    let nextBtnProcessing = false;
     let progressChart;
     
     // API Base URL
     const API_BASE = '';
     
+    // Global function to fetch streak data
+    async function fetchAndDisplayStreak(userId) {
+        try {
+            const response = await fetch(`${API_BASE}/api/streaks?userId=${userId}`);
+            const data = await response.json();
+            if (data.success && data.streak) {
+                return data.streak.current_streak || 0;
+            }
+        } catch (err) {
+            console.error('Failed to fetch streak:', err);
+        }
+        return 0;
+    }
+    
     // --- DATA & CONFIG ---
-    const dummyAiResponses = [
-        "Thank you for sharing. How does that make you feel?",
-        "I understand. Could you tell me more about what's on your mind?",
-        "That sounds challenging. I'm here to listen.",
-        "It takes courage to open up about that. What are your thoughts on it?",
-        "I hear you. Let's explore that feeling a bit more."
-    ];
+    function getDummyAiResponses() {
+        const currentLang = localStorage.getItem('selectedLanguage') || 'en';
+        const t = window.translations && window.translations[currentLang] ? window.translations[currentLang] : window.translations?.en || {};
+        
+        return [
+            t.ai_response_1 || "Thank you for sharing. How does that make you feel?",
+            t.ai_response_2 || "I understand. Could you tell me more about what's on your mind?",
+            t.ai_response_3 || "That sounds challenging. I'm here to listen.",
+            t.ai_response_4 || "It takes courage to open up about that. What are your thoughts on it?",
+            t.ai_response_5 || "I hear you. Let's explore that feeling a bit more."
+        ];
+    }
 
     const assessmentData = {
         phq9: {
@@ -69,12 +89,36 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('📊 Loading progress screen data for user:', currentUser.id);
                 setTimeout(async () => {
                     try {
+                        // Add streak display to progress screen
+                        const currentStreak = await fetchAndDisplayStreak(currentUser.id);
+                        const streakContainer = document.querySelector('#progress-screen .page-content');
+                        if (streakContainer && !document.getElementById('streak-display')) {
+                            const streakHTML = `
+                                <div id="streak-display" class="page-section" style="text-align: center; margin-bottom: 2rem;">
+                                    <div style="padding: 1rem; border: 2px solid var(--primary-color); border-radius: 12px; background: var(--surface);">
+                                        <h3>🔥 Current Streak</h3>
+                                        <div style="font-size: 2rem; font-weight: bold; color: var(--primary-color);">${currentStreak} days</div>
+                                        <p style="color: var(--text-secondary);">Keep up the great work!</p>
+                                    </div>
+                                </div>
+                            `;
+                            streakContainer.insertAdjacentHTML('afterbegin', streakHTML);
+                        }
+                        
                         console.log('📊 Starting mood chart render...');
                         if (typeof renderMoodChart === 'function') {
                             await renderMoodChart();
                             console.log('📊 Mood chart render completed');
                         } else {
                             console.error('❌ renderMoodChart function not found');
+                        }
+                        
+                        console.log('📈 Starting progress chart render...');
+                        if (typeof renderProgressChart === 'function') {
+                            await renderProgressChart();
+                            console.log('📈 Progress chart render completed');
+                        } else {
+                            console.error('❌ renderProgressChart function not found');
                         }
                         
                         console.log('🏆 Starting milestones check...');
@@ -213,7 +257,8 @@ document.addEventListener('DOMContentLoaded', () => {
         
         setTimeout(() => {
             removeTypingIndicator(containerId);
-            const randomResponse = dummyAiResponses[Math.floor(Math.random() * dummyAiResponses.length)];
+            const responses = getDummyAiResponses();
+            const randomResponse = responses[Math.floor(Math.random() * responses.length)];
             addMessage(containerId, 'ai', randomResponse);
         }, 2000);
     }
@@ -362,6 +407,21 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     showModal('permissions-modal');
                     
+                    // Initialize push notification system for logged-in user
+                    if (window.pushNotificationManager) {
+                        window.pushNotificationManager.userId = data.user.id;
+                        
+                        // Check notification settings and subscribe if enabled
+                        try {
+                            const settings = await window.pushNotificationManager.getNotificationSettings();
+                            if (settings.notifications_enabled) {
+                                await window.pushNotificationManager.subscribe(data.user.id);
+                            }
+                        } catch (err) {
+                            console.log('Push notification setup skipped:', err.message);
+                        }
+                    }
+                    
                     // Activity planner and journal will load when user visits those screens
                 }
             } else {
@@ -468,18 +528,130 @@ document.addEventListener('DOMContentLoaded', () => {
 
     function setupAllQuestions() {
         allQuestions = [];
-        const { phq9, gad7, pss } = assessmentData;
-        phq9.questions.forEach((q, i) => allQuestions.push({ test: 'phq9', name: `phq9-q${i}`, text: q, options: phq9.options }));
-        gad7.questions.forEach((q, i) => allQuestions.push({ test: 'gad7', name: `gad7-q${i}`, text: q, options: gad7.options }));
-        pss.questions.forEach((q, i) => allQuestions.push({ test: 'pss', name: `pss-q${i}`, text: q, options: pss.options, reverse: pss.reverseScore.includes(i) }));
+        userAnswers = {}; // Reset answers when setting up questions
+        currentQuestionIndex = 0; // Reset question index
+        
+        const currentLang = localStorage.getItem('selectedLanguage') || 'en';
+        const t = window.translations && window.translations[currentLang] ? window.translations[currentLang] : {};
+        
+        console.log('🔧 Setting up assessment questions in language:', currentLang);
+        
+        // Validate assessment data exists
+        if (!assessmentData || !assessmentData.phq9 || !assessmentData.gad7 || !assessmentData.pss) {
+            console.error('❌ Assessment data not found or incomplete');
+            return;
+        }
+        
+        // PHQ-9 questions with translations
+        for (let i = 0; i < 9; i++) {
+            const questionKey = `phq9_q${i + 1}`; // Use 1-based indexing for translation keys
+            const questionText = t[questionKey] || assessmentData.phq9.questions[i];
+            const translatedOptions = [
+                { text: t.phq_not_at_all || t.not_at_all || "Not at all", value: 0 },
+                { text: t.phq_several_days || t.several_days || "Several days", value: 1 },
+                { text: t.phq_more_than_half || t.more_than_half || "More than half the days", value: 2 },
+                { text: t.phq_nearly_every_day || t.nearly_every_day || "Nearly every day", value: 3 }
+            ];
+            allQuestions.push({ test: 'phq9', name: `phq9-q${i}`, text: questionText, options: translatedOptions });
+        }
+        
+        // GAD-7 questions with translations
+        for (let i = 0; i < 7; i++) {
+            const questionKey = `gad7_q${i + 1}`; // Use 1-based indexing for translation keys
+            const questionText = t[questionKey] || assessmentData.gad7.questions[i];
+            const translatedOptions = [
+                { text: t.gad_not_at_all || t.not_at_all || "Not at all", value: 0 },
+                { text: t.gad_several_days || t.several_days || "Several days", value: 1 },
+                { text: t.gad_more_than_half || t.more_than_half || "More than half the days", value: 2 },
+                { text: t.gad_nearly_every_day || t.nearly_every_day || "Nearly every day", value: 3 }
+            ];
+            allQuestions.push({ test: 'gad7', name: `gad7-q${i}`, text: questionText, options: translatedOptions });
+        }
+        
+        // PSS-10 questions with translations
+        for (let i = 0; i < 10; i++) {
+            const questionKey = `pss_q${i + 1}`; // Use 1-based indexing for translation keys
+            const questionText = t[questionKey] || assessmentData.pss.questions[i];
+            const translatedOptions = [
+                { text: t.pss_never || t.never || "Never", value: 0 },
+                { text: t.pss_almost_never || t.almost_never || "Almost Never", value: 1 },
+                { text: t.pss_sometimes || t.sometimes || "Sometimes", value: 2 },
+                { text: t.pss_fairly_often || t.fairly_often || "Fairly Often", value: 3 },
+                { text: t.pss_very_often || t.very_often || "Very Often", value: 4 }
+            ];
+            allQuestions.push({ test: 'pss', name: `pss-q${i}`, text: questionText, options: translatedOptions, reverse: assessmentData.pss.reverseScore.includes(i) });
+        }
+        
+        console.log('✅ Assessment questions setup complete. Total questions:', allQuestions.length);
+        console.log('📋 PHQ-9:', allQuestions.filter(q => q.test === 'phq9').length, 'questions');
+        console.log('📋 GAD-7:', allQuestions.filter(q => q.test === 'gad7').length, 'questions');
+        console.log('📋 PSS-10:', allQuestions.filter(q => q.test === 'pss').length, 'questions');
+        
+        // Validate questions were created
+        if (allQuestions.length !== 26) {
+            console.error('❌ Expected 26 questions, got:', allQuestions.length);
+        }
     }
+    
+    // These are now defined above with other global functions
 
     function startAssessment() {
+        console.log('🏁 Starting assessment...');
+        
+        // Reset assessment state
+        currentQuestionIndex = 0;
+        userAnswers = {};
+        
+        // Setup questions
+        setupAllQuestions();
+        
         // Show consent screen first
-        document.getElementById('assessment-consent').style.display = 'block';
-        document.getElementById('assessment-content').style.display = 'none';
-        showScreen('assessment-screen');
+        const consentScreen = document.getElementById('assessment-consent');
+        const contentScreen = document.getElementById('assessment-content');
+        
+        if (consentScreen && contentScreen) {
+            consentScreen.style.display = 'block';
+            contentScreen.style.display = 'none';
+            showScreen('assessment-screen');
+            console.log('✅ Assessment screen shown with consent');
+        } else {
+            console.error('❌ Assessment screen elements not found');
+        }
     }
+    
+    // Make assessment functions globally available
+    window.startAssessment = startAssessment;
+    window.saveCurrentAnswer = saveCurrentAnswer;
+    window.calculateScores = calculateScores;
+    window.displayResults = displayResults;
+    window.renderCurrentQuestion = renderCurrentQuestion;
+    window.updateAssessmentNav = updateAssessmentNav;
+    
+    // Debug function to test assessment functionality
+    window.testAssessment = function() {
+        console.log('🔍 Testing assessment functionality...');
+        console.log('📋 Assessment data:', assessmentData);
+        setupAllQuestions();
+        console.log('✅ All questions setup:', allQuestions.length, 'questions');
+        if (allQuestions.length > 0) {
+            console.log('📋 First question:', allQuestions[0]);
+        }
+        console.log('🔍 Assessment elements:');
+        console.log('- Consent screen:', !!document.getElementById('assessment-consent'));
+        console.log('- Content screen:', !!document.getElementById('assessment-content'));
+        console.log('- Question container:', !!document.getElementById('assessment-question-container'));
+        console.log('- Progress bar:', !!document.getElementById('progress-bar'));
+        console.log('- Navigation buttons:', {
+            prev: !!document.getElementById('prev-question-btn'),
+            next: !!document.getElementById('next-question-btn')
+        });
+        
+        // Test rendering first question
+        if (allQuestions.length > 0) {
+            console.log('🔍 Testing question rendering...');
+            renderCurrentQuestion();
+        }
+    };
     
     async function loadDataPrivacyInfo() {
         const currentUser = JSON.parse(localStorage.getItem('currentUser'));
@@ -580,33 +752,73 @@ document.addEventListener('DOMContentLoaded', () => {
     }
 
     function calculateScores() {
-        // Show loading screen
-        const resultsContainer = document.querySelector('#results-screen .page-content');
-        resultsContainer.innerHTML = `
-            <div class="results-loading">
-                <div class="loader"></div>
-                <h3>Calculating your results...</h3>
-                <p>Please wait while we analyze your responses.</p>
-            </div>
-        `;
-        showScreen('results-screen');
-        
-        setTimeout(() => {
-            let scores = { phq9: 0, gad7: 0, pss: 0 };
-            console.log('📋 User answers:', userAnswers);
+        try {
+            // Show loading screen
+            const resultsContainer = document.querySelector('#results-screen .page-content');
+            resultsContainer.innerHTML = `
+                <div class="results-loading">
+                    <div class="loader"></div>
+                    <h3>Calculating your results...</h3>
+                    <p>Please wait while we analyze your responses.</p>
+                </div>
+            `;
+            showScreen('results-screen');
             
-            allQuestions.forEach(q => {
-                let value = userAnswers[q.name] || 0;
-                if (q.test === 'pss' && q.reverse) {
-                    value = 4 - value;
+            setTimeout(() => {
+                try {
+                    let scores = { phq9: 0, gad7: 0, pss: 0 };
+                    console.log('📋 User answers:', userAnswers);
+                    
+                    allQuestions.forEach(q => {
+                        let value = userAnswers[q.name] || 0;
+                        if (q.test === 'pss' && q.reverse) {
+                            value = 4 - value;
+                        }
+                        scores[q.test] += value;
+                    });
+                    
+                    console.log('📊 Calculated scores:', scores);
+                    
+                    // HIGH-RISK DETECTION: Check for suicidal ideation (PHQ-9 question 9)
+                    const suicidalIdeationAnswer = userAnswers['phq9-q8']; // 0-indexed, so q8 is question 9
+                    const hasHighRiskDepression = scores.phq9 >= 20; // Severe depression
+                    const hasHighRiskAnxiety = scores.gad7 >= 15; // Severe anxiety
+                    const hasHighRiskStress = scores.pss >= 27; // High stress
+                    
+                    // Check for suicidal ideation or multiple high-risk scores
+                    if (suicidalIdeationAnswer >= 1 || // Any suicidal thoughts
+                        (hasHighRiskDepression && hasHighRiskAnxiety) || // Severe depression + anxiety
+                        (hasHighRiskDepression && hasHighRiskStress) || // Severe depression + stress
+                        scores.phq9 >= 20) { // Severe depression alone
+                        
+                        console.log('🚨 HIGH RISK DETECTED:', {
+                            suicidalIdeation: suicidalIdeationAnswer,
+                            phq9: scores.phq9,
+                            gad7: scores.gad7,
+                            pss: scores.pss
+                        });
+                        
+                        // Store scores for later use in emergency consent handlers
+                        window.emergencyScores = scores;
+                        
+                        // Show emergency consent modal instead of normal results
+                        hideModals();
+                        showModal('emergency-consent-modal');
+                        return; // Don't show normal results immediately
+                    }
+                    
+                    // Normal flow - save and display results
+                    saveAssessmentResult(scores);
+                    displayResults(scores);
+                } catch (error) {
+                    console.error('Error in score calculation:', error);
+                    displayResults({ phq9: 0, gad7: 0, pss: 0 });
                 }
-                scores[q.test] += value;
-            });
-            
-            console.log('📊 Calculated scores:', scores);
-            saveAssessmentResult(scores);
-            displayResults(scores);
-        }, 2500);
+            }, 1000);
+        } catch (error) {
+            console.error('Error in calculateScores:', error);
+            showScreen('dashboard-screen');
+        }
     }
     
     async function saveAssessmentResult(scores) {
@@ -1390,8 +1602,101 @@ document.addEventListener('DOMContentLoaded', () => {
     window.loadReports = loadReports;
     window.displayReports = displayReports;
     
+    // Function to update quick action buttons with translations
+    function updateQuickActionButtons(lang) {
+        const t = window.translations && window.translations[lang] ? window.translations[lang] : window.translations?.en || {};
+        
+        // Update demo chat quick buttons
+        document.querySelectorAll('#demo-chat-screen .quick-btn').forEach(btn => {
+            const messageKey = btn.getAttribute('data-message-key');
+            if (messageKey && t[messageKey]) {
+                btn.textContent = t[messageKey];
+                btn.setAttribute('data-message', t[messageKey]);
+            }
+        });
+        
+        // Update therapist chat quick buttons
+        document.querySelectorAll('#therapist-chat-screen .quick-btn').forEach(btn => {
+            const messageKey = btn.getAttribute('data-message-key');
+            if (messageKey && t[messageKey]) {
+                btn.textContent = t[messageKey];
+                btn.setAttribute('data-message', t[messageKey]);
+            }
+        });
+        
+        // Update input placeholders for chat interfaces
+        const demoInput = document.getElementById('demo-message-input');
+        const therapistInput = document.getElementById('therapist-message-input');
+        
+        if (demoInput && t.type_message_50_limit) {
+            demoInput.placeholder = t.type_message_50_limit;
+        }
+        if (therapistInput && t.type_message) {
+            therapistInput.placeholder = t.type_message;
+        }
+        
+        // Update voice chat input placeholder if it exists
+        const voiceChatInput = document.getElementById('voice-chat-input');
+        if (voiceChatInput && t.type_message) {
+            voiceChatInput.placeholder = t.type_message;
+        }
+    }
+    
     // Make resetTherapists globally available
     window.resetTherapists = resetTherapists;
+    window.updateQuickActionButtons = updateQuickActionButtons;
+    
+    // Suicidal ideation handling functions
+    function handleSuicidalIdeation() {
+        console.log('🚨 Suicidal ideation detected');
+        showModal('emergency-consent-modal');
+    }
+    
+    async function handleEmergencyConsent() {
+        hideModals();
+        
+        // Auto-book nearest therapist
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        if (currentUser) {
+            try {
+                // Find best therapist (nearest and cheapest)
+                const bestTherapist = therapists.reduce((best, current) => {
+                    const bestDistance = parseFloat(best.distance);
+                    const currentDistance = parseFloat(current.distance);
+                    const bestPrice = parseInt(best.price.replace(/[^0-9]/g, ''));
+                    const currentPrice = parseInt(current.price.replace(/[^0-9]/g, ''));
+                    
+                    if (currentDistance < bestDistance || 
+                        (currentDistance === bestDistance && currentPrice < bestPrice)) {
+                        return current;
+                    }
+                    return best;
+                });
+                
+                // Create emergency booking request
+                const emergencyRequest = {
+                    id: Date.now(),
+                    therapistId: bestTherapist.id,
+                    therapistName: bestTherapist.name,
+                    status: 'Emergency - Critical',
+                    priority: 'CRITICAL',
+                    date: new Date().toLocaleDateString(),
+                    time: new Date().toLocaleTimeString(),
+                    notes: 'Emergency booking - suicidal ideation detected'
+                };
+                
+                bookingRequests.push(emergencyRequest);
+                localStorage.setItem('bookingRequests', JSON.stringify(bookingRequests));
+                
+                console.log('🚨 Emergency booking created:', emergencyRequest);
+            } catch (err) {
+                console.error('Failed to create emergency booking:', err);
+            }
+        }
+        
+        // Show emergency support screen immediately
+        showModal('emergency-modal');
+    }
     
     // Global functions for mood tracking and milestones
     async function renderMoodChart() {
@@ -2418,30 +2723,7 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // Load data only when user visits specific screens
         
-        // Override screen navigation to load data on demand
-        const originalShowScreen = showScreen;
-        showScreen = function(screenId) {
-            originalShowScreen(screenId);
-            
-            // Load data when visiting specific screens
-            if (screenId === 'behavioral-activation-screen') {
-                setTimeout(() => {
-                    const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-                    if (currentUser && currentUser.id && typeof loadActivityPlanner === 'function') {
-                        loadActivityPlanner();
-                    }
-                }, 500);
-            }
-            
-            if (screenId === 'writing-journal-screen') {
-                setTimeout(() => {
-                    const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-                    if (currentUser && currentUser.id && typeof loadJournalEntries === 'function') {
-                        loadJournalEntries();
-                    }
-                }, 500);
-            }
-        };
+
         
         // Mood Tracker functionality
         const moodSlider = document.getElementById('mood-slider');
@@ -3233,6 +3515,31 @@ document.addEventListener('DOMContentLoaded', () => {
     async function initializeApp() {
         window.addEventListener('resize', setAppHeight);
         setAppHeight();
+        
+        // Initialize translation system
+        if (typeof window.initializeTranslation === 'function') {
+            window.initializeTranslation();
+        }
+        
+        // Synchronize language selectors
+        const currentLang = localStorage.getItem('selectedLanguage') || 'en';
+        document.querySelectorAll('#language-selector, #demo-language-select').forEach(select => {
+            if (select) select.value = currentLang;
+        });
+        
+        // Initialize voice chat early
+        if (typeof window.initializeVoiceChat === 'function') {
+            window.initializeVoiceChat();
+        }
+        
+        // Set voice chat language after initialization
+        setTimeout(() => {
+            if (window.voiceChat && typeof window.voiceChat.setLanguage === 'function') {
+                console.log('Setting initial voice chat language to:', currentLang);
+                window.voiceChat.setLanguage(currentLang);
+            }
+        }, 100);
+        
         setupAllQuestions();
         applyTheme('dark'); // Default theme, no localStorage
         
@@ -3287,14 +3594,39 @@ document.addEventListener('DOMContentLoaded', () => {
 
         // Add all event listeners
         document.getElementById('login-btn')?.addEventListener('click', handleLogin);
-        document.getElementById('go-to-register-btn')?.addEventListener('click', () => showScreen('register-screen'));
+        
+        // Fix signup link - ensure it works properly with multiple approaches
+        const signupLink = document.getElementById('go-to-register-btn');
+        if (signupLink) {
+            // Remove any existing listeners
+            signupLink.replaceWith(signupLink.cloneNode(true));
+            const newSignupLink = document.getElementById('go-to-register-btn');
+            
+            newSignupLink.addEventListener('click', (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Signup link clicked - navigating to register screen');
+                showScreen('register-screen');
+            });
+            
+            // Also add a backup click handler
+            newSignupLink.onclick = (e) => {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Signup link onclick - navigating to register screen');
+                showScreen('register-screen');
+            };
+        }
         document.getElementById('create-account-btn')?.addEventListener('click', handleCreateAccount);
         
         // DOB input is now always type="date" for consistent behavior
         document.getElementById('back-to-login-btn')?.addEventListener('click', () => showScreen('login-screen'));
         document.getElementById('guest-login-btn')?.addEventListener('click', () => { 
             showScreen('demo-chat-screen'); 
-            addMessage('demo-chat-messages', 'ai', "Welcome to the demo chat."); 
+            const currentLang = localStorage.getItem('selectedLanguage') || 'en';
+            const t = window.translations && window.translations[currentLang] ? window.translations[currentLang] : {};
+            const welcomeMsg = t.welcome_demo_chat || "Welcome to the demo chat.";
+            addMessage('demo-chat-messages', 'ai', welcomeMsg); 
         });
         document.getElementById('profile-btn')?.addEventListener('click', () => showScreen('profile-screen'));
         document.getElementById('profile-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
@@ -3303,6 +3635,129 @@ document.addEventListener('DOMContentLoaded', () => {
             applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
             document.getElementById('profile-theme-toggle').textContent = currentTheme === 'dark' ? 'Dark' : 'Light';
         });
+        
+        // Push notification toggle functionality
+        document.getElementById('profile-notifications-toggle')?.addEventListener('click', async (e) => {
+            const button = e.target;
+            const isCurrentlyEnabled = button.textContent.toLowerCase().includes('enabled');
+            const statusElement = document.getElementById('notification-status');
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            
+            if (!currentUser || !currentUser.id) {
+                statusElement.textContent = 'Please log in to enable notifications';
+                return;
+            }
+            
+            try {
+                if (!isCurrentlyEnabled) {
+                    // Enable push notifications
+                    if (window.pushNotificationManager) {
+                        await window.pushNotificationManager.subscribe(currentUser.id);
+                        button.textContent = 'Enabled';
+                        statusElement.textContent = 'Push notifications enabled - you\'ll receive daily reminders';
+                        statusElement.style.color = 'var(--success)';
+                        localStorage.setItem('notificationsEnabled', 'true');
+                    } else {
+                        throw new Error('Push notification system not available');
+                    }
+                } else {
+                    // Disable push notifications
+                    if (window.pushNotificationManager) {
+                        await window.pushNotificationManager.unsubscribe();
+                        button.textContent = 'Disabled';
+                        statusElement.textContent = 'Push notifications disabled';
+                        statusElement.style.color = 'var(--text-secondary)';
+                        localStorage.setItem('notificationsEnabled', 'false');
+                    }
+                }
+            } catch (err) {
+                console.error('Notification toggle error:', err);
+                button.textContent = 'Disabled';
+                statusElement.textContent = `Error: ${err.message}`;
+                statusElement.style.color = 'var(--danger)';
+            }
+        });
+        
+
+        
+        // Load notification settings function
+        const loadNotificationSettings = async () => {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (!currentUser || !currentUser.id) {
+                console.log('No valid user for notification settings');
+                return;
+            }
+            
+            try {
+                // Load from localStorage first, then from server
+                const localEnabled = localStorage.getItem('notificationsEnabled') === 'true';
+                const toggle = document.getElementById('profile-notifications-toggle');
+                const status = document.getElementById('notification-status');
+                
+                if (toggle) {
+                    toggle.textContent = localEnabled ? 'Enabled' : 'Disabled';
+                }
+                
+                if (status) {
+                    if (localEnabled) {
+                        status.textContent = 'Push notifications enabled - you\'ll receive daily reminders';
+                        status.style.color = 'var(--success)';
+                    } else {
+                        status.textContent = 'Push notifications disabled';
+                        status.style.color = 'var(--text-secondary)';
+                    }
+                }
+                
+                // Also try to get server settings
+                if (window.pushNotificationManager) {
+                    try {
+                        const settings = await window.pushNotificationManager.getNotificationSettings();
+                        if (settings.notifications_enabled !== localEnabled) {
+                            localStorage.setItem('notificationsEnabled', settings.notifications_enabled.toString());
+                            if (toggle) toggle.textContent = settings.notifications_enabled ? 'Enabled' : 'Disabled';
+                        }
+                    } catch (err) {
+                        console.log('Server settings unavailable, using localStorage');
+                    }
+                }
+            } catch (err) {
+                console.error('Failed to load notification settings:', err);
+                const status = document.getElementById('notification-status');
+                if (status) {
+                    status.textContent = 'Notification settings unavailable';
+                    status.style.color = 'var(--text-secondary)';
+                }
+            }
+        };
+        
+        // Enhanced screen navigation to load data on demand
+        const originalShowScreen = showScreen;
+        showScreen = function(screenId) {
+            originalShowScreen(screenId);
+            
+            // Load data when visiting specific screens
+            if (screenId === 'behavioral-activation-screen') {
+                setTimeout(() => {
+                    const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+                    if (currentUser && currentUser.id && typeof loadActivityPlanner === 'function') {
+                        loadActivityPlanner();
+                    }
+                }, 500);
+            }
+            
+            if (screenId === 'writing-journal-screen') {
+                setTimeout(() => {
+                    const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+                    if (currentUser && currentUser.id && typeof loadJournalEntries === 'function') {
+                        loadJournalEntries();
+                    }
+                }, 500);
+            }
+            
+            if (screenId === 'profile-screen') {
+                setTimeout(loadNotificationSettings, 100);
+            }
+        };
         document.getElementById('admin-logout-btn')?.addEventListener('click', logout);
         document.getElementById('user-reports-back-btn')?.addEventListener('click', () => showScreen('admin-screen'));
         document.getElementById('user-reports-dashboard-btn')?.addEventListener('click', () => showScreen('admin-screen'));
@@ -3332,6 +3787,50 @@ document.addEventListener('DOMContentLoaded', () => {
             showScreen('admin-screen');
         });
         
+        // Admin send push notification
+        document.getElementById('send-push-notification-btn')?.addEventListener('click', async () => {
+            const message = prompt('Enter notification message to send to all users:');
+            if (message && message.trim()) {
+                try {
+                    const response = await fetch(`${API_BASE}/api/admin/broadcast-notification`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ message: message.trim() })
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        alert(`Notification sent to ${result.count || 0} users!`);
+                    } else {
+                        alert('Failed to send notification: ' + (result.error || 'Unknown error'));
+                    }
+                } catch (err) {
+                    console.error('Notification send error:', err);
+                    alert('Error sending notification. Please try again.');
+                }
+            }
+        });
+        
+        // Admin test reminder notification
+        document.getElementById('test-reminder-notification-btn')?.addEventListener('click', async () => {
+            if (confirm('Send test assessment reminder to all users with notifications enabled?')) {
+                try {
+                    const response = await fetch(`${API_BASE}/api/admin/send-reminders`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' }
+                    });
+                    const result = await response.json();
+                    if (result.success) {
+                        alert(`Test reminder sent to ${result.count || 0} users!`);
+                    } else {
+                        alert('Failed to send test reminder: ' + (result.error || 'Unknown error'));
+                    }
+                } catch (err) {
+                    console.error('Test reminder error:', err);
+                    alert('Error sending test reminder. Please try again.');
+                }
+            }
+        });
+        
         // Admin cleanup duplicate posts
         document.getElementById('cleanup-admin-posts-btn')?.addEventListener('click', async () => {
             if (confirm('Are you sure you want to clean up duplicate admin posts? This will remove extra welcome posts.')) {
@@ -3359,6 +3858,65 @@ document.addEventListener('DOMContentLoaded', () => {
             if (e.target.closest('.theme-toggle')) {
                 applyTheme(currentTheme === 'dark' ? 'light' : 'dark');
             }
+            
+            // Backup signup link handler using event delegation
+            if (e.target.id === 'go-to-register-btn' || e.target.closest('#go-to-register-btn')) {
+                e.preventDefault();
+                e.stopPropagation();
+                console.log('Backup signup link handler - navigating to register screen');
+                showScreen('register-screen');
+            }
+        });
+        
+        // Language change handler for assessments and voice chat
+        document.addEventListener('change', (e) => {
+            if (e.target.id === 'language-selector' || e.target.id === 'demo-language-select') {
+                const newLanguage = e.target.value;
+                const supportedLangs = ['en', 'hi', 'bn', 'te', 'mr', 'ta', 'gu', 'kn'];
+                
+                if (supportedLangs.includes(newLanguage)) {
+                    console.log('Language changed to:', newLanguage);
+                    
+                    // Use the global setLanguage function which handles everything
+                    if (typeof window.setLanguage === 'function') {
+                        window.setLanguage(newLanguage);
+                    } else {
+                        localStorage.setItem('selectedLanguage', newLanguage);
+                    }
+                    
+                    // Force voice chat language update
+                    setTimeout(() => {
+                        if (window.voiceChat && window.voiceChat.setLanguage) {
+                            console.log('Force updating voice chat to:', newLanguage);
+                            window.voiceChat.setLanguage(newLanguage);
+                        } else if (typeof window.initializeVoiceChat === 'function') {
+                            console.log('Reinitializing voice chat for language:', newLanguage);
+                            window.initializeVoiceChat();
+                            setTimeout(() => {
+                                if (window.voiceChat) {
+                                    window.voiceChat.setLanguage(newLanguage);
+                                }
+                            }, 50);
+                        }
+                    }, 10);
+                    
+                    // Synchronize all language selectors
+                    document.querySelectorAll('#language-selector, #demo-language-select').forEach(select => {
+                        if (select && select !== e.target) {
+                            select.value = newLanguage;
+                        }
+                    });
+                    
+                    // Update assessment data with new language
+                    setupAllQuestions();
+                    if (currentScreen === 'assessment-screen' && currentQuestionIndex >= 0) {
+                        renderCurrentQuestion();
+                    }
+                    
+                    // Update quick action buttons in chat
+                    updateQuickActionButtons(newLanguage);
+                }
+            }
         });
         document.getElementById('go-to-therapist-chat-btn')?.addEventListener('click', () => { 
             showScreen('therapist-chat-screen'); 
@@ -3369,6 +3927,282 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('therapist-message-input')?.addEventListener('keypress', e => { 
             if (e.key === 'Enter') handleSendMessage('therapist'); 
         });
+        
+        // Assessment screen event listeners
+        document.getElementById('go-to-assessment-btn')?.addEventListener('click', () => {
+            showScreen('assessment-screen');
+            setupAllQuestions();
+        });
+        
+        document.getElementById('assessment-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        
+        // Assessment consent functionality
+        document.getElementById('assessment-data-consent')?.addEventListener('change', (e) => {
+            const startBtn = document.getElementById('start-assessment-btn');
+            if (startBtn) {
+                startBtn.disabled = !e.target.checked;
+            }
+        });
+        
+        document.getElementById('start-assessment-btn')?.addEventListener('click', () => {
+            const consentChecked = document.getElementById('assessment-data-consent')?.checked;
+            if (!consentChecked) {
+                alert('Please provide consent to proceed with the assessment.');
+                return;
+            }
+            
+            // Hide consent screen and show assessment content
+            document.getElementById('assessment-consent').style.display = 'none';
+            document.getElementById('assessment-content').style.display = 'block';
+            
+            // Initialize assessment
+            currentQuestionIndex = 0;
+            userAnswers = {};
+            setupAllQuestions();
+            renderCurrentQuestion();
+        });
+        
+
+        
+        // Results screen navigation
+        document.getElementById('results-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        
+        document.getElementById('prev-question-btn')?.addEventListener('click', () => {
+            saveCurrentAnswer();
+            if (currentQuestionIndex > 0) {
+                currentQuestionIndex--;
+                renderCurrentQuestion();
+            }
+        });
+        
+        document.getElementById('next-question-btn')?.addEventListener('click', () => {
+            if (saveCurrentAnswer()) {
+                if (currentQuestionIndex < allQuestions.length - 1) {
+                    currentQuestionIndex++;
+                    renderCurrentQuestion();
+                } else {
+                    calculateScores();
+                }
+            } else {
+                alert('Please select an answer to continue.');
+            }
+        });
+        
+        function calculateScores() {
+            try {
+                // Show loading screen
+                const resultsContainer = document.querySelector('#results-screen .page-content');
+                resultsContainer.innerHTML = `
+                    <div class="results-loading">
+                        <div class="loader"></div>
+                        <h3>Calculating your results...</h3>
+                        <p>Please wait while we analyze your responses.</p>
+                    </div>
+                `;
+                showScreen('results-screen');
+                
+                setTimeout(() => {
+                    let scores = { phq9: 0, gad7: 0, pss: 0 };
+                    
+                    allQuestions.forEach(q => {
+                        let value = userAnswers[q.name] || 0;
+                        if (q.test === 'pss' && q.reverse) {
+                            value = 4 - value;
+                        }
+                        scores[q.test] += value;
+                    });
+                    
+                    // HIGH-RISK DETECTION: Check for suicidal ideation (PHQ-9 question 9)
+                    const suicidalIdeationAnswer = userAnswers['phq9-q8']; // 0-indexed, so q8 is question 9
+                    
+                    if (suicidalIdeationAnswer >= 1) { // Any suicidal thoughts
+                        console.log('🚨 HIGH RISK DETECTED - Suicidal ideation:', suicidalIdeationAnswer);
+                        
+                        // Store scores for later use
+                        window.emergencyScores = scores;
+                        
+                        // Show emergency consent modal instead of results
+                        hideModals();
+                        showModal('emergency-consent-modal');
+                    } else {
+                        // Normal flow - save and display results
+                        saveAssessmentResult(scores);
+                        displayResults(scores);
+                    }
+                }, 1000);
+            } catch (error) {
+                console.error('Error in calculateScores:', error);
+                showScreen('dashboard-screen');
+            }
+        }
+        
+        function displayResults(scores) {
+            const getInterpretation = (test, score) => {
+                if (test === 'phq9') {
+                    if (score <= 4) return "Minimal depression";
+                    if (score <= 9) return "Mild depression";
+                    if (score <= 14) return "Moderate depression";
+                    if (score <= 19) return "Moderately severe depression";
+                    return "Severe depression";
+                }
+                if (test === 'gad7') {
+                    if (score <= 4) return "Minimal anxiety";
+                    if (score <= 9) return "Mild anxiety";
+                    if (score <= 14) return "Moderate anxiety";
+                    return "Severe anxiety";
+                }
+                if (test === 'pss') {
+                    if (score <= 13) return "Low perceived stress";
+                    if (score <= 26) return "Moderate perceived stress";
+                    return "High perceived stress";
+                }
+            };
+            
+            const resultsContainer = document.querySelector('#results-screen .page-content');
+            resultsContainer.innerHTML = `
+                <div id="phq9-results" class="score-card">
+                    <h2>Depression (PHQ-9)</h2>
+                    <p class="score">${scores.phq9}</p>
+                    <p class="interpretation">${getInterpretation('phq9', scores.phq9)}</p>
+                </div>
+                <div id="gad7-results" class="score-card">
+                    <h2>Anxiety (GAD-7)</h2>
+                    <p class="score">${scores.gad7}</p>
+                    <p class="interpretation">${getInterpretation('gad7', scores.gad7)}</p>
+                </div>
+                <div id="pss-results" class="score-card">
+                    <h2>Stress (PSS-10)</h2>
+                    <p class="score">${scores.pss}</p>
+                    <p class="interpretation">${getInterpretation('pss', scores.pss)}</p>
+                </div>
+                <button id="view-progress-btn" class="btn btn--primary" style="margin-top: 20px;">📈 View My Progress</button>
+            `;
+            
+            // Add event listener to the progress button
+            document.getElementById('view-progress-btn')?.addEventListener('click', () => {
+                showScreen('progress-screen');
+            });
+            
+            async function renderProgressChart() {
+                const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+                if (!currentUser) return;
+                
+                const chartEl = document.getElementById('progress-chart');
+                const promptEl = document.getElementById('progress-prompt');
+                
+                try {
+                    // Always show streak first
+                    const progressContent = document.querySelector('#progress-screen .page-content');
+                    const streakCount = localStorage.getItem('streakCount') || '0';
+                    
+                    const response = await fetch(`${API_BASE}/api/assessments?userId=${currentUser.id}`);
+                    const data = await response.json();
+                    const history = (data.success && data.assessments) ? data.assessments : (data.assessments || []);
+                    
+                    if (progressContent) {
+                        if (history.length === 0) {
+                            // Show streak even with no assessment history
+                            progressContent.innerHTML = `
+                                <div class="progress-streak" style="text-align: center; margin-bottom: 2rem; padding: 1rem; border: 2px solid var(--primary-color); border-radius: 12px; background: var(--surface);">
+                                    <h3>🔥 Current Streak</h3>
+                                    <div style="font-size: 2rem; font-weight: bold; color: var(--primary-color);">${streakCount} days</div>
+                                    <p style="color: var(--text-secondary);">Keep up the great work!</p>
+                                </div>
+                                <p style="text-align: center; color: var(--text-secondary); padding: 2rem;">No assessment history yet. Complete your first assessment to see your progress!</p>
+                            `;
+                            return;
+                        }
+                    }
+                    
+                    if (chartEl) chartEl.style.display = 'block';
+                    if (promptEl) promptEl.style.display = 'none';
+                    
+                    // Create Chart.js chart if available
+                    if (window.Chart && chartEl) {
+                        const labels = history.map(item => new Date(item.assessment_date).toLocaleDateString());
+                        const phq9Data = history.map(item => item.phq9_score);
+                        const gad7Data = history.map(item => item.gad7_score);
+                        const pssData = history.map(item => item.pss_score);
+                        
+                        // Properly destroy existing chart
+                        const existingChart = Chart.getChart(chartEl);
+                        if (existingChart) {
+                            existingChart.destroy();
+                        }
+                        
+                        window.progressChart = new Chart(chartEl.getContext('2d'), {
+                            type: 'line',
+                            data: {
+                                labels,
+                                datasets: [
+                                    { label: 'Depression (PHQ-9)', data: phq9Data, borderColor: '#FF6384', tension: 0.1 },
+                                    { label: 'Anxiety (GAD-7)', data: gad7Data, borderColor: '#36A2EB', tension: 0.1 },
+                                    { label: 'Stress (PSS-10)', data: pssData, borderColor: '#FFCE56', tension: 0.1 }
+                                ]
+                            },
+                            options: {
+                                scales: { y: { beginAtZero: true } },
+                                plugins: { legend: { display: true } }
+                            }
+                        });
+                    }
+                    
+                    // Display streak and assessment history when data exists
+                    if (progressContent) {
+                        progressContent.innerHTML = `
+                            <div class="progress-streak" style="text-align: center; margin-bottom: 2rem; padding: 1rem; border: 2px solid var(--primary-color); border-radius: 12px; background: var(--surface);">
+                                <h3>🔥 Current Streak</h3>
+                                <div style="font-size: 2rem; font-weight: bold; color: var(--primary-color);">${streakCount} days</div>
+                                <p style="color: var(--text-secondary);">Keep up the great work!</p>
+                            </div>
+                            <h3>Assessment History</h3>
+                            <div class="assessment-history">
+                                ${history.map(item => `
+                                    <div class="assessment-item" style="border: 1px solid var(--border); padding: 1rem; margin: 0.5rem 0; border-radius: 8px;">
+                                        <div style="font-weight: bold;">Date: ${new Date(item.assessment_date).toLocaleDateString()}</div>
+                                        <div>Depression (PHQ-9): ${item.phq9_score}</div>
+                                        <div>Anxiety (GAD-7): ${item.gad7_score}</div>
+                                        <div>Stress (PSS-10): ${item.pss_score}</div>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        `;
+                    }
+                } catch (err) {
+                    console.error('Failed to load progress data:', err);
+                    if (chartEl) chartEl.style.display = 'none';
+                    if (promptEl) promptEl.style.display = 'block';
+                }
+            }
+        }
+        
+        async function saveAssessmentResult(scores) {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (!currentUser) return;
+            
+            try {
+                const response = await fetch(`${API_BASE}/api/assessments`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: currentUser.id,
+                        phq9: scores.phq9,
+                        gad7: scores.gad7,
+                        pss: scores.pss,
+                        responses: userAnswers,
+                        assessmentDate: new Date().toLocaleDateString('en-CA')
+                    })
+                });
+                
+                const result = await response.json();
+                if (result.success) {
+                    console.log('Assessment saved successfully');
+                }
+            } catch (err) {
+                console.error('Failed to save assessment:', err);
+            }
+        }
+
         document.querySelectorAll('#demo-chat-screen .quick-btn').forEach(btn => 
             btn.addEventListener('click', () => handleQuickMessage('demo', btn.dataset.message))
         );
@@ -3377,6 +4211,46 @@ document.addEventListener('DOMContentLoaded', () => {
         );
         document.getElementById('emergency-btn')?.addEventListener('click', () => showModal('emergency-modal'));
         document.getElementById('emergency-modal-close-btn')?.addEventListener('click', hideModals);
+        
+        // Suicidal ideation consent handlers
+        
+        function hideModals() {
+            document.querySelectorAll('.modal').forEach(modal => modal.classList.remove('active'));
+        }
+        
+        function showModal(modalId) {
+            document.getElementById(modalId)?.classList.add('active');
+        }
+        
+        document.getElementById('emergency-consent-yes')?.addEventListener('click', () => {
+            hideModals();
+            showModal('emergency-modal');
+            // Also save and display results for emergency case
+            if (window.emergencyScores) {
+                saveAssessmentResult(window.emergencyScores);
+                displayResults(window.emergencyScores);
+                window.emergencyScores = null;
+            }
+        });
+        document.getElementById('emergency-consent-no')?.addEventListener('click', () => {
+            hideModals();
+            // Use stored emergency scores or recalculate if not available
+            let scores = window.emergencyScores;
+            if (!scores) {
+                scores = { phq9: 0, gad7: 0, pss: 0 };
+                allQuestions.forEach(q => {
+                    let value = userAnswers[q.name] || 0;
+                    if (q.test === 'pss' && q.reverse) {
+                        value = 4 - value;
+                    }
+                    scores[q.test] += value;
+                });
+            }
+            saveAssessmentResult(scores);
+            displayResults(scores);
+            // Clear stored scores
+            window.emergencyScores = null;
+        });
 
         // Forum functionality
         let currentCommunity = '';
@@ -3474,6 +4348,26 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('Forum user initialization failed:', err);
             }
         }
+        
+        // Notification system handlers
+        document.getElementById('profile-notifications-toggle')?.addEventListener('click', async () => {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (!currentUser) return;
+            
+            if (window.notificationSystem) {
+                if (window.notificationSystem.notificationsEnabled) {
+                    await window.notificationSystem.disableNotifications();
+                    document.getElementById('profile-notifications-toggle').textContent = 'Disabled';
+                } else {
+                    const success = await window.notificationSystem.requestPermission();
+                    if (success) {
+                        document.getElementById('profile-notifications-toggle').textContent = 'Enabled';
+                    }
+                }
+            }
+        });
+        
+
         
         async function loadForumData() {
             if (anonymousUsername) {
@@ -5038,18 +5932,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 renderCurrentQuestion();
             }
         });
-        document.getElementById('next-question-btn')?.addEventListener('click', () => {
-            if (saveCurrentAnswer()) {
-                if (currentQuestionIndex < allQuestions.length - 1) {
-                    currentQuestionIndex++;
-                    renderCurrentQuestion();
-                } else {
-                    calculateScores();
-                }
-            } else {
-                alert('Please select an answer to continue.');
-            }
-        });
+
         
         // Forum join button event listeners
         document.addEventListener('click', async (e) => {
@@ -5175,25 +6058,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderCurrentQuestion();
         });
         
-        document.getElementById('prev-question-btn')?.addEventListener('click', () => {
-            if (currentQuestionIndex > 0) {
-                currentQuestionIndex--;
-                renderCurrentQuestion();
-            }
-        });
-        
-        document.getElementById('next-question-btn')?.addEventListener('click', () => {
-            if (saveCurrentAnswer()) {
-                if (currentQuestionIndex < allQuestions.length - 1) {
-                    currentQuestionIndex++;
-                    renderCurrentQuestion();
-                } else {
-                    calculateScores();
-                }
-            } else {
-                alert('Please select an answer before continuing.');
-            }
-        });
+
         
         // Booking navigation
         document.getElementById('go-to-booking-btn')?.addEventListener('click', () => {
@@ -5398,6 +6263,26 @@ document.addEventListener('DOMContentLoaded', () => {
             renderCurrentQuestion();
         });
         
+        // Assessment navigation event listeners
+        document.getElementById('prev-question-btn')?.addEventListener('click', () => {
+            if (currentQuestionIndex > 0) {
+                saveCurrentAnswer();
+                currentQuestionIndex--;
+                renderCurrentQuestion();
+            }
+        });
+        
+
+
+        
+        // Event delegation for dynamically generated assessment options
+        document.addEventListener('change', (e) => {
+            if (e.target.type === 'radio' && e.target.name && e.target.name.includes('-q')) {
+                // Auto-save answer when radio button is selected
+                saveCurrentAnswer();
+            }
+        });
+        
         // Delete account modal handlers
         document.getElementById('delete-confirmation-checkbox')?.addEventListener('change', (e) => {
             const confirmBtn = document.getElementById('confirm-delete-btn');
@@ -5518,4 +6403,27 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('understanding-stress-btn')?.addEventListener('click', () => showScreen('understanding-stress-screen'));
     document.getElementById('anxiety-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
     document.getElementById('stress-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+});
+// Language selector event handlers - add to existing script.js
+document.addEventListener('DOMContentLoaded', function() {
+    const selectors = ['#language-selector', '#demo-language-select'];
+    
+    selectors.forEach(selectorId => {
+        const selector = document.querySelector(selectorId);
+        if (selector) {
+            selector.addEventListener('change', function(e) {
+                const newLang = e.target.value;
+                if (typeof setLanguage === 'function') {
+                    setLanguage(newLang);
+                }
+                if (window.voiceChat?.setLanguage) {
+                    window.voiceChat.setLanguage(newLang);
+                }
+                selectors.forEach(otherId => {
+                    const other = document.querySelector(otherId);
+                    if (other && other !== e.target) other.value = newLang;
+                });
+            });
+        }
+    });
 });

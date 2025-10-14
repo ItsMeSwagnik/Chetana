@@ -202,7 +202,7 @@ body {
   border: 2px solid currentColor;
   border-radius: 2px;
   top: 33px;
-  left: 107.5px;
+  left: 70px;
 }
 
 .calendar-icon::after {
@@ -212,7 +212,7 @@ body {
   height: 4px;
   background: currentColor;
   top: 29px;
-  left: 110px;
+  left: 73px;
   box-shadow: 6px 0 0 currentColor;
 }
 
@@ -544,6 +544,69 @@ body {
 }
 
 .bell-icon::after {
+  content: '';
+  position: absolute;
+  width: 16px;
+  height: 3px;
+  background: var(--text-primary);
+  bottom: 1px;
+  left: 2px;
+  border-radius: 0 0 8px 8px;
+}
+
+.demo-language-select {
+  padding: 0.5rem;
+  border: 1px solid var(--border);
+  border-radius: 6px;
+  background: var(--surface);
+  color: var(--text-primary);
+  font-size: 0.9rem;
+  margin-right: 0.5rem;
+}
+
+@media (max-width: 768px) {
+  .demo-language-select {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.4rem;
+    margin-right: 0.25rem;
+    max-width: 70px;
+    min-width: 60px;
+    border-radius: 4px;
+  }
+  
+  .header-controls {
+    display: flex;
+    align-items: center;
+    gap: 0.25rem;
+    flex-shrink: 0;
+    min-width: fit-content;
+  }
+  
+  .page-header {
+    padding: 0.5rem 0.75rem;
+  }
+  
+  .header-title {
+    font-size: 1rem;
+    max-width: calc(100vw - 200px);
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+  }
+  
+  .header-side-panel {
+    min-width: 80px;
+    flex-shrink: 0;
+  }
+  
+  .btn-header-login {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.8rem;
+    min-width: 60px;
+  }
+}
+
+.some-icon::after {
   content: '';
   position: absolute;
   width: 16px;
@@ -1184,6 +1247,7 @@ input[type="date"]:focus {
   flex-shrink: 0; 
   position: sticky;
   top: 0;
+  min-height: 60px;
 }
 
 .header-title { 
@@ -1856,6 +1920,12 @@ input[type="date"]:focus {
   align-items: center;
   padding: 1rem 0;
   border-bottom: 1px solid var(--border);
+}
+
+.setting-item span {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
 }
 
 .setting-toggle {
@@ -5339,5 +5409,498 @@ input[type="date"]:focus {
   #community-rules-modal .btn {
     padding: 0.75rem 1rem;
     font-size: 0.9rem;
+  }
+}
+
+.setting-select {
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  padding: 0.5rem 1rem;
+  border-radius: 8px;
+  font-size: 0.9rem;
+  cursor: pointer;
+  min-width: 120px;
+}
+
+.streak-indicator {
+  display: flex;
+  align-items: center;
+  gap: 0.25rem;
+  background: var(--surface);
+  padding: 0.25rem 0.5rem;
+  border-radius: 15px;
+  border: 1px solid var(--border);
+  margin-right: 0.5rem;
+}
+
+#streak-count {
+  font-weight: 600;
+  color: var(--text-primary);
+  font-size: 0.9rem;
+}
+
+.streak-fire {
+  font-size: 1rem;
+  filter: grayscale(100%);
+  opacity: 0.5;
+  transition: all 0.3s ease;
+}
+
+.streak-fire.active {
+  filter: grayscale(0%);
+  opacity: 1;
+  animation: fireGlow 2s ease-in-out infinite alternate;
+}
+
+@keyframes fireGlow {
+  0% { transform: scale(1); }
+  100% { transform: scale(1.1); }
+}
+
+.notification-popup {
+  position: fixed;
+  top: 20px;
+  right: 20px;
+  z-index: 3000;
+  opacity: 0;
+  transform: translateX(100%);
+  transition: all 0.3s ease;
+  max-width: 350px;
+}
+
+.notification-popup.show {
+  opacity: 1;
+  transform: translateX(0);
+}
+
+.notification-popup.urgent {
+  animation: urgentPulse 2s infinite;
+  border: 2px solid var(--danger);
+  border-radius: var(--radius-base);
+}
+
+@keyframes urgentPulse {
+  0%, 100% { transform: translateX(0) scale(1); }
+  50% { transform: translateX(0) scale(1.02); }
+}
+
+.notification-content {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-base);
+  padding: 1rem;
+  box-shadow: 0 8px 25px var(--shadow);
+  position: relative;
+}
+
+.notification-header {
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  margin-bottom: 0.5rem;
+}
+
+.notification-header h4 {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: 0.95rem;
+  font-weight: 600;
+  flex: 1;
+  padding-right: 0.5rem;
+}
+
+.notification-content p {
+  margin: 0 0 0.75rem 0;
+  color: var(--text-secondary);
+  font-size: 0.85rem;
+  line-height: 1.4;
+}
+
+.notification-actions {
+  display: flex;
+  justify-content: flex-end;
+  margin-top: 0.75rem;
+}
+
+.btn-small {
+  padding: 0.4rem 0.8rem;
+  font-size: 0.8rem;
+  border-radius: 15px;
+}
+
+.notification-close {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  font-size: 1.2rem;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: 50%;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.notification-close:hover {
+  color: var(--text-primary);
+  background: var(--border);
+}
+
+/* Notification permission prompt styles */
+.notification-permission-prompt {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.6);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 4000;
+  padding: 1rem;
+}
+
+.permission-content {
+  background: var(--surface);
+  border-radius: var(--radius-base);
+  padding: 2rem;
+  max-width: 500px;
+  width: 100%;
+  text-align: center;
+  box-shadow: 0 10px 30px var(--shadow);
+  border: 1px solid var(--border);
+}
+
+.permission-icon {
+  font-size: 3rem;
+  margin-bottom: 1rem;
+  display: block;
+}
+
+.permission-content h3 {
+  margin: 0 0 1rem 0;
+  color: var(--text-primary);
+  font-size: 1.3rem;
+}
+
+.permission-content p {
+  margin: 0 0 1.5rem 0;
+  color: var(--text-secondary);
+  line-height: 1.5;
+}
+
+.permission-benefits {
+  text-align: left;
+  margin: 1.5rem 0;
+  padding: 0;
+  list-style: none;
+}
+
+.permission-benefits li {
+  color: var(--text-primary);
+  margin-bottom: 0.5rem;
+  font-size: 0.9rem;
+}
+
+.permission-buttons {
+  display: flex;
+  gap: 1rem;
+  margin-top: 2rem;
+}
+
+.permission-buttons .btn {
+  flex: 1;
+  padding: 0.75rem 1rem;
+}
+
+.permission-content small {
+  display: block;
+  margin-top: 1rem;
+  color: var(--text-secondary);
+  font-size: 0.8rem;
+}
+
+/* Notification status styles */
+.status-enabled {
+  color: var(--secondary-color) !important;
+  font-weight: 500;
+}
+
+.status-disabled {
+  color: var(--text-secondary) !important;
+}
+
+.demo-language-select {
+  background: var(--surface);
+  color: var(--text-primary);
+  border: 1px solid var(--border);
+  padding: 0.4rem 0.8rem;
+  border-radius: 8px;
+  font-size: 0.8rem;
+  cursor: pointer;
+  margin-right: 0.5rem;
+  min-width: 80px;
+  flex-shrink: 0;
+}
+
+.voice-btn {
+  background: var(--secondary-color);
+  border: none;
+  padding: 0.75rem;
+  border-radius: 50%;
+  font-size: 1.2rem;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  margin-right: 0.5rem;
+  width: 40px;
+  height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.voice-btn:hover, .voice-btn:active {
+  background: var(--primary-color);
+  transform: scale(1.1);
+}
+
+.voice-btn.listening {
+  background: #ff4444;
+  animation: voicePulse 1.5s infinite;
+  box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.7);
+}
+
+@keyframes voicePulse {
+  0% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 68, 68, 0.7);
+  }
+  70% {
+    transform: scale(1.05);
+    box-shadow: 0 0 0 10px rgba(255, 68, 68, 0);
+  }
+  100% {
+    transform: scale(1);
+    box-shadow: 0 0 0 0 rgba(255, 68, 68, 0);
+  }
+}
+
+@keyframes pulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.1); }
+  100% { transform: scale(1); }
+}
+
+/* Additional mobile fixes for language selector */
+/* Mobile notification styles */
+@media (max-width: 768px) {
+  .notification-popup {
+    top: 10px;
+    right: 10px;
+    left: 10px;
+    max-width: none;
+  }
+  
+  .notification-content {
+    padding: 0.75rem;
+  }
+  
+  .notification-header h4 {
+    font-size: 0.85rem;
+  }
+  
+  .notification-content p {
+    font-size: 0.8rem;
+  }
+  
+  .permission-content {
+    padding: 1.5rem;
+    margin: 0.5rem;
+  }
+  
+  .permission-content h3 {
+    font-size: 1.1rem;
+  }
+  
+  .permission-benefits li {
+    font-size: 0.85rem;
+  }
+  
+  .permission-buttons {
+    flex-direction: column;
+    gap: 0.75rem;
+  }
+}
+
+@media (max-width: 480px) {
+  .demo-language-select {
+    font-size: 0.7rem;
+    padding: 0.2rem 0.3rem;
+    margin-right: 0.2rem;
+    max-width: 55px;
+    min-width: 50px;
+  }
+  
+  .header-controls {
+    gap: 0.2rem;
+    max-width: 120px;
+  }
+  
+  .streak-indicator {
+    padding: 0.15rem 0.3rem;
+    margin-right: 0.15rem;
+  }
+  
+  #streak-count {
+    font-size: 0.7rem;
+  }
+  
+  .streak-fire {
+    font-size: 0.8rem;
+  }
+  
+  .notification-popup {
+    top: 5px;
+    right: 5px;
+    left: 5px;
+    max-width: none;
+  }
+  
+  .notification-content {
+    padding: 0.6rem;
+  }
+  
+  .notification-header h4 {
+    font-size: 0.8rem;
+  }
+  
+  .notification-content p {
+    font-size: 0.75rem;
+    margin-bottom: 0.5rem;
+  }
+  
+  .btn-small {
+    padding: 0.3rem 0.6rem;
+    font-size: 0.75rem;
+  }
+  
+  .header-title {
+    font-size: 0.9rem;
+    max-width: calc(100vw - 160px);
+  }
+  
+  .btn-header-login {
+    padding: 0.25rem 0.4rem;
+    font-size: 0.7rem;
+    min-width: 50px;
+    max-width: 55px;
+  }
+  
+  .theme-toggle {
+    padding: 0.25rem;
+    font-size: 1.1rem;
+    min-width: 32px;
+    height: 32px;
+  }
+  
+  .permission-content {
+    padding: 1rem;
+    margin: 0.25rem;
+  }
+  
+  .permission-icon {
+    font-size: 2.5rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .permission-content h3 {
+    font-size: 1rem;
+    margin-bottom: 0.75rem;
+  }
+  
+  .permission-content p {
+    font-size: 0.85rem;
+    margin-bottom: 1rem;
+  }
+  
+  .permission-benefits {
+    margin: 1rem 0;
+  }
+  
+  .permission-benefits li {
+    font-size: 0.8rem;
+    margin-bottom: 0.4rem;
+  }
+  
+  .permission-buttons {
+    margin-top: 1.5rem;
+    gap: 0.5rem;
+  }
+  
+  .permission-buttons .btn {
+    padding: 0.6rem 0.8rem;
+    font-size: 0.8rem;
+  }
+}
+
+/* Ensure language selector doesn't overflow on very small screens */
+@media (max-width: 360px) {
+  .demo-language-select {
+    font-size: 0.65rem;
+    padding: 0.15rem 0.25rem;
+    max-width: 45px;
+    min-width: 40px;
+  }
+  
+  .header-controls {
+    max-width: 105px;
+  }
+  
+  .streak-indicator {
+    padding: 0.1rem 0.25rem;
+  }
+  
+  .header-title {
+    max-width: calc(100vw - 140px);
+  }
+  
+  .notification-popup {
+    top: 2px;
+    right: 2px;
+    left: 2px;
+  }
+  
+  .notification-content {
+    padding: 0.5rem;
+  }
+  
+  .notification-header h4 {
+    font-size: 0.75rem;
+  }
+  
+  .notification-content p {
+    font-size: 0.7rem;
+  }
+  
+  .permission-content {
+    padding: 0.75rem;
+    margin: 0.1rem;
+  }
+  
+  .permission-content h3 {
+    font-size: 0.9rem;
+  }
+  
+  .permission-content p {
+    font-size: 0.8rem;
+  }
+  
+  .permission-benefits li {
+    font-size: 0.75rem;
   }
 }

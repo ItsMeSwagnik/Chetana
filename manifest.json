@@ -1,0 +1,21 @@
+{
+  "name": "चेtanā - Mental Wellness App",
+  "short_name": "चेtanā",
+  "description": "Awakening Minds, Nurturing Wellbeing",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#1a1a1a",
+  "theme_color": "#87ceeb",
+  "icons": [
+    {
+      "src": "chetana icon 192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    },
+    {
+      "src": "chetana badge 72x72.png",
+      "sizes": "72x72",
+      "type": "image/png"
+    }
+  ]
+}

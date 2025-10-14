@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Icons</title>
+</head>
+<body>
+    <canvas id="icon192" width="192" height="192"></canvas>
+    <canvas id="badge72" width="72" height="72"></canvas>
+    
+    <script>
+        // Create 192x192 icon
+        const canvas192 = document.getElementById('icon192');
+        const ctx192 = canvas192.getContext('2d');
+        
+        // Background
+        ctx192.fillStyle = '#87ceeb';
+        ctx192.fillRect(0, 0, 192, 192);
+        
+        // Text
+        ctx192.fillStyle = '#1a1a1a';
+        ctx192.font = 'bold 48px Arial';
+        ctx192.textAlign = 'center';
+        ctx192.fillText('चेtanā', 96, 110);
+        
+        // Create 72x72 badge
+        const canvas72 = document.getElementById('badge72');
+        const ctx72 = canvas72.getContext('2d');
+        
+        // Background
+        ctx72.fillStyle = '#87ceeb';
+        ctx72.fillRect(0, 0, 72, 72);
+        
+        // Text
+        ctx72.fillStyle = '#1a1a1a';
+        ctx72.font = 'bold 18px Arial';
+        ctx72.textAlign = 'center';
+        ctx72.fillText('चे', 36, 42);
+        
+        // Download function
+        function downloadCanvas(canvas, filename) {
+            const link = document.createElement('a');
+            link.download = filename;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+        
+        // Auto-download after 1 second
+        setTimeout(() => {
+            downloadCanvas(canvas192, 'icon-192x192.png');
+            setTimeout(() => {
+                downloadCanvas(canvas72, 'badge-72x72.png');
+            }, 500);
+        }, 1000);
+    </script>
+</body>
+</html>

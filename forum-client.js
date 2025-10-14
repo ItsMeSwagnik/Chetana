@@ -1,8 +1,12 @@
 // Forum System Implementation
 let forumInstance = null;
-let currentCommunity = 'depression';
 let currentPost = null;
 let anonymousUsername = null;
+
+// Initialize currentCommunity if not already declared
+if (typeof currentCommunity === 'undefined') {
+    var currentCommunity = 'depression';
+}
 
 async function getUserForumUid() {
     try {

@@ -115,9 +115,10 @@ export default async function handler(req, res) {
         }
 
         try {
+            const hashedPassword = await bcrypt.hash(password, 10);
             await pool.query(
                 'INSERT INTO users (name, email, password, dob, created_at) VALUES ($1, $2, $3, $4, NOW())',
-                [name, email, password, dob]
+                [name, email, hashedPassword, dob]
             );
             return res.json({ success: true, message: 'Account created successfully' });
         } catch (err) {

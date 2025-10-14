@@ -38,6 +38,10 @@ Open your browser and go to `http://localhost:3000`
 - PHQ-9, GAD-7, and PSS-10 assessments
 - Progress tracking with charts
 - Admin panel for user management
+- Push notification system with daily reminders
+- Duolingo-style streak tracking with strict deadlines
+- Server-side notification scheduling
+- Browser and mobile push notification support
 
 ## Admin Access
 - Email: `admin@chetana.com`

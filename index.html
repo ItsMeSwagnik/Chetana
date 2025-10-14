@@ -8,26 +8,39 @@
     <link rel="stylesheet" href="styles.css">
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
+    <script src="translations.js"></script>
     <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://cdn.jsdelivr.net; media-src 'self';">
+    <link rel="manifest" href="manifest.json">
+    <link rel="icon" type="image/png" sizes="72x72" href="chetana badge 72x72.png">
 </head>
 <body data-theme="dark">
 
 
 
     <div id="toast-notification">Welcome to चेtanā - Your Mental Wellness Companion!</div>
+    <div id="notification-popup" class="notification-popup">
+        <div class="notification-content">
+            <div class="notification-icon">🔔</div>
+            <div class="notification-text">
+                <h4 id="notification-title">Daily Reminder</h4>
+                <p id="notification-message">Time for your daily assessment!</p>
+            </div>
+            <button id="notification-close" class="notification-close">×</button>
+        </div>
+    </div>
 
     <div id="login-screen" class="screen auth-screen active">
         <div class="auth-container">
             <div class="auth-header">
-                <div class="logo-section"><h1 class="logo">चेtanā</h1><p class="tagline">Awakening Minds, Nurturing Wellbeing</p></div>
+                <div class="logo-section"><h1 class="logo">चेtanā</h1><p class="tagline" data-translate="awakening_minds">Awakening Minds, Nurturing Wellbeing</p></div>
                 <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
             <form class="auth-form">
-                <div class="form-group"><div class="input-group"><span class="input-icon"><i class="email-icon"></i></span><input id="login-email" type="email" placeholder="Email / Username" required /></div></div>
-                <div class="form-group"><div class="input-group"><span class="input-icon"><i class="lock-icon"></i></span><input id="login-password" type="password" placeholder="Password" required /><span class="password-toggle" data-target="login-password"><i class="eye-icon"></i></span></div></div>
-                <button type="button" id="login-btn" class="btn btn--primary">Login</button>
-                <button type="button" id="guest-login-btn" class="btn btn--outline">Continue as Guest</button>
-                <p class="signup-link">Don't have an account? <a href="#" id="go-to-register-btn">Signup</a></p>
+                <div class="form-group"><div class="input-group"><span class="input-icon"><i class="email-icon"></i></span><input id="login-email" type="email" placeholder="Email / Username" data-translate="email_username" required /></div></div>
+                <div class="form-group"><div class="input-group"><span class="input-icon"><i class="lock-icon"></i></span><input id="login-password" type="password" placeholder="Password" data-translate="password" required /><span class="password-toggle" data-target="login-password"><i class="eye-icon"></i></span></div></div>
+                <button type="button" id="login-btn" class="btn btn--primary" data-translate="login">Login</button>
+                <button type="button" id="guest-login-btn" class="btn btn--outline" data-translate="continue_as_guest">Continue as Guest</button>
+                <p class="signup-link"><span data-translate="dont_have_account">Don't have an account?</span> <a href="#" id="go-to-register-btn" data-translate="signup">Signup</a></p>
             </form>
         </div>
     </div>
@@ -35,16 +48,16 @@
     <div id="register-screen" class="screen auth-screen">
         <div class="auth-container">
             <div class="auth-header">
-                <div class="logo-section"><h1 class="logo">चेtanā</h1><p class="tagline">Create your Account</p></div>
+                <div class="logo-section"><h1 class="logo">चेtanā</h1><p class="tagline" data-translate="create_your_account">Create your Account</p></div>
                 <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
             <form class="auth-form">
-                <div class="form-group"><div class="input-group"><span class="input-icon"><i class="user-icon"></i></span><input id="register-name" type="text" placeholder="Full Name" required /></div></div>
-                <div class="form-group"><div class="input-group"><span class="input-icon"><i class="calendar-icon2"></i></span><input id="register-dob" type="date" placeholder="Date of Birth" required /></div></div>
-                <div class="form-group"><div class="input-group"><span class="input-icon"><i class="email-icon"></i></span><input id="register-email" type="email" placeholder="Email Address" required /></div></div>
-                <div class="form-group"><div class="input-group"><span class="input-icon"><i class="lock-icon"></i></span><input id="register-password" type="password" placeholder="Password" required /><span class="password-toggle" data-target="register-password"><i class="eye-icon"></i></span></div></div>
-                <button type="button" id="create-account-btn" class="btn btn--primary">Create Account</button>
-                <button type="button" id="back-to-login-btn" class="btn btn--outline">Back to Login</button>
+                <div class="form-group"><div class="input-group"><span class="input-icon"><i class="user-icon"></i></span><input id="register-name" type="text" placeholder="Full Name" data-translate="full_name" required /></div></div>
+                <div class="form-group"><div class="input-group"><span class="input-icon"><i class="calendar-icon2"></i></span><input id="register-dob" type="date" placeholder="Date of Birth" data-translate="date_of_birth" required /></div></div>
+                <div class="form-group"><div class="input-group"><span class="input-icon"><i class="email-icon"></i></span><input id="register-email" type="email" placeholder="Email Address" data-translate="email" required /></div></div>
+                <div class="form-group"><div class="input-group"><span class="input-icon"><i class="lock-icon"></i></span><input id="register-password" type="password" placeholder="Password" data-translate="password" required /><span class="password-toggle" data-target="register-password"><i class="eye-icon"></i></span></div></div>
+                <button type="button" id="create-account-btn" class="btn btn--primary" data-translate="create_account">Create Account</button>
+                <button type="button" id="back-to-login-btn" class="btn btn--outline" data-translate="back_to_login">Back to Login</button>
             </form>
         </div>
     </div>
@@ -60,12 +73,12 @@
             </div>
         </header>
         <main class="dashboard-main">
-            <div class="card card--primary" id="go-to-therapist-chat-btn"><h3><i class="chat-icon"></i> Chat With AI Therapist</h3></div>
-            <div class="card card--secondary" id="go-to-assessment-btn"><h3><i class="chart-icon"></i> Take Self-Assessment</h3></div>
-            <div class="card card--primary" id="go-to-booking-btn"><h3><i class="calendar-icon"></i> Book Appointment</h3></div>
-            <div class="card card--secondary" id="go-to-forum-btn"><h3><i class="group-icon"></i> Community Forum</h3></div>
-            <div class="card card--primary" id="go-to-progress-btn"><h3><i class="progress-icon"></i> My Progress Dashboard</h3></div>
-            <div class="card card--secondary" id="go-to-resources-btn"><h3><i class="book-icon"></i> Wellness Resources</h3></div>
+            <div class="card card--primary" id="go-to-therapist-chat-btn"><h3><i class="chat-icon"></i> <span data-translate="chat_with_ai">Chat With AI Therapist</span></h3></div>
+            <div class="card card--secondary" id="go-to-assessment-btn"><h3><i class="chart-icon"></i> <span data-translate="take_assessment">Take Self-Assessment</span></h3></div>
+            <div class="card card--primary" id="go-to-booking-btn"><h3><i class="calendar-icon"></i> <span data-translate="book_appointment">Book Appointment</span></h3></div>
+            <div class="card card--secondary" id="go-to-forum-btn"><h3><i class="group-icon"></i> <span data-translate="community_forum">Community Forum</span></h3></div>
+            <div class="card card--primary" id="go-to-progress-btn"><h3><i class="progress-icon"></i> <span data-translate="my_progress">My Progress Dashboard</span></h3></div>
+            <div class="card card--secondary" id="go-to-resources-btn"><h3><i class="book-icon"></i> <span data-translate="wellness_resources">Wellness Resources</span></h3></div>
 
         </main>
         <div class="app-branding">
@@ -78,7 +91,7 @@
     <div id="profile-screen" class="screen">
         <header class="page-header">
             <div class="header-side-panel"><button id="profile-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
-            <h2 class="header-title">Profile & Settings</h2>
+            <h2 class="header-title" data-translate="profile_settings">Profile & Settings</h2>
             <div class="header-controls">
                 <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
@@ -93,22 +106,39 @@
                 </div>
             </div>
             <div class="settings-section">
-                <h3>Settings</h3>
+                <h3 data-translate="settings">Settings</h3>
                 <div class="setting-item">
-                    <span><i class="moon-icon"></i> Theme</span>
-                    <button id="profile-theme-toggle" class="setting-toggle">Dark</button>
+                    <span><i class="moon-icon"></i> <span data-translate="theme">Theme</span></span>
+                    <button id="profile-theme-toggle" class="setting-toggle" data-translate="dark">Dark</button>
                 </div>
                 <div class="setting-item">
-                    <span><i class="bell-icon"></i> Notifications</span>
-                    <button class="setting-toggle">On</button>
+                    <span><i class="bell-icon"></i> <span data-translate="notifications">Push Notifications</span></span>
+                    <button id="profile-notifications-toggle" class="setting-toggle" data-translate="disabled">Disabled</button>
+                </div>
+                <div class="setting-item notification-status" style="margin-left: 2rem; font-size: 0.9rem; color: var(--text-secondary);">
+                    <span id="notification-status">Push notifications are disabled</span>
+                </div>
+
+                <div class="setting-item">
+                    <span>🌐 <span data-translate="language">Language</span></span>
+                    <select id="language-selector" class="setting-select">
+                        <option value="en">English</option>
+                        <option value="hi">हिंदी</option>
+                        <option value="bn">বাংলা</option>
+                        <option value="te">తెలుగు</option>
+                        <option value="mr">मराठी</option>
+                        <option value="ta">தமிழ்</option>
+                        <option value="gu">ગુજરાતી</option>
+                        <option value="kn">ಕನ್ನಡ</option>
+                    </select>
                 </div>
                 <div class="setting-item" id="data-privacy-btn">
-                    <span><i class="chart-icon"></i> Data & Privacy</span>
-                    <button class="setting-toggle">Manage</button>
+                    <span><i class="chart-icon"></i> <span data-translate="data_privacy">Data & Privacy</span></span>
+                    <button class="setting-toggle" data-translate="manage">Manage</button>
                 </div>
             </div>
             <div class="logout-section">
-                <button id="logout-btn" class="btn btn--outline logout-btn"><i class="logout-icon"></i> Logout</button>
+                <button id="logout-btn" class="btn btn--outline logout-btn"><i class="logout-icon"></i> <span data-translate="logout">Logout</span></button>
             </div>
         </div>
     </div>
@@ -116,7 +146,7 @@
     <div id="admin-screen" class="screen">
         <header class="page-header">
             <div class="header-side-panel"><button id="admin-logout-btn" class="back-btn"><i class="logout-icon"></i></button></div>
-            <h2 class="header-title">Admin Panel</h2>
+            <h2 class="header-title" data-translate="admin_panel">Admin Panel</h2>
             <div class="header-controls">
                 <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
@@ -125,20 +155,23 @@
             <div class="admin-stats">
                 <div class="stat-card">
                     <h3 id="total-users">0</h3>
-                    <p>Total Users</p>
+                    <p data-translate="total_users">Total Users</p>
                 </div>
                 <div class="stat-card">
                     <h3 id="total-assessments">0</h3>
-                    <p>Total Assessments</p>
+                    <p data-translate="total_assessments">Total Assessments</p>
                 </div>
             </div>
             <div class="admin-actions">
-                <button id="admin-forum-btn" class="btn btn--primary"><i class="chat-icon"></i> Community Forum</button>
-                <button id="admin-reports-btn" class="btn btn--secondary"><i class="flag-icon"></i> View Reports</button>
-                <button id="cleanup-admin-posts-btn" class="btn btn--outline"><i class="clean-icon"></i> Clean Duplicate Posts</button>
+                <button id="admin-forum-btn" class="btn btn--primary"><i class="chat-icon"></i> <span data-translate="community_forum">Community Forum</span></button>
+                <button id="admin-reports-btn" class="btn btn--secondary"><i class="flag-icon"></i> <span data-translate="view_reports">View Reports</span></button>
+                <button id="send-push-notification-btn" class="btn btn--primary">🔔 Send Push Notification</button>
+                <button id="test-reminder-notification-btn" class="btn btn--secondary">⏰ Send All Reminders</button>
+                <button id="test-motivation-btn" class="btn btn--outline">✨ Send Motivation</button>
+                <button id="cleanup-admin-posts-btn" class="btn btn--outline"><i class="clean-icon"></i> <span data-translate="clean_duplicate_posts">Clean Duplicate Posts</span></button>
             </div>
             <div class="users-section">
-                <h3>Registered Users</h3>
+                <h3 data-translate="registered_users">Registered Users</h3>
                 <div id="users-list" class="users-list"></div>
             </div>
         </div>
@@ -174,23 +207,34 @@
         <div class="chat-wrapper">
             <header class="page-header">
                 <div class="header-side-panel"><button id="demo-chat-login-btn" class="btn-header-login">Login</button></div>
-                <h2 class="header-title">Demo AI Therapist Chat</h2>
+                <h2 class="header-title" data-translate="demo_ai_therapist">Demo AI Therapist Chat</h2>
                 <div class="header-controls">
+                    <select id="demo-language-select" class="demo-language-select">
+                        <option value="en">English</option>
+                        <option value="hi">हिंदी</option>
+                        <option value="bn">বাংলা</option>
+                        <option value="te">తెలుగు</option>
+                        <option value="mr">मराठी</option>
+                        <option value="ta">தமிழ்</option>
+                        <option value="gu">ગુજરાતી</option>
+                        <option value="kn">ಕನ್ನಡ</option>
+                    </select>
                     <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
                 </div>
             </header>
             <div class="chat-messages-container"><div id="demo-chat-messages" class="chat-messages"></div></div>
             <div class="chat-input-area">
                 <div class="quick-actions">
-                     <button class="quick-btn" data-message="I feel anxious">I feel anxious</button>
-                    <button class="quick-btn" data-message="I can't sleep">I can't sleep</button>
-                    <button class="quick-btn" data-message="I'm feeling overwhelmed">I'm overwhelmed</button>
-                    <button class="quick-btn" data-message="I had a bad day">I had a bad day</button>
-                    <button class="quick-btn" data-message="Can we talk about stress?">Talk about stress</button>
+                     <button class="quick-btn" data-message="I feel anxious" data-message-key="i_feel_anxious" data-translate="i_feel_anxious">I feel anxious</button>
+                    <button class="quick-btn" data-message="I can't sleep" data-message-key="cant_sleep" data-translate="cant_sleep">I can't sleep</button>
+                    <button class="quick-btn" data-message="I'm feeling overwhelmed" data-message-key="feeling_overwhelmed" data-translate="feeling_overwhelmed">I'm feeling overwhelmed</button>
+                    <button class="quick-btn" data-message="I had a bad day" data-message-key="bad_day" data-translate="bad_day">I had a bad day</button>
+                    <button class="quick-btn" data-message="Can we talk about stress?" data-message-key="talk_stress" data-translate="talk_stress">Can we talk about stress?</button>
                 </div>
                 <div class="chat-input">
-                    <input type="text" id="demo-message-input" placeholder="Type your message (50 daily limit)..." />
-                    <button id="demo-send-btn">Send</button>
+                    <input type="text" id="demo-message-input" placeholder="Type your message (50 daily limit)..." data-translate="type_message" />
+                    <button id="demo-voice-btn" class="voice-btn" title="Voice to text">🎤</button>
+                    <button id="demo-send-btn" data-translate="send">Send</button>
                 </div>
             </div>
         </div>
@@ -200,7 +244,7 @@
         <div class="chat-wrapper">
             <header class="page-header">
                 <div class="header-side-panel"><button id="therapist-chat-home-btn" class="back-btn"><i class="home-icon"></i></button></div>
-                <h2 class="header-title">AI Therapist</h2>
+                <h2 class="header-title" data-translate="ai_therapist">AI Therapist</h2>
                 <div class="header-controls">
                     <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
                 </div>
@@ -208,15 +252,16 @@
             <div class="chat-messages-container"><div id="therapist-chat-messages" class="chat-messages"></div></div>
             <div class="chat-input-area">
                 <div class="quick-actions">
-                    <button class="quick-btn" data-message="I feel anxious">I feel anxious</button>
-                    <button class="quick-btn" data-message="I can't sleep">I can't sleep</button>
-                    <button class="quick-btn" data-message="I'm feeling overwhelmed">I'm overwhelmed</button>
-                    <button class="quick-btn" data-message="I had a bad day">I had a bad day</button>
-                    <button class="quick-btn" data-message="Can we talk about stress?">Talk about stress</button>
+                    <button class="quick-btn" data-message="I feel anxious" data-message-key="i_feel_anxious" data-translate="i_feel_anxious">I feel anxious</button>
+                    <button class="quick-btn" data-message="I can't sleep" data-message-key="cant_sleep" data-translate="cant_sleep">I can't sleep</button>
+                    <button class="quick-btn" data-message="I'm feeling overwhelmed" data-message-key="feeling_overwhelmed" data-translate="feeling_overwhelmed">I'm feeling overwhelmed</button>
+                    <button class="quick-btn" data-message="I had a bad day" data-message-key="bad_day" data-translate="bad_day">I had a bad day</button>
+                    <button class="quick-btn" data-message="Can we talk about stress?" data-message-key="talk_stress" data-translate="talk_stress">Can we talk about stress?</button>
                 </div>
                 <div class="chat-input">
-                    <input type="text" id="therapist-message-input" placeholder="Type your message..." />
-                    <button id="therapist-send-btn">Send</button>
+                    <input type="text" id="therapist-message-input" placeholder="Type your message..." data-translate="type_message" />
+                    <button id="therapist-voice-btn" class="voice-btn" title="Voice to text">🎤</button>
+                    <button id="therapist-send-btn" data-translate="send">Send</button>
                 </div>
             </div>
         </div>
@@ -225,20 +270,20 @@
     <div id="assessment-screen" class="screen">
         <header class="page-header">
             <div class="header-side-panel"><button id="assessment-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
-            <h2 class="header-title">Self-Assessment</h2>
+            <h2 class="header-title" data-translate="self_assessment">Self-Assessment</h2>
             <div class="header-controls">
                 <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
             <div id="assessment-consent" class="assessment-consent">
-                <h3>🔒 Data Consent Required</h3>
-                <p>Before starting your assessment, please confirm your consent for data processing:</p>
+                <h3 data-translate="data_consent_required">🔒 Data Consent Required</h3>
+                <p data-translate="before_starting_assessment">Before starting your assessment, please confirm your consent for data processing:</p>
                 <label class="consent-checkbox">
                     <input type="checkbox" id="assessment-data-consent" required>
-                    <span>I consent to the storage and processing of my assessment responses as per the <a href="#" id="assessment-privacy-link" style="color: var(--primary-color); text-decoration: underline;">Privacy Policy</a></span>
+                    <span><span data-translate="consent_storage_processing">I consent to the storage and processing of my assessment responses as per the</span> <a href="#" id="assessment-privacy-link" style="color: var(--primary-color); text-decoration: underline;" data-translate="privacy_policy">Privacy Policy</a></span>
                 </label>
-                <button id="start-assessment-btn" class="btn btn--primary" disabled>Start Assessment</button>
+                <button id="start-assessment-btn" class="btn btn--primary" data-translate="start_assessment" disabled>Start Assessment</button>
             </div>
             <div id="assessment-content" style="display: none;">
                 <div class="assessment-progress">
@@ -249,8 +294,8 @@
                 </div>
                 <div id="assessment-question-container"></div>
                 <div class="assessment-nav">
-                    <button type="button" id="prev-question-btn" class="btn btn--outline">Previous</button>
-                    <button type="button" id="next-question-btn" class="btn btn--primary">Next</button>
+                    <button type="button" id="prev-question-btn" class="btn btn--outline" data-translate="previous">Previous</button>
+                    <button type="button" id="next-question-btn" class="btn btn--primary" data-translate="next">Next</button>
                 </div>
             </div>
         </div>
@@ -259,96 +304,96 @@
     <div id="results-screen" class="screen">
         <header class="page-header">
             <div class="header-side-panel"><button id="results-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
-            <h2 class="header-title">Your Results</h2>
+            <h2 class="header-title" data-translate="your_results">Your Results</h2>
             <div class="header-controls">
                 <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content results-container">
-            <p style="color: var(--text-secondary);">This is not a diagnosis. Please consult a healthcare professional for a formal evaluation.</p>
+            <p style="color: var(--text-secondary);" data-translate="not_diagnosis">This is not a diagnosis. Please consult a healthcare professional for a formal evaluation.</p>
             <div id="phq9-results" class="score-card"></div>
             <div id="gad7-results" class="score-card"></div>
             <div id="pss-results" class="score-card"></div>
-            <button id="results-view-progress-btn" class="btn btn--primary" style="margin-top: 20px;"><i class="progress-icon"></i> View My Progress</button>
+            <button id="results-view-progress-btn" class="btn btn--primary" style="margin-top: 20px;"><i class="progress-icon"></i> <span data-translate="view_progress">View My Progress</span></button>
         </div>
     </div>
 
     <div id="resources-screen" class="screen">
         <header class="page-header">
             <div class="header-side-panel"><button id="resources-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
-            <h2 class="header-title">Wellness Resources</h2>
+            <h2 class="header-title" data-translate="wellness_resources">Wellness Resources</h2>
             <div class="header-controls">
                 <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
         </header>
         <div class="page-content">
             <div class="page-section">
-                <h2 style="text-align: center;">Understanding Mental Health</h2>
+                <h2 style="text-align: center;" data-translate="understanding_mental_health">Understanding Mental Health</h2>
                 <div class="resources-grid">
                     <div class="resource-card" id="understanding-depression-btn">
                         <span class="resource-icon">📖</span>
                         <div>
-                            <h4 class="resource-title">Understanding Depression</h4>
-                            <p class="resource-description">Learn about signs, symptoms, and coping strategies.</p>
+                            <h4 class="resource-title" data-translate="understanding_depression">Understanding Depression</h4>
+                            <p class="resource-description" data-translate="learn_signs_symptoms">Learn about signs, symptoms, and coping strategies.</p>
                         </div>
                     </div>
                     <div class="resource-card" id="understanding-anxiety-btn">
                         <span class="resource-icon">😰</span>
                         <div>
-                            <h4 class="resource-title">Understanding Anxiety</h4>
-                            <p class="resource-description">Learn about anxiety types, symptoms, and management techniques.</p>
+                            <h4 class="resource-title" data-translate="understanding_anxiety">Understanding Anxiety</h4>
+                            <p class="resource-description" data-translate="anxiety_types_symptoms">Learn about anxiety types, symptoms, and management techniques.</p>
                         </div>
                     </div>
                     <div class="resource-card" id="understanding-stress-btn">
                         <span class="resource-icon">😤</span>
                         <div>
-                            <h4 class="resource-title">Understanding Stress</h4>
-                            <p class="resource-description">Learn about stress types, effects, and healthy coping mechanisms.</p>
+                            <h4 class="resource-title" data-translate="understanding_stress">Understanding Stress</h4>
+                            <p class="resource-description" data-translate="stress_types_effects">Learn about stress types, effects, and healthy coping mechanisms.</p>
                         </div>
                     </div>
                     <div class="resource-card" id="behavioral-activation-btn">
                         <span class="resource-icon">🚶‍♂</span>
                         <div>
-                            <h4 class="resource-title">Behavioral Activation</h4>
-                            <p class="resource-description">A simple technique to improve mood by scheduling positive activities.</p>
+                            <h4 class="resource-title" data-translate="behavioral_activation">Behavioral Activation</h4>
+                            <p class="resource-description" data-translate="simple_technique_mood">A simple technique to improve mood by scheduling positive activities.</p>
                         </div>
                     </div>
                 </div>
             </div>
             <div class="page-section">
-                <h2 style="text-align: center;">Relaxation & Mindfulness</h2>
+                <h2 style="text-align: center;" data-translate="relaxation_mindfulness">Relaxation & Mindfulness</h2>
                 <div class="resources-grid">
                     <div class="resource-card" id="breathing-exercise-btn">
                         <span class="resource-icon">🧘</span>
                         <div>
-                            <h4 class="resource-title">Breathing Exercise</h4>
-                            <p class="resource-description">Guided breathing to calm your nervous system.</p>
+                            <h4 class="resource-title" data-translate="breathing_exercise">Breathing Exercise</h4>
+                            <p class="resource-description" data-translate="guided_breathing_calm">Guided breathing to calm your nervous system.</p>
                         </div>
                     </div>
                     <div class="resource-card" id="writing-journal-btn">
                         <span class="resource-icon">✍️</span>
                         <div>
-                            <h4 class="resource-title">Writing Journal</h4>
-                            <p class="resource-description">Express thoughts and track your mood.</p>
+                            <h4 class="resource-title" data-translate="writing_journal">Writing Journal</h4>
+                            <p class="resource-description" data-translate="express_thoughts_track">Express thoughts and track your mood.</p>
                         </div>
                     </div>
                 </div>
             </div>
              <div class="page-section">
-                <h2 style="text-align: center;">Self-Care Tools</h2>
+                <h2 style="text-align: center;" data-translate="self_care_tools">Self-Care Tools</h2>
                 <div class="resources-grid">
                     <div class="resource-card" id="mindfulness-meditation-btn">
                         <span class="resource-icon">🎧</span>
                         <div>
-                            <h4 class="resource-title">Mindfulness Meditation</h4>
-                            <p class="resource-description">10-minute guided mindfulness session.</p>
+                            <h4 class="resource-title" data-translate="mindfulness_meditation">Mindfulness Meditation</h4>
+                            <p class="resource-description" data-translate="ten_minute_guided">10-minute guided mindfulness session.</p>
                         </div>
                     </div>
                     <div class="resource-card" id="relax-environment-btn">
                         <span class="resource-icon">🌿</span>
                         <div>
-                            <h4 class="resource-title">Virtual Relax Space</h4>
-                            <p class="resource-description">Soothing environment with calming sounds.</p>
+                            <h4 class="resource-title" data-translate="virtual_relax_space">Virtual Relax Space</h4>
+                            <p class="resource-description" data-translate="soothing_environment">Soothing environment with calming sounds.</p>
                         </div>
                     </div>
                 </div>
@@ -361,7 +406,7 @@
     <div id="progress-screen" class="screen">
         <header class="page-header">
             <div class="header-side-panel"><button id="progress-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
-            <h2 class="header-title">My Progress</h2>
+            <h2 class="header-title" data-translate="my_progress">My Progress</h2>
             <div class="header-controls">
                 <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
@@ -369,56 +414,56 @@
         <div class="page-content">
             <!-- Daily Mood Tracker -->
             <div class="page-section">
-                <h2>Daily Mood Tracker</h2>
+                <h2 data-translate="daily_mood_tracker">Daily Mood Tracker</h2>
                 <div class="mood-tracker-section">
                     <div class="today-mood">
-                        <h4>How are you feeling today?</h4>
+                        <h4 data-translate="how_feeling_today">How are you feeling today?</h4>
                         <div class="mood-slider-container">
                             <input type="range" id="mood-slider" min="1" max="10" value="5" class="mood-slider">
                             <div class="mood-labels">
-                                <span>😢 Very Low</span>
-                                <span>😐 Neutral</span>
-                                <span>😊 Very Good</span>
+                                <span data-translate="very_low">😢 Very Low</span>
+                                <span data-translate="neutral">😐 Neutral</span>
+                                <span data-translate="very_good">😊 Very Good</span>
                             </div>
                         </div>
                         <div class="mood-display">
                             <span id="current-mood-emoji">😐</span>
                             <span id="current-mood-text">Neutral</span>
                         </div>
-                        <button id="save-mood-btn" class="btn btn--primary">Save Today's Mood</button>
+                        <button id="save-mood-btn" class="btn btn--primary" data-translate="save_todays_mood">Save Today's Mood</button>
                     </div>
                     <div class="mood-trend">
-                        <h4>7-Day Mood Trend</h4>
+                        <h4 data-translate="seven_day_mood_trend">7-Day Mood Trend</h4>
                         <canvas id="mood-chart" width="400" height="200"></canvas>
                         <div class="mood-stats">
                             <div class="stat-item">
-                                <span class="stat-label">Average:</span>
+                                <span class="stat-label" data-translate="average">Average:</span>
                                 <span id="avg-mood" class="stat-value">-</span>
                             </div>
                             <div class="stat-item">
-                                <span class="stat-label">Trend:</span>
+                                <span class="stat-label" data-translate="trend">Trend:</span>
                                 <span id="mood-trend" class="stat-value">-</span>
                             </div>
                         </div>
                     </div>
                 </div>
                 <div class="export-section">
-                    <button id="export-progress-btn" class="btn btn--outline"><i class="chart-icon"></i> Export My Data</button>
+                    <button id="export-progress-btn" class="btn btn--outline"><i class="chart-icon"></i> <span data-translate="export_data">Export My Data</span></button>
                 </div>
             </div>
 
             <!-- Milestones -->
             <div class="page-section">
-                <h2>Your Milestones <i class="trophy-icon"></i></h2>
+                <h2 data-translate="your_milestones">Your Milestones <i class="trophy-icon"></i></h2>
                 <div id="milestones-container" class="milestones-container">
-                    <p class="section-prompt">Complete assessments to unlock milestones!</p>
+                    <p class="section-prompt" data-translate="complete_assessments_unlock">Complete assessments to unlock milestones!</p>
                 </div>
             </div>
 
              <!-- Assessment History -->
              <div class="page-section">
-                <h2>Assessment History</h2>
-                <p class="section-prompt" id="progress-prompt">You haven't completed any assessments yet. Take one to start tracking your progress!</p>
+                <h2 data-translate="assessment_history">Assessment History</h2>
+                <p class="section-prompt" id="progress-prompt" data-translate="no_assessments_completed">You haven't completed any assessments yet. Take one to start tracking your progress!</p>
                 <canvas id="progress-chart"></canvas>
             </div>
         </div>
@@ -451,7 +496,7 @@
     <div id="booking-screen" class="screen">
         <header class="page-header">
             <div class="header-side-panel"><button id="booking-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
-            <h2 class="header-title">Find Your Therapist</h2>
+            <h2 class="header-title" data-translate="find_your_therapist">Find Your Therapist</h2>
             <div class="header-controls">
                 <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
@@ -472,7 +517,7 @@
     <div id="requests-screen" class="screen">
         <header class="page-header">
             <div class="header-side-panel"><button id="requests-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
-            <h2 class="header-title">My Booking Requests</h2>
+            <h2 class="header-title" data-translate="my_booking_requests">My Booking Requests</h2>
             <div class="header-controls">
                 <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
             </div>
@@ -534,11 +579,30 @@
             <button id="limit-modal-close-btn" class="btn btn--outline">Close</button>
         </div>
     </div>
+    <div id="emergency-consent-modal" class="modal">
+        <div class="auth-container">
+             <h2 style="text-align: center;">🚨 Emergency Support Detected</h2>
+             <p style="text-align: center; color: var(--text-secondary);">Your responses indicate you may be having thoughts of self-harm. We want to help you get immediate support.</p>
+             <div class="emergency-consent">
+                <p><strong>Would you like us to:</strong></p>
+                <ul style="text-align: left; margin: 1rem 0;">
+                    <li>Automatically book you with the nearest available therapist</li>
+                    <li>Mark your request as emergency/critical priority</li>
+                    <li>Show you immediate crisis resources</li>
+                </ul>
+             </div>
+             <div class="consent-actions">
+                <button id="emergency-consent-yes" class="btn btn--primary">Yes, Get Help Now</button>
+                <button id="emergency-consent-no" class="btn btn--outline">No, Continue Normally</button>
+             </div>
+        </div>
+    </div>
+    
     <div id="emergency-modal" class="modal">
         <div class="auth-container">
-             <h2 style="text-align: center;">Emergency Support</h2>
-             <p style="text-align: center; color: var(--text-secondary);">If this is an emergency, please contact a helpline immediately.</p>
-             <a href="tel:999" class="btn btn--primary">Call Emergency Services</a>
+             <h2 style="text-align: center;">Get Help Now</h2>
+             <p style="text-align: center; color: var(--text-secondary);">If this is an emergency, please contact the helpline immediately.</p>
+             <a href="tel:14416" class="btn btn--primary">Call Emergency Services</a>
              <button id="emergency-modal-close-btn" class="btn btn--outline">Close</button>
         </div>
     </div>
@@ -1267,6 +1331,9 @@
 
     <script src="forum-client.js"></script>
     <script src="forum.js"></script>
+    <script src="voice-chat-fixed.js"></script>
+    <script src="notifications.js"></script>
+    <script src="push-notifications.js"></script>
     <script src="script.js"></script>
 </body>
 </html>

@@ -7,33 +7,12 @@ class PushNotificationManager {
     this.userId = null;
     this.notificationPermission = Notification.permission;
     
-    this.init();
+    // Don't auto-initialize - wait for user login
   }
 
   async init() {
-    if (!this.isSupported) {
-      console.log('Push notifications not supported');
-      return;
-    }
-
-    try {
-      // Get VAPID public key from server
-      const response = await fetch('/api/push/vapid-key');
-      if (!response.ok) {
-        throw new Error(`Failed to get VAPID key: ${response.status}`);
-      }
-      const data = await response.json();
-      this.vapidPublicKey = data.publicKey;
-      console.log('✅ VAPID public key loaded');
-
-      // Register service worker
-      await this.registerServiceWorker();
-      
-      // Check existing subscription
-      await this.checkSubscription();
-    } catch (error) {
-      console.error('Push notification init error:', error);
-    }
+    console.log('Push notifications disabled');
+    return; // Early return to disable all push notification functionality
   }
 
   async registerServiceWorker() {
@@ -71,18 +50,24 @@ class PushNotificationManager {
       return true;
     }
 
-    const permission = await Notification.requestPermission();
-    this.notificationPermission = permission;
-    
-    if (permission === 'granted') {
-      console.log('Notification permission granted');
-      return true;
-    } else if (permission === 'denied') {
-      console.log('Notification permission denied');
-      throw new Error('Notification permission denied');
+    // Only request permission if not already decided
+    if (this.notificationPermission === 'default') {
+      const permission = await Notification.requestPermission();
+      this.notificationPermission = permission;
+      
+      if (permission === 'granted') {
+        console.log('Notification permission granted');
+        return true;
+      } else if (permission === 'denied') {
+        console.log('Notification permission denied');
+        throw new Error('Notification permission denied');
+      } else {
+        console.log('Notification permission dismissed');
+        throw new Error('Notification permission not granted');
+      }
     } else {
-      console.log('Notification permission dismissed');
-      throw new Error('Notification permission not granted');
+      // Permission already denied
+      throw new Error('Notification permission denied');
     }
   }
 
@@ -91,12 +76,14 @@ class PushNotificationManager {
       throw new Error('Push notifications not supported');
     }
 
+    // Check if permission is already granted
+    if (this.notificationPermission !== 'granted') {
+      throw new Error('Notification permission not granted');
+    }
+
     this.userId = userId;
 
     try {
-      // Request permission first
-      await this.requestPermission();
-
       const registration = await navigator.serviceWorker.ready;
       
       // Subscribe to push notifications
@@ -130,12 +117,8 @@ class PushNotificationManager {
     try {
       await this.subscription.unsubscribe();
       
-      // Remove from server
-      await fetch('/api/push/unsubscribe', {
-        method: 'DELETE',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: this.userId })
-      });
+      // Mock unsubscribe from server
+      console.log('✅ Push unsubscribed from server (mock)');
 
       // Update notification settings
       await this.updateNotificationSettings(false);
@@ -151,35 +134,15 @@ class PushNotificationManager {
   }
 
   async sendSubscriptionToServer(subscription) {
-    const response = await fetch('/api/push/subscribe', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId: this.userId,
-        subscription: subscription.toJSON()
-      })
-    });
-
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Failed to send subscription to server: ${response.status} - ${errorText}`);
-    }
-    console.log('✅ Push subscription saved to server');
+    // Mock implementation - just log success
+    console.log('✅ Push subscription saved (mock)');
+    return Promise.resolve();
   }
 
   async updateNotificationSettings(enabled) {
-    try {
-      await fetch('/api/notifications/settings', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          userId: this.userId,
-          notificationsEnabled: enabled
-        })
-      });
-    } catch (error) {
-      console.error('Failed to update notification settings:', error);
-    }
+    // Mock implementation - just log
+    console.log('✅ Notification settings updated (mock):', enabled);
+    return Promise.resolve();
   }
 
   async getNotificationSettings() {
@@ -217,8 +180,6 @@ class PushNotificationManager {
   showLocalNotification(title, options = {}) {
     if (this.notificationPermission === 'granted') {
       const notification = new Notification(title, {
-        icon: '/icon-192x192.svg',
-        badge: '/badge-72x72.svg',
         ...options
       });
 
@@ -281,5 +242,13 @@ class PushNotificationManager {
   }
 }
 
-// Global instance
+// Global instance (but don't auto-init)
 window.pushNotificationManager = new PushNotificationManager();
+
+// Initialize only after user login
+window.initializePushNotifications = async function(userId) {
+  if (userId && window.pushNotificationManager) {
+    window.pushNotificationManager.userId = userId;
+    await window.pushNotificationManager.init();
+  }
+};

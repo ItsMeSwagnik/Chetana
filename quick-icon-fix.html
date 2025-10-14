@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Quick Icon Fix</title>
+</head>
+<body>
+    <canvas id="canvas" style="display: none;"></canvas>
+    <div id="status">Generating icons...</div>
+    
+    <script>
+        const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
+        const canvas = document.getElementById('canvas');
+        const ctx = canvas.getContext('2d');
+        const status = document.getElementById('status');
+        
+        // Load the existing 192x192 icon
+        const img = new Image();
+        img.onload = function() {
+            let index = 0;
+            
+            function generateNext() {
+                if (index >= sizes.length) {
+                    status.innerHTML = 'All icons generated! Check your downloads folder.';
+                    return;
+                }
+                
+                const size = sizes[index];
+                canvas.width = size;
+                canvas.height = size;
+                
+                // Draw the resized image
+                ctx.drawImage(img, 0, 0, size, size);
+                
+                // Download
+                const link = document.createElement('a');
+                link.download = `icon-${size}x${size}.png`;
+                link.href = canvas.toDataURL();
+                link.click();
+                
+                status.innerHTML = `Generated icon-${size}x${size}.png (${index + 1}/${sizes.length})`;
+                
+                index++;
+                setTimeout(generateNext, 500);
+            }
+            
+            generateNext();
+        };
+        
+        img.src = './chetana badge 72x72.png';
+    </script>
+</body>
+</html>

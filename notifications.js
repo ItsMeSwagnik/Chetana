@@ -5,82 +5,31 @@ class NotificationSystem {
     this.pushSubscription = null;
     this.vapidPublicKey = null;
     this.deadlineWarningShown = false;
-    this.init();
+    // Don't auto-initialize - wait for user login
   }
 
   async init() {
-    // Get VAPID public key from server
-    try {
-      const response = await fetch('/api/push/vapid-key');
-      if (response.ok) {
-        const data = await response.json();
-        this.vapidPublicKey = data.publicKey;
-        console.log('✅ VAPID public key loaded successfully');
-      } else {
-        console.error('Failed to get VAPID key:', response.status);
-      }
-    } catch (error) {
-      console.error('Failed to get VAPID key:', error);
+    // Load VAPID public key from meta tag
+    const vapidMeta = document.querySelector('meta[name="vapid-public-key"]');
+    if (vapidMeta) {
+      this.vapidPublicKey = vapidMeta.getAttribute('content');
+      console.log('VAPID public key loaded:', this.vapidPublicKey ? 'Yes' : 'No');
     }
+  }
 
-    // Check if user is logged in
-    const currentUser = JSON.parse(localStorage.getItem('currentUser') || '{}');
-    if (currentUser && currentUser.id) {
-      this.userId = currentUser.id;
-      await this.loadNotificationSettings();
-      await this.loadStreak();
-      
-      // Start deadline monitoring
+  // New method to initialize after login
+  async initializeForUser(userId) {
+    this.userId = userId;
+    await this.loadNotificationSettings();
+    await this.loadStreak();
+    
+    // Only start deadline monitoring if notifications are already enabled
+    if (this.notificationsEnabled) {
       this.startDeadlineMonitoring();
-    } else {
-      // Wait for user login
-      setTimeout(() => this.init(), 2000);
-    }
-
-    // Show permission prompt only if notifications are supported and not already decided
-    if ('Notification' in window && 'serviceWorker' in navigator && Notification.permission === 'default') {
-      // Delay showing prompt to avoid overwhelming user on first visit
-      setTimeout(() => this.showPermissionPrompt(), 3000);
     }
   }
 
-  showPermissionPrompt() {
-    // Don't show if already shown or if user already has notifications enabled
-    if (document.querySelector('.notification-permission-prompt') || this.notificationsEnabled) {
-      return;
-    }
 
-    const promptDiv = document.createElement('div');
-    promptDiv.className = 'notification-permission-prompt';
-    promptDiv.innerHTML = `
-      <div class="permission-content">
-        <div class="permission-icon">🔔</div>
-        <h3>Stay Consistent with Your Wellness Journey</h3>
-        <p>Enable notifications to receive daily reminders and maintain your assessment streak!</p>
-        <ul class="permission-benefits">
-          <li>• Daily assessment reminders</li>
-          <li>• Motivational messages</li>
-          <li>• Streak maintenance alerts</li>
-          <li>• Deadline warnings (11:59 PM cutoff)</li>
-        </ul>
-        <div class="permission-buttons">
-          <button class="btn-primary" onclick="notificationSystem.requestPermission()">Enable Notifications</button>
-          <button class="btn-secondary" onclick="notificationSystem.dismissPermissionPrompt()">Maybe Later</button>
-        </div>
-        <small>You can change this setting anytime in your profile.</small>
-      </div>
-    `;
-    document.body.appendChild(promptDiv);
-  }
-
-  dismissPermissionPrompt() {
-    const prompt = document.querySelector('.notification-permission-prompt');
-    if (prompt) {
-      prompt.remove();
-    }
-    // Remember user dismissed prompt (don't show again for 24 hours)
-    localStorage.setItem('notificationPromptDismissed', Date.now().toString());
-  }
 
   async requestPermission() {
     if (!('Notification' in window)) {
@@ -94,18 +43,29 @@ class NotificationSystem {
     }
 
     try {
-      const permission = await Notification.requestPermission();
-      
-      if (permission === 'granted') {
+      // Only request permission if not already granted or denied
+      if (Notification.permission === 'default') {
+        const permission = await Notification.requestPermission();
+        
+        if (permission === 'granted') {
+          await this.enableNotifications();
+          document.querySelector('.notification-permission-prompt')?.remove();
+          this.showNotification('Notifications Enabled! 🎉', 'You\'ll receive daily reminders and deadline warnings to maintain your wellness streak.');
+          return true;
+        } else if (permission === 'denied') {
+          this.showInAppNotification('Notifications Blocked', 'Please enable notifications in your browser settings to receive reminders.');
+          return false;
+        } else {
+          this.showInAppNotification('Notifications Dismissed', 'You can enable notifications later in your profile settings.');
+          return false;
+        }
+      } else if (Notification.permission === 'granted') {
+        // Permission already granted, just enable notifications
         await this.enableNotifications();
-        document.querySelector('.notification-permission-prompt')?.remove();
-        this.showNotification('Notifications Enabled! 🎉', 'You\'ll receive daily reminders and deadline warnings to maintain your wellness streak.');
         return true;
-      } else if (permission === 'denied') {
-        this.showInAppNotification('Notifications Blocked', 'Please enable notifications in your browser settings to receive reminders.');
-        return false;
       } else {
-        this.showInAppNotification('Notifications Dismissed', 'You can enable notifications later in your profile settings.');
+        // Permission denied
+        this.showInAppNotification('Notifications Blocked', 'Please enable notifications in your browser settings to receive reminders.');
         return false;
       }
     } catch (error) {
@@ -118,7 +78,10 @@ class NotificationSystem {
   async enableNotifications() {
     try {
       if (!this.vapidPublicKey) {
-        throw new Error('VAPID public key not available');
+        console.log('VAPID public key not available, skipping push notifications');
+        this.notificationsEnabled = true;
+        this.updateUI();
+        return;
       }
 
       // Register service worker
@@ -162,6 +125,9 @@ class NotificationSystem {
       this.notificationsEnabled = true;
       this.pushSubscription = subscription;
       this.updateUI();
+      
+      // Start deadline monitoring now that notifications are enabled
+      this.startDeadlineMonitoring();
 
     } catch (error) {
       console.error('Error enabling notifications:', error);
@@ -345,8 +311,6 @@ class NotificationSystem {
     if ('Notification' in window && Notification.permission === 'granted' && this.notificationsEnabled) {
       new Notification(title, {
         body: message,
-        icon: '/icon-192x192.png',
-        badge: '/badge-72x72.png',
         tag: options.tag || 'chetana-notification',
         requireInteraction: options.requireInteraction || false,
         silent: options.silent || false,
@@ -562,9 +526,17 @@ class NotificationSystem {
   }
 }
 
-// Initialize notification system
+// Initialize notification system (but don't auto-init)
 const notificationSystem = new NotificationSystem();
 window.notificationSystem = notificationSystem;
+
+// Initialize only after user login
+window.initializeNotificationSystem = async function(userId) {
+  if (userId && notificationSystem) {
+    await notificationSystem.init();
+    await notificationSystem.initializeForUser(userId);
+  }
+};
 
 // Reset deadline warning at midnight
 setInterval(() => {

@@ -1,0 +1,58 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Create Missing Icons</title>
+</head>
+<body>
+    <script>
+        // Create all missing icon sizes
+        const sizes = [72, 96, 128, 144, 152, 384, 512];
+        
+        function createIcon(size) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Background gradient
+            const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+            gradient.addColorStop(0, '#4f46e5');
+            gradient.addColorStop(1, '#3730a3');
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+            
+            // Add चेtanā text
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${size * 0.15}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('चेtanā', size/2, size/2);
+            
+            // Add subtitle for larger icons
+            if (size >= 192) {
+                ctx.font = `${size * 0.08}px Arial`;
+                ctx.fillText('Mental Wellness', size/2, size/2 + size * 0.2);
+            }
+            
+            // Download
+            const link = document.createElement('a');
+            link.download = `icon-${size}x${size}.png`;
+            link.href = canvas.toDataURL();
+            link.click();
+        }
+        
+        // Create all icons with delay
+        let index = 0;
+        function createNext() {
+            if (index < sizes.length) {
+                createIcon(sizes[index]);
+                index++;
+                setTimeout(createNext, 500);
+            }
+        }
+        
+        setTimeout(createNext, 1000);
+    </script>
+</body>
+</html>

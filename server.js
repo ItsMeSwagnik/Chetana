@@ -267,6 +267,9 @@ app.use(validateInput);
 
 // Enhanced notification scheduler with push notifications and strict deadline enforcement
 function startNotificationScheduler() {
+  console.log('🔔 Notification scheduler disabled');
+  return; // Early return to disable all notification scheduling
+  
   const assessmentReminders = [
     "Time for your daily mental health check-in! 🧠",
     "Your wellbeing matters - take a moment for yourself 💚",
@@ -531,8 +534,8 @@ async function initDB() {
       console.log('🔥 Streak system: user_streaks table initialized');
       console.log('🔔 Notification system: notifications table initialized');
       
-      // Start notification scheduler
-      startNotificationScheduler();
+      // Notification scheduler disabled
+      console.log('🔔 Notification scheduler disabled');
       return;
       
     } catch (err) {

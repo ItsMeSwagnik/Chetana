@@ -162,6 +162,7 @@ const translations = {
         'try_demo_chat': 'Try Demo Chat',
         'demo_conversation_starter': 'Hello! I\'m your AI therapist. How are you feeling today?',
         'welcome_demo_chat': 'Welcome to the demo chat.',
+        'welcome_back': 'Welcome back.',
         
         // Privacy Policy & Data Management
         'privacy_policy': 'Privacy Policy',
@@ -499,6 +500,7 @@ const translations = {
         'try_demo_chat': 'डेमो चैट आज़माएं',
         'demo_conversation_starter': 'नमस्ते! मैं आपका AI थेरेपिस्ट हूं। आज आप कैसा महसूस कर रहे हैं?',
         'welcome_demo_chat': 'डेमो चैट में आपका स्वागत है।',
+        'welcome_back': 'वापसी पर स्वागत है।',
         
         // Privacy Policy & Data Management
         'privacy_policy': 'गोपनीयता नीति',
@@ -836,6 +838,7 @@ const translations = {
         'try_demo_chat': 'ডেমো চ্যাট চেষ্টা করুন',
         'demo_conversation_starter': 'হ্যালো! আমি আপনার AI থেরাপিস্ট। আজ আপনি কেমন অনুভব করছেন?',
         'welcome_demo_chat': 'ডেমো চ্যাটে আপনাকে স্বাগতম।',
+        'welcome_back': 'ফিরে আসার জন্য স্বাগতম।',
         
         // Wellness Resources Content
         'resource_categories': 'সম্পদ বিভাগ',
@@ -1100,6 +1103,7 @@ const translations = {
         'try_demo_chat': 'డెమో చాట్ ప్రయత్నించండి',
         'demo_conversation_starter': 'నమస్కారం! నేను మీ AI థెరాపిస్ట్. ఈరోజు మీరు ఎలా అనుభవిస్తున్నారు?',
         'welcome_demo_chat': 'డెమో చాట్కు స్వాగతం.',
+        'welcome_back': 'తిరిగి వచ్చినందుకు స్వాగతం।',
         
         // AI Response Templates
         'ai_response_1': 'పంచుకున్నందుకు ధన్యవాదాలు. ఇది మీకు ఎలా అనిపిస్తుంది?',
@@ -1300,6 +1304,7 @@ const translations = {
         'try_demo_chat': 'डेमो चॅट वापरा',
         'demo_conversation_starter': 'नमस्कार! मी तुमचा AI थेरपिस्ट आहे. आज तुम्ही कसे वाटत आहात?',
         'welcome_demo_chat': 'डेमो चॅटमध्ये आपले स्वागत.',
+        'welcome_back': 'परत आल्याबद्दल स्वागत.',
         
         // AI Response Templates
         'ai_response_1': 'शेअर केल्याबद्दल धन्यवाद. यामुळे तुम्हाला कसे वाटते?',
@@ -1500,6 +1505,7 @@ const translations = {
         'try_demo_chat': 'டெமோ சாட் முயற்சி செய்யவும்',
         'demo_conversation_starter': 'வணக்கம்! நான் உங்கள் AI சிகிச்சையாளர். இன்று நீங்கள் எப்படி அனுபவிக்கிறீர்கள்?',
         'welcome_demo_chat': 'டெமோ சாட்கு வரவேற்கிறோம்.',
+        'welcome_back': 'மீண்டும் வரவேற்கிறோம்.',
         
         // AI Response Templates
         'ai_response_1': 'பகிர்ந்துகொண்டதற்கு நன்றி. இது உங்களுக்கு எப்படி உணர வைக்கிறது?',
@@ -1700,6 +1706,7 @@ const translations = {
         'try_demo_chat': 'ડેમો ચેટ આજમાવો',
         'demo_conversation_starter': 'નમસ્કાર! હું તમારો AI થેરાપિસ્ટ છું. આજે તમે કેમ ફીલ કરો છો?',
         'welcome_demo_chat': 'ડેમો ચેટમાં સ્વાગત.',
+        'welcome_back': 'પાછા આવવા બદલ સ્વાગત.',
         
         // AI Response Templates
         'ai_response_1': 'શેર કરવા બદલ આભાર. આનાથી તમને કેવું લાગે છે?',

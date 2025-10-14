@@ -1,42 +1,52 @@
 <!DOCTYPE html>
 <html>
 <head>
-    <title>Create Icons</title>
+    <title>Generate चेtanā PWA Icons</title>
+    <style>
+        body { font-family: Arial, sans-serif; padding: 20px; }
+        canvas { border: 1px solid #ccc; margin: 5px; }
+        .icon-grid { display: flex; flex-wrap: wrap; gap: 10px; }
+        button { padding: 10px 20px; background: #4f46e5; color: white; border: none; border-radius: 5px; cursor: pointer; }
+    </style>
 </head>
 <body>
-    <canvas id="icon192" width="192" height="192"></canvas>
-    <canvas id="badge72" width="72" height="72"></canvas>
+    <h1>Generate चेtanā PWA Icons</h1>
+    <button onclick="generateAllIcons()">Generate All Icons</button>
+    <div id="icons" class="icon-grid"></div>
     
     <script>
-        // Create 192x192 icon
-        const canvas192 = document.getElementById('icon192');
-        const ctx192 = canvas192.getContext('2d');
+        const sizes = [72, 96, 128, 144, 152, 192, 384, 512];
         
-        // Background
-        ctx192.fillStyle = '#87ceeb';
-        ctx192.fillRect(0, 0, 192, 192);
+        function generateIcon(size) {
+            const canvas = document.createElement('canvas');
+            canvas.width = size;
+            canvas.height = size;
+            const ctx = canvas.getContext('2d');
+            
+            // Background gradient
+            const gradient = ctx.createRadialGradient(size/2, size/2, 0, size/2, size/2, size/2);
+            gradient.addColorStop(0, '#4f46e5');
+            gradient.addColorStop(1, '#3730a3');
+            
+            ctx.fillStyle = gradient;
+            ctx.fillRect(0, 0, size, size);
+            
+            // Add चेtanā text
+            ctx.fillStyle = 'white';
+            ctx.font = `bold ${size * 0.15}px Arial`;
+            ctx.textAlign = 'center';
+            ctx.textBaseline = 'middle';
+            ctx.fillText('चेtanā', size/2, size/2);
+            
+            // Add subtitle for larger icons
+            if (size >= 192) {
+                ctx.font = `${size * 0.08}px Arial`;
+                ctx.fillText('Mental Wellness', size/2, size/2 + size * 0.2);
+            }
+            
+            return canvas;
+        }
         
-        // Text
-        ctx192.fillStyle = '#1a1a1a';
-        ctx192.font = 'bold 48px Arial';
-        ctx192.textAlign = 'center';
-        ctx192.fillText('चेtanā', 96, 110);
-        
-        // Create 72x72 badge
-        const canvas72 = document.getElementById('badge72');
-        const ctx72 = canvas72.getContext('2d');
-        
-        // Background
-        ctx72.fillStyle = '#87ceeb';
-        ctx72.fillRect(0, 0, 72, 72);
-        
-        // Text
-        ctx72.fillStyle = '#1a1a1a';
-        ctx72.font = 'bold 18px Arial';
-        ctx72.textAlign = 'center';
-        ctx72.fillText('चे', 36, 42);
-        
-        // Download function
         function downloadCanvas(canvas, filename) {
             const link = document.createElement('a');
             link.download = filename;
@@ -44,13 +54,35 @@
             link.click();
         }
         
-        // Auto-download after 1 second
-        setTimeout(() => {
-            downloadCanvas(canvas192, 'icon-192x192.png');
-            setTimeout(() => {
-                downloadCanvas(canvas72, 'badge-72x72.png');
-            }, 500);
-        }, 1000);
+        function generateAllIcons() {
+            const container = document.getElementById('icons');
+            container.innerHTML = '';
+            
+            sizes.forEach(size => {
+                const canvas = generateIcon(size);
+                canvas.title = `icon-${size}x${size}.png`;
+                canvas.onclick = () => downloadCanvas(canvas, `icon-${size}x${size}.png`);
+                canvas.style.cursor = 'pointer';
+                
+                const wrapper = document.createElement('div');
+                wrapper.innerHTML = `<div>${size}x${size}</div>`;
+                wrapper.appendChild(canvas);
+                container.appendChild(wrapper);
+            });
+            
+            // Generate badge icon
+            const badgeCanvas = generateIcon(72);
+            badgeCanvas.title = 'badge-72x72.png';
+            badgeCanvas.onclick = () => downloadCanvas(badgeCanvas, 'badge-72x72.png');
+            badgeCanvas.style.cursor = 'pointer';
+            
+            const badgeWrapper = document.createElement('div');
+            badgeWrapper.innerHTML = '<div>Badge 72x72</div>';
+            badgeWrapper.appendChild(badgeCanvas);
+            container.appendChild(badgeWrapper);
+            
+            alert('Icons generated! Click on each icon to download.');
+        }
     </script>
 </body>
 </html>

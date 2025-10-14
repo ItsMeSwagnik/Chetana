@@ -405,22 +405,8 @@ document.addEventListener('DOMContentLoaded', () => {
                         if (typeof renderMilestones === 'function') await renderMilestones();
                     }, 500);
                     
+                    // Show permissions modal after successful login
                     showModal('permissions-modal');
-                    
-                    // Initialize push notification system for logged-in user
-                    if (window.pushNotificationManager) {
-                        window.pushNotificationManager.userId = data.user.id;
-                        
-                        // Check notification settings and subscribe if enabled
-                        try {
-                            const settings = await window.pushNotificationManager.getNotificationSettings();
-                            if (settings.notifications_enabled) {
-                                await window.pushNotificationManager.subscribe(data.user.id);
-                            }
-                        } catch (err) {
-                            console.log('Push notification setup skipped:', err.message);
-                        }
-                    }
                     
                     // Activity planner and journal will load when user visits those screens
                 }
@@ -3636,46 +3622,15 @@ document.addEventListener('DOMContentLoaded', () => {
             document.getElementById('profile-theme-toggle').textContent = currentTheme === 'dark' ? 'Dark' : 'Light';
         });
         
-        // Push notification toggle functionality
+        // Push notification toggle functionality - DISABLED
         document.getElementById('profile-notifications-toggle')?.addEventListener('click', async (e) => {
             const button = e.target;
-            const isCurrentlyEnabled = button.textContent.toLowerCase().includes('enabled');
             const statusElement = document.getElementById('notification-status');
-            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
             
-            if (!currentUser || !currentUser.id) {
-                statusElement.textContent = 'Please log in to enable notifications';
-                return;
-            }
-            
-            try {
-                if (!isCurrentlyEnabled) {
-                    // Enable push notifications
-                    if (window.pushNotificationManager) {
-                        await window.pushNotificationManager.subscribe(currentUser.id);
-                        button.textContent = 'Enabled';
-                        statusElement.textContent = 'Push notifications enabled - you\'ll receive daily reminders';
-                        statusElement.style.color = 'var(--success)';
-                        localStorage.setItem('notificationsEnabled', 'true');
-                    } else {
-                        throw new Error('Push notification system not available');
-                    }
-                } else {
-                    // Disable push notifications
-                    if (window.pushNotificationManager) {
-                        await window.pushNotificationManager.unsubscribe();
-                        button.textContent = 'Disabled';
-                        statusElement.textContent = 'Push notifications disabled';
-                        statusElement.style.color = 'var(--text-secondary)';
-                        localStorage.setItem('notificationsEnabled', 'false');
-                    }
-                }
-            } catch (err) {
-                console.error('Notification toggle error:', err);
-                button.textContent = 'Disabled';
-                statusElement.textContent = `Error: ${err.message}`;
-                statusElement.style.color = 'var(--danger)';
-            }
+            button.textContent = 'Disabled';
+            statusElement.textContent = 'Push notifications are disabled in this version';
+            statusElement.style.color = 'var(--text-secondary)';
+            console.log('Push notifications disabled');
         });
         
 
@@ -3729,6 +3684,25 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
             }
         };
+        
+        // Permissions modal functionality
+        document.getElementById('privacy-consent')?.addEventListener('change', (e) => {
+            const grantBtn = document.getElementById('grant-permissions-btn');
+            if (grantBtn) {
+                grantBtn.disabled = !e.target.checked;
+            }
+        });
+        
+        document.getElementById('grant-permissions-btn')?.addEventListener('click', () => {
+            const privacyConsent = document.getElementById('privacy-consent')?.checked;
+            if (!privacyConsent) {
+                alert('You must agree to the Privacy Policy to continue.');
+                return;
+            }
+            
+            hideModals();
+            showScreen('dashboard-screen');
+        });
         
         // Enhanced screen navigation to load data on demand
         const originalShowScreen = showScreen;
@@ -6245,6 +6219,53 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('go-to-assessment-btn')?.addEventListener('click', startAssessment);
         document.getElementById('assessment-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
         document.getElementById('results-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
+        
+        // Permissions modal handling
+        document.getElementById('privacy-consent')?.addEventListener('change', (e) => {
+            const continueBtn = document.getElementById('grant-permissions-btn');
+            if (continueBtn) {
+                continueBtn.disabled = !e.target.checked;
+            }
+        });
+        
+        document.getElementById('grant-permissions-btn')?.addEventListener('click', async () => {
+            const notificationsChecked = document.getElementById('notifications-permission')?.checked;
+            const microphoneChecked = document.getElementById('microphone-permission')?.checked;
+            const locationChecked = document.getElementById('location-permission')?.checked;
+            
+            // Request all permissions immediately
+            const permissionPromises = [];
+            
+            // Request notification permission if checked
+            if (notificationsChecked && window.notificationSystem) {
+                permissionPromises.push(window.notificationSystem.requestPermission());
+            }
+            
+            // Request microphone permission if checked
+            if (microphoneChecked) {
+                permissionPromises.push(
+                    navigator.mediaDevices.getUserMedia({ audio: true })
+                        .catch(err => console.log('Microphone permission denied or not available'))
+                );
+            }
+            
+            // Request location permission if checked
+            if (locationChecked) {
+                permissionPromises.push(
+                    navigator.geolocation.getCurrentPosition(
+                        () => console.log('Location permission granted'),
+                        err => console.log('Location permission denied or not available'),
+                        { timeout: 5000 }
+                    )
+                );
+            }
+            
+            // Wait for all permission requests to complete
+            await Promise.allSettled(permissionPromises);
+            
+            hideModals();
+            showScreen('dashboard-screen');
+        });
         
         // Assessment consent handling
         document.getElementById('assessment-data-consent')?.addEventListener('change', (e) => {

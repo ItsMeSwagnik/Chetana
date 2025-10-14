@@ -326,12 +326,21 @@ body {
 .permission-icon {
   font-size: 1.5rem;
   margin-right: 1rem;
-  display: inline-block;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex-shrink: 0;
 }
 
 .permission-icon i {
   color: var(--text-primary);
   opacity: 1;
+  width: 20px;
+  height: 20px;
+  display: block;
+  position: relative;
 }
 
 .back-btn i {

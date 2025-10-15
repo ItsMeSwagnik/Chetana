@@ -1177,7 +1177,14 @@
         });
     }
 
+    let isRenderingChart = false;
+    
     async function renderProgressChart() {
+        if (isRenderingChart) {
+            console.log('📊 Chart already rendering, skipping...');
+            return;
+        }
+        
         const currentUser = JSON.parse(localStorage.getItem('currentUser'));
         if (!currentUser || !currentUser.id) {
             console.log('❌ No user found for progress chart');
@@ -1191,6 +1198,8 @@
             console.error('❌ Progress chart element not found');
             return;
         }
+        
+        isRenderingChart = true;
         
         try {
             console.log('📊 Fetching assessment data for progress chart, user:', currentUser.id);
@@ -1409,6 +1418,8 @@
             window.lastChartRender = new Date().toISOString();
             console.log('🕰️ Chart rendered at:', window.lastChartRender);
             
+            isRenderingChart = false;
+            
         } catch (err) {
             console.error('❌ Failed to load progress data:', err);
             if (chartEl) {
@@ -1419,6 +1430,7 @@
                 promptEl.style.display = 'block';
                 promptEl.innerHTML = '<p>Unable to load assessment history. Please try refreshing the page.</p>';
             }
+            isRenderingChart = false;
         }
     }
 

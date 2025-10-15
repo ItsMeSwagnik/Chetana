@@ -510,7 +510,7 @@ async function initDB() {
       // Create all necessary tables using queryWithRetry
       await queryWithRetry(`CREATE TABLE IF NOT EXISTS users (id SERIAL PRIMARY KEY, name VARCHAR(255) NOT NULL, email VARCHAR(255) UNIQUE NOT NULL, password VARCHAR(255) NOT NULL, dob DATE, health_data_consent BOOLEAN DEFAULT TRUE, analytics_consent BOOLEAN DEFAULT FALSE, research_consent BOOLEAN DEFAULT FALSE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, forum_uid VARCHAR(20) UNIQUE, isadmin BOOLEAN DEFAULT FALSE)`);
       
-      await queryWithRetry(`CREATE TABLE IF NOT EXISTS assessments (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, phq9_score INTEGER, gad7_score INTEGER, pss_score INTEGER, assessment_date DATE DEFAULT CURRENT_DATE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+      await queryWithRetry(`CREATE TABLE IF NOT EXISTS assessments (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, phq9_score INTEGER, gad7_score INTEGER, pss_score INTEGER, responses JSONB, assessment_date DATE DEFAULT CURRENT_DATE, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
       
       await queryWithRetry(`CREATE TABLE IF NOT EXISTS mood_entries (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, mood_date DATE NOT NULL, mood_rating INTEGER NOT NULL CHECK (mood_rating >= 1 AND mood_rating <= 10), created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id, mood_date))`);
       
@@ -527,6 +527,14 @@ async function initDB() {
       await queryWithRetry(`CREATE TABLE IF NOT EXISTS user_notification_settings (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, notifications_enabled BOOLEAN DEFAULT FALSE, push_subscription TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id))`);
       
       await queryWithRetry(`CREATE TABLE IF NOT EXISTS push_subscriptions (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, endpoint TEXT NOT NULL, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id))`);
+      
+      // Add missing columns to existing tables (migrations)
+      try {
+        await queryWithRetry(`ALTER TABLE assessments ADD COLUMN IF NOT EXISTS responses JSONB`);
+        console.log('✅ Added responses column to assessments table');
+      } catch (migrationErr) {
+        console.log('ℹ️ Responses column already exists or migration failed:', migrationErr.message);
+      }
       
       console.log('✅ Database tables initialized successfully');
       console.log('📅 Activity planner table: user_id, day_name, activities[]');
@@ -665,6 +673,36 @@ app.all('/api/users', async (req, res) => {
     // Redirect to admin handler
     req.url = '/api/admin/users';
     return app._router.handle(req, res);
+  }
+  
+  if (action === 'user-reports' && req.method === 'GET') {
+    const userId = req.query.userId;
+    if (!userId) {
+      return res.status(400).json({ success: false, error: 'User ID required' });
+    }
+    
+    try {
+      // Get user info
+      const userResult = await queryWithRetry('SELECT id, name, email FROM users WHERE id = $1', [userId]);
+      if (userResult.rows.length === 0) {
+        return res.status(404).json({ success: false, error: 'User not found' });
+      }
+      
+      // Get user assessments
+      const assessmentsResult = await queryWithRetry(
+        'SELECT * FROM assessments WHERE user_id = $1 ORDER BY assessment_date DESC',
+        [userId]
+      );
+      
+      return res.json({
+        success: true,
+        user: userResult.rows[0],
+        assessments: assessmentsResult.rows
+      });
+    } catch (err) {
+      console.error('User reports fetch error:', err);
+      return res.status(500).json({ success: false, error: 'Failed to fetch user reports' });
+    }
   }
   
   res.status(404).json({ success: false, error: 'Invalid action' });
@@ -872,7 +910,8 @@ const authenticateToken = (req, res, next) => {
 
 app.post('/api/assessments', async (req, res) => {
   try {
-    let { userId, phq9, gad7, pss, assessmentDate } = req.body;
+    let { userId, phq9, gad7, pss, responses, assessmentDate } = req.body;
+    console.log('💾 Assessment POST request to server.js:', { userId, phq9, gad7, pss, assessmentDate, hasResponses: !!responses });
     
     // Handle admin string ID - convert to admin user ID from database
     if (userId === 'admin') {
@@ -911,9 +950,11 @@ app.post('/api/assessments', async (req, res) => {
     const dateToUse = assessmentDate || new Date().toLocaleDateString('en-CA');
     
     const result = await queryWithRetry(
-      'INSERT INTO assessments (user_id, phq9_score, gad7_score, pss_score, assessment_date) VALUES ($1, $2, $3, $4, $5) RETURNING *',
-      [userId, phq9, gad7, pss, dateToUse]
+      'INSERT INTO assessments (user_id, phq9_score, gad7_score, pss_score, responses, assessment_date) VALUES ($1, $2, $3, $4, $5, $6) RETURNING *',
+      [userId, phq9, gad7, pss, null, dateToUse]
     );
+    
+    console.log('✅ Assessment saved to database with ID:', result.rows[0].id);
     
     // Update streak after successful assessment (only if before 11:59 PM deadline)
     try {
@@ -1018,6 +1059,61 @@ app.get('/api/assessments', async (req, res) => {
   } catch (err) {
     console.error('❌ Assessment fetch error:', err);
     res.status(500).json({ error: 'Failed to fetch assessments: ' + err.message });
+  }
+});
+
+app.get('/api/assessments/count', async (req, res) => {
+  console.log('📊 GET /api/assessments/count called with query:', req.query);
+  try {
+    const { userId } = req.query;
+    
+    if (!userId) {
+      console.log('❌ Missing userId parameter');
+      return res.status(400).json({ error: 'userId parameter required' });
+    }
+    
+    // Handle admin string ID - convert to admin user ID from database
+    let actualUserId = userId;
+    if (userId === 'admin') {
+      try {
+        const adminResult = await queryWithRetry('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
+        if (adminResult.rows.length > 0) {
+          actualUserId = adminResult.rows[0].id;
+        } else {
+          // Create admin user if not exists
+          console.log('Creating admin user for assessment count...');
+          const hashedPassword = await bcrypt.hash('admin123', 10);
+          const createResult = await queryWithRetry(
+            'INSERT INTO users (name, email, password, isadmin) VALUES ($1, $2, $3, $4) RETURNING id',
+            ['Admin', 'admin@chetana.com', hashedPassword, true]
+          );
+          actualUserId = createResult.rows[0].id;
+          console.log('✅ Admin user created with ID:', actualUserId);
+        }
+      } catch (adminErr) {
+        console.error('❌ Error finding admin user:', adminErr);
+        return res.json({ success: true, count: 0 });
+      }
+    }
+    
+    // Validate that actualUserId is a number
+    if (isNaN(parseInt(actualUserId))) {
+      console.log('❌ Invalid userId format:', actualUserId);
+      return res.status(400).json({ error: 'Invalid userId format' });
+    }
+    
+    console.log('🔍 Counting assessments for user:', actualUserId);
+    const result = await queryWithRetry(
+      'SELECT COUNT(*) as count FROM assessments WHERE user_id = $1',
+      [parseInt(actualUserId)]
+    );
+    
+    const count = parseInt(result.rows[0].count) || 0;
+    console.log('✅ Found', count, 'assessments for user', actualUserId);
+    res.json({ success: true, count });
+  } catch (err) {
+    console.error('❌ Assessment count fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch assessment count: ' + err.message });
   }
 });
 
@@ -2038,8 +2134,54 @@ app.all('/api/session', async (req, res) => {
   }
 });
 
-// Data API endpoint for moods, assessments, and milestones
-app.all('/api/data', async (req, res) => {
+// Admin stats endpoint - direct implementation
+app.get('/api/data', async (req, res) => {
+  const { type } = req.query;
+  
+  if (type === 'admin-stats') {
+    try {
+      console.log('📊 Admin Stats - Loading data directly from server.js');
+      
+      // Get total users (excluding admin)
+      const usersResult = await queryWithRetry(
+        'SELECT COUNT(*) as total FROM users WHERE (isadmin IS NULL OR isadmin = false)'
+      );
+      
+      // Get total assessments
+      const assessmentsResult = await queryWithRetry(
+        'SELECT COUNT(*) as total FROM assessments'
+      );
+      
+      const totalUsers = parseInt(usersResult.rows[0].total) || 0;
+      const totalAssessments = parseInt(assessmentsResult.rows[0].total) || 0;
+      
+      console.log('📊 Admin Stats - Users:', totalUsers, 'Assessments:', totalAssessments);
+      
+      return res.json({ 
+        success: true, 
+        stats: {
+          totalUsers,
+          totalAssessments
+        }
+      });
+    } catch (err) {
+      console.error('❌ Admin stats error:', err);
+      return res.status(500).json({ success: false, error: 'Failed to load admin stats: ' + err.message });
+    }
+  }
+  
+  // For other data types, use the data handler
+  try {
+    const { default: dataHandler } = await import('./api/data.js');
+    return await dataHandler(req, res);
+  } catch (err) {
+    console.error('Data handler error:', err);
+    res.status(500).json({ error: 'Data API error: ' + err.message });
+  }
+});
+
+// Data API endpoint for moods, assessments, and milestones (POST requests)
+app.post('/api/data', async (req, res) => {
   try {
     const { default: dataHandler } = await import('./api/data.js');
     return await dataHandler(req, res);

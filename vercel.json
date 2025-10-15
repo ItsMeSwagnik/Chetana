@@ -25,15 +25,27 @@
     },
     {
       "source": "/api/assessments",
-      "destination": "/api/data?action=assessments"
+      "destination": "/api/data?type=assessments"
     },
     {
       "source": "/api/moods",
-      "destination": "/api/data?action=moods"
+      "destination": "/api/data?type=moods"
     },
     {
       "source": "/api/milestones",
-      "destination": "/api/data?action=milestones"
+      "destination": "/api/data?type=milestones"
+    },
+    {
+      "source": "/api/streaks",
+      "destination": "/api/streaks"
+    },
+    {
+      "source": "/api/streaks/update",
+      "destination": "/api/streaks"
+    },
+    {
+      "source": "/api/streaks/reset",
+      "destination": "/api/streaks"
     },
     {
       "source": "/api/forum/stats",

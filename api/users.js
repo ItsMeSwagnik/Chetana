@@ -131,10 +131,81 @@ export default async function handler(req, res) {
 
     if (method === 'GET' && (action === 'admin' || req.url?.includes('admin'))) {
         try {
-            const result = await pool.query('SELECT id, name, email, dob, created_at FROM users ORDER BY created_at DESC');
-            return res.json({ success: true, users: result.rows, totalAssessments: 0 });
+            // Get all users
+            const usersResult = await pool.query('SELECT id, name, email, dob, created_at FROM users ORDER BY created_at DESC');
+            
+            // Get total assessments count
+            let totalAssessments = 0;
+            try {
+                const assessmentsResult = await pool.query('SELECT COUNT(*) as count FROM assessments');
+                totalAssessments = parseInt(assessmentsResult.rows[0]?.count || 0);
+            } catch (assessmentErr) {
+                console.error('Failed to count assessments:', assessmentErr);
+                totalAssessments = 0;
+            }
+            
+            // Get assessment count per user
+            const usersWithCounts = [];
+            for (const user of usersResult.rows) {
+                try {
+                    const userAssessments = await pool.query('SELECT COUNT(*) as count, MAX(assessment_date) as last_assessment FROM assessments WHERE user_id = $1', [user.id]);
+                    const assessmentCount = parseInt(userAssessments.rows[0]?.count || 0);
+                    const lastAssessment = userAssessments.rows[0]?.last_assessment;
+                    
+                    usersWithCounts.push({
+                        ...user,
+                        assessment_count: assessmentCount,
+                        last_assessment: lastAssessment
+                    });
+                } catch (userErr) {
+                    console.error('Failed to get user assessment count:', userErr);
+                    usersWithCounts.push({
+                        ...user,
+                        assessment_count: 0,
+                        last_assessment: null
+                    });
+                }
+            }
+            
+            return res.json({ 
+                success: true, 
+                users: usersWithCounts, 
+                totalAssessments: totalAssessments 
+            });
         } catch (err) {
+            console.error('Admin panel data fetch error:', err);
             return res.json({ success: true, users: [], totalAssessments: 0 });
+        }
+    }
+
+    // Admin endpoint to get user reports
+    if (method === 'GET' && action === 'user-reports') {
+        const userId = query.userId;
+        if (!userId) {
+            return res.status(400).json({ success: false, error: 'User ID required' });
+        }
+        
+        try {
+            // Get user info
+            const userResult = await pool.query('SELECT id, name, email FROM users WHERE id = $1', [userId]);
+            if (userResult.rows.length === 0) {
+                return res.status(404).json({ success: false, error: 'User not found' });
+            }
+            
+            // Get user assessments
+            const assessmentsResult = await pool.query(
+                'SELECT * FROM assessments WHERE user_id = $1 ORDER BY assessment_date DESC',
+                [userId]
+            );
+            
+            return res.json({
+                success: true,
+                user: userResult.rows[0],
+                assessments: assessmentsResult.rows
+            });
+        } catch (err) {
+            console.error('User reports fetch error:', err);
+            return res.status(500).json({ success: false, error: 'Failed to fetch user reports' });
         }
     }
 

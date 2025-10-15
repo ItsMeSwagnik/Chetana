@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Admin API Test</title>
+</head>
+<body>
+    <h1>Admin API Test</h1>
+    <button onclick="testAdminAPI()">Test Admin API</button>
+    <button onclick="testAssessmentCount()">Test Assessment Count</button>
+    <button onclick="testUserReports()">Test User Reports</button>
+    <div id="results"></div>
+
+    <script>
+        async function testAdminAPI() {
+            const results = document.getElementById('results');
+            results.innerHTML = '<h2>Testing Admin API...</h2>';
+            
+            try {
+                console.log('Testing /api/users?action=admin');
+                const response = await fetch('/api/users?action=admin');
+                console.log('Response status:', response.status);
+                
+                const text = await response.text();
+                console.log('Raw response:', text);
+                
+                let data;
+                try {
+                    data = JSON.parse(text);
+                } catch (e) {
+                    results.innerHTML += `<p>❌ JSON Parse Error: ${e.message}</p>`;
+                    results.innerHTML += `<p>Raw response: ${text.substring(0, 500)}</p>`;
+                    return;
+                }
+                
+                results.innerHTML += `<h3>✅ Admin API Response:</h3>`;
+                results.innerHTML += `<p>Total Users: ${data.users ? data.users.length : 'undefined'}</p>`;
+                results.innerHTML += `<p>Total Assessments: ${data.totalAssessments || 'undefined'}</p>`;
+                results.innerHTML += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                
+            } catch (err) {
+                results.innerHTML += `<p>❌ Error: ${err.message}</p>`;
+                console.error('Admin API test error:', err);
+            }
+        }
+        
+        async function testAssessmentCount() {
+            const results = document.getElementById('results');
+            results.innerHTML += '<h2>Testing Assessment Count API...</h2>';
+            
+            try {
+                console.log('Testing /api/data?type=admin-stats');
+                const response = await fetch('/api/data?type=admin-stats');
+                console.log('Response status:', response.status);
+                
+                const data = await response.json();
+                console.log('Assessment count data:', data);
+                
+                results.innerHTML += `<h3>✅ Assessment Count Response:</h3>`;
+                results.innerHTML += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                
+            } catch (err) {
+                results.innerHTML += `<p>❌ Assessment Count Error: ${err.message}</p>`;
+                console.error('Assessment count test error:', err);
+            }
+        }
+        
+        async function testUserReports() {
+            const results = document.getElementById('results');
+            results.innerHTML += '<h2>Testing User Reports API...</h2>';
+            
+            try {
+                // Test with a sample user ID (you can change this)
+                const userId = 1;
+                console.log('Testing /api/data?type=assessments&userId=' + userId);
+                const response = await fetch(`/api/data?type=assessments&userId=${userId}`);
+                console.log('Response status:', response.status);
+                
+                const data = await response.json();
+                console.log('User reports data:', data);
+                
+                results.innerHTML += `<h3>✅ User Reports Response (User ${userId}):</h3>`;
+                results.innerHTML += `<p>Assessments found: ${data.assessments ? data.assessments.length : 'undefined'}</p>`;
+                results.innerHTML += `<pre>${JSON.stringify(data, null, 2)}</pre>`;
+                
+            } catch (err) {
+                results.innerHTML += `<p>❌ User Reports Error: ${err.message}</p>`;
+                console.error('User reports test error:', err);
+            }
+        }
+    </script>
+</body>
+</html>

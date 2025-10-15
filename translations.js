@@ -62,6 +62,19 @@ const translations = {
         'gad7_q5': 'Becoming easily annoyed or irritable.',
         'gad7_q6': 'Feeling afraid as if something awful might happen.',
         
+        // Assessment Questions - PSS-10 
+        'pss10_q0': 'In the last month, how often have you been upset because of something that happened unexpectedly?',
+        'pss10_q1': 'In the last month, how often have you felt that you were unable to control the important things in your life?',
+        'pss10_q2': 'In the last month, how often have you felt nervous and "stressed"?',
+        'pss10_q3': 'In the last month, how often have you felt confident about your ability to handle your personal problems?',
+        'pss10_q4': 'In the last month, how often have you felt that things were going your way?',
+        'pss10_q5': 'In the last month, how often have you found that you could not cope with all the things that you had to do?',
+        'pss10_q6': 'In the last month, how often have you been able to control irritations in your life?',
+        'pss10_q7': 'In the last month, how often have you felt that you were on top of things?',
+        'pss10_q8': 'In the last month, how often have you been angered because of things that were outside of your control?',
+        'pss10_q9': 'In the last month, how often have you felt difficulties were piling up so high that you could not overcome them?',
+        
+
         // Assessment Options
         'not_at_all': 'Not at all',
         'several_days': 'Several days',
@@ -105,6 +118,12 @@ const translations = {
         'question_of': 'Question {current} of {total}',
         'previous': 'Previous',
         'next': 'Next',
+        'next_question': 'Next Question',
+        'book_therapist': 'Book Therapist',
+        'emergency_consent': 'Emergency Consent',
+        'high_risk_detected': 'High Risk Detected',
+        'book_therapist_now': 'Book Therapist Now',
+        'continue_assessment': 'Continue Assessment',
         
         // Forum & Community
         'join': 'Join',
@@ -249,18 +268,6 @@ const translations = {
         
         // Booking & Therapist
         'my_booking_requests': 'My Booking Requests',
-        
-        // Assessment Questions - PSS-10 (missing ones)
-        'pss10_q0': 'In the last month, how often have you been upset because of something that happened unexpectedly?',
-        'pss10_q1': 'In the last month, how often have you felt that you were unable to control the important things in your life?',
-        'pss10_q2': 'In the last month, how often have you felt nervous and "stressed"?',
-        'pss10_q3': 'In the last month, how often have you felt confident about your ability to handle your personal problems?',
-        'pss10_q4': 'In the last month, how often have you felt that things were going your way?',
-        'pss10_q5': 'In the last month, how often have you found that you could not cope with all the things that you had to do?',
-        'pss10_q6': 'In the last month, how often have you been able to control irritations in your life?',
-        'pss10_q7': 'In the last month, how often have you felt that you were on top of things?',
-        'pss10_q8': 'In the last month, how often have you been angered because of things that were outside of your control?',
-        'pss10_q9': 'In the last month, how often have you felt difficulties were piling up so high that you could not overcome them?',
         
         // AI Response Templates
         'ai_response_1': 'Thank you for sharing. How does that make you feel?',
@@ -438,11 +445,18 @@ const translations = {
         'assessment_history': 'मूल्यांकन इतिहास',
         'view_progress': 'मेरी प्रगति देखें',
         'see_results': 'मेरे परिणाम देखें',
+        'see_my_results': 'मेरे परिणाम देखें',
         'your_results': 'आपके परिणाम',
         'start_assessment': 'मूल्यांकन शुरू करें',
         'question_of': 'प्रश्न {current} का {total}',
         'previous': 'पिछला',
         'next': 'अगला',
+        'next_question': 'अगला प्रश्न',
+        'book_therapist': 'थेरेपिस्ट बुक करें',
+        'emergency_consent': 'आपातकालीन सहमति',
+        'high_risk_detected': 'उच्च जोखिम का पता चला',
+        'book_therapist_now': 'अभी थेरेपिस्ट बुक करें',
+        'continue_assessment': 'मूल्यांकन जारी रखें',
         
         // Forum & Community
         'join': 'जुड़ें',
@@ -776,11 +790,18 @@ const translations = {
         'assessment_history': 'মূল্যায়নের ইতিহাস',
         'view_progress': 'আমার অগ্রগতি দেখুন',
         'see_results': 'আমার ফলাফল দেখুন',
+        'see_my_results': 'আমার ফলাফল দেখুন',
         'your_results': 'আপনার ফলাফল',
         'start_assessment': 'মূল্যায়ন শুরু করুন',
         'question_of': 'প্রশ্ন {current} এর {total}',
         'previous': 'পূর্ববর্তী',
         'next': 'পরবর্তী',
+        'next_question': 'পরবর্তী প্রশ্ন',
+        'book_therapist': 'থেরাপিস্ট বুক করুন',
+        'emergency_consent': 'জরুরি সম্মতি',
+        'high_risk_detected': 'উচ্চ ঝুঁকি শনাক্ত',
+        'book_therapist_now': 'এখনী থেরাপিস্ট বুক করুন',
+        'continue_assessment': 'মূল্যায়ন চালিয়ে যান',
         
         // Forum & Community
         'join': 'যোগ দিন',
@@ -1041,11 +1062,18 @@ const translations = {
         'assessment_history': 'అంచనా చరిత్ర',
         'view_progress': 'నా పురోగతిని చూడండి',
         'see_results': 'నా ఫలితాలను చూడండి',
+        'see_my_results': 'నా ఫలితాలను చూడండి',
         'your_results': 'మీ ఫలితాలు',
         'start_assessment': 'అంచనా ప్రారంభించండి',
         'question_of': 'ప్రశ్న {current} లో {total}',
         'previous': 'ముందుది',
         'next': 'తరువాత',
+        'next_question': 'తరువాత ప్రశ్న',
+        'book_therapist': 'థెరాపిస్ట్ బుక్ చేయండి',
+        'emergency_consent': 'ఆపత్కాల సమ్మతి',
+        'high_risk_detected': 'ఎక్కువ పరిమితి కనుగొనబడింది',
+        'book_therapist_now': 'ఇప్పుడే థెరాపిస్ట్ బుక్ చేయండి',
+        'continue_assessment': 'మౌల్యమాపన తొదరించండి',
         
         // Forum & Community
         'join': 'చేరండి',
@@ -1242,11 +1270,18 @@ const translations = {
         'assessment_history': 'मूल्यांकन इतिहास',
         'view_progress': 'माझी प्रगती पहा',
         'see_results': 'माझे परिणाम पहा',
+        'see_my_results': 'माझे परिणाम पहा',
         'your_results': 'तुमचे परिणाम',
         'start_assessment': 'मूल्यांकन सुरू करा',
         'question_of': 'प्रश्न {current} चा {total}',
         'previous': 'मागील',
         'next': 'पुढील',
+        'next_question': 'पुढील प्रश्न',
+        'book_therapist': 'थेरपिस्ट बुक करा',
+        'emergency_consent': 'आपत्कालीन संमती',
+        'high_risk_detected': 'उच्च जोखीम आढळली',
+        'book_therapist_now': 'आताच थेरपिस्ट बुक करा',
+        'continue_assessment': 'मूल्यांकन सुरू ठेवा',
         
         // Forum & Community
         'join': 'सामील व्हा',
@@ -1443,11 +1478,18 @@ const translations = {
         'assessment_history': 'மதிப்பீடு வரலாறு',
         'view_progress': 'எனது முன்னேற்றத்தை பார்க்கவும்',
         'see_results': 'எனது முடிவுகளை பார்க்கவும்',
+        'see_my_results': 'எனது முடிவுகளை பார்க்கவும்',
         'your_results': 'உங்கள் முடிவுகள்',
         'start_assessment': 'மதிப்பீடு தொடங்கவும்',
         'question_of': 'கேள்வி {current} இன் {total}',
         'previous': 'முந்தைய',
         'next': 'அடுத்த',
+        'next_question': 'அடுத்த கேள்வி',
+        'book_therapist': 'சிகித்சையாளரை புக் செய்யவும்',
+        'emergency_consent': 'ஆபத்கால ஒப்புதல்',
+        'high_risk_detected': 'அதிக ஆபத்து கண்டறியப்பட்டது',
+        'book_therapist_now': 'இப்போதே சிகித்சையாளரை புக் செய்யவும்',
+        'continue_assessment': 'மதிப்பீடு தொடரவும்',
         
         // Forum & Community
         'join': 'சேரவும்',
@@ -1644,11 +1686,18 @@ const translations = {
         'assessment_history': 'મૂલ્યાંકનનો ઇતિહાસ',
         'view_progress': 'મારી પ્રગતિ જુઓ',
         'see_results': 'મારા પરિણામો જુઓ',
+        'see_my_results': 'મારા પરિણામો જુઓ',
         'your_results': 'તમારા પરિણામો',
         'start_assessment': 'મૂલ્યાંકન શરૂ કરો',
         'question_of': 'પ્રશ્ન {current} નો {total}',
         'previous': 'પહેલાનો',
         'next': 'અગલો',
+        'next_question': 'અગલો પ્રશ્ન',
+        'book_therapist': 'થેરાપિસ્ટ બુક કરો',
+        'emergency_consent': 'આપત્કાલીન અનુમતિ',
+        'high_risk_detected': 'ઉચ્ચ જોખમનો પતો ચલ્યો',
+        'book_therapist_now': 'અભી થેરાપિસ્ટ બુક કરો',
+        'continue_assessment': 'મૂલ્યાંકન ચાલુ રાખો',
         
         // Forum & Community
         'join': 'જોડાઓ',
@@ -1850,6 +1899,12 @@ const translations = {
         'question_of': 'ಪ್ರಶ್ನೆ {current} ರ {total}',
         'previous': 'ಹಿಂದಿನ',
         'next': 'ಮುಂದಿನ',
+        'next_question': 'ಮುಂದಿನ ಪ್ರಶ್ನೆ',
+        'book_therapist': 'ಚಿಕಿತ್ಸಕರನ್ನು ಬುಕ್ ಮಾಡಿ',
+        'emergency_consent': 'ಆಪತ್ಕಾಲೀನ ಅನುಮತಿ',
+        'high_risk_detected': 'ಅಧಿಕ ಪರಿಮಿತಿ ಕನುಗೊನಬಡಿದೆ',
+        'book_therapist_now': 'ಇಪ್ಪುಡೇ ಚಿಕಿತ್ಸಕರನ್ನು ಬುಕ್ ಮಾಡಿ',
+        'continue_assessment': 'ಮೇಲ್ಯಮಾಪನ ಮುಂದುವರಿಸಿ',
         
         // Forum & Community
         'join': 'ಸೇರಿ',

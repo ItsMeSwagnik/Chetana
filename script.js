@@ -1,4 +1,4 @@
-document.addEventListener('DOMContentLoaded', () => {
+﻿document.addEventListener('DOMContentLoaded', () => {
     // --- STATE VARIABLES ---
     let currentScreen = 'login-screen';
     let chatCount = parseInt(localStorage.getItem('demoChatCount')) || 0;
@@ -17,12 +17,16 @@ document.addEventListener('DOMContentLoaded', () => {
     async function fetchAndDisplayStreak(userId) {
         try {
             const response = await fetch(`${API_BASE}/api/streaks?userId=${userId}`);
+            if (!response.ok) {
+                console.log('Streak API not available, using fallback');
+                return 0;
+            }
             const data = await response.json();
             if (data.success && data.streak) {
                 return data.streak.current_streak || 0;
             }
         } catch (err) {
-            console.error('Failed to fetch streak:', err);
+            console.log('Streak API not available, using fallback');
         }
         return 0;
     }
@@ -115,6 +119,16 @@ document.addEventListener('DOMContentLoaded', () => {
                         
                         console.log('📈 Starting progress chart render...');
                         if (typeof renderProgressChart === 'function') {
+                            // Clear any existing chart before rendering new one
+                            if (progressChart) {
+                                console.log('📈 Destroying existing progress chart...');
+                                try {
+                                    progressChart.destroy();
+                                } catch (err) {
+                                    console.log('⚠️ Chart destroy error (non-critical):', err.message);
+                                }
+                                progressChart = null;
+                            }
                             await renderProgressChart();
                             console.log('📈 Progress chart render completed');
                         } else {
@@ -530,42 +544,42 @@ document.addEventListener('DOMContentLoaded', () => {
         
         // PHQ-9 questions with translations
         for (let i = 0; i < 9; i++) {
-            const questionKey = `phq9_q${i + 1}`; // Use 1-based indexing for translation keys
+            const questionKey = `phq9_q${i}`; // Use 0-based indexing for translation keys
             const questionText = t[questionKey] || assessmentData.phq9.questions[i];
             const translatedOptions = [
-                { text: t.phq_not_at_all || t.not_at_all || "Not at all", value: 0 },
-                { text: t.phq_several_days || t.several_days || "Several days", value: 1 },
-                { text: t.phq_more_than_half || t.more_than_half || "More than half the days", value: 2 },
-                { text: t.phq_nearly_every_day || t.nearly_every_day || "Nearly every day", value: 3 }
+                { text: t.not_at_all || "Not at all", value: 0 },
+                { text: t.several_days || "Several days", value: 1 },
+                { text: t.more_than_half || "More than half the days", value: 2 },
+                { text: t.nearly_every_day || "Nearly every day", value: 3 }
             ];
             allQuestions.push({ test: 'phq9', name: `phq9-q${i}`, text: questionText, options: translatedOptions });
         }
         
         // GAD-7 questions with translations
         for (let i = 0; i < 7; i++) {
-            const questionKey = `gad7_q${i + 1}`; // Use 1-based indexing for translation keys
+            const questionKey = `gad7_q${i}`; // Use 0-based indexing for translation keys
             const questionText = t[questionKey] || assessmentData.gad7.questions[i];
             const translatedOptions = [
-                { text: t.gad_not_at_all || t.not_at_all || "Not at all", value: 0 },
-                { text: t.gad_several_days || t.several_days || "Several days", value: 1 },
-                { text: t.gad_more_than_half || t.more_than_half || "More than half the days", value: 2 },
-                { text: t.gad_nearly_every_day || t.nearly_every_day || "Nearly every day", value: 3 }
+                { text: t.not_at_all || "Not at all", value: 0 },
+                { text: t.several_days || "Several days", value: 1 },
+                { text: t.more_than_half || "More than half the days", value: 2 },
+                { text: t.nearly_every_day || "Nearly every day", value: 3 }
             ];
             allQuestions.push({ test: 'gad7', name: `gad7-q${i}`, text: questionText, options: translatedOptions });
         }
         
         // PSS-10 questions with translations
         for (let i = 0; i < 10; i++) {
-            const questionKey = `pss_q${i + 1}`; // Use 1-based indexing for translation keys
+            const questionKey = `pss10_q${i}`; // Use 0-based indexing for translation keys
             const questionText = t[questionKey] || assessmentData.pss.questions[i];
             const translatedOptions = [
-                { text: t.pss_never || t.never || "Never", value: 0 },
-                { text: t.pss_almost_never || t.almost_never || "Almost Never", value: 1 },
-                { text: t.pss_sometimes || t.sometimes || "Sometimes", value: 2 },
-                { text: t.pss_fairly_often || t.fairly_often || "Fairly Often", value: 3 },
-                { text: t.pss_very_often || t.very_often || "Very Often", value: 4 }
+                { text: t.never || "Never", value: 0 },
+                { text: t.almost_never || "Almost Never", value: 1 },
+                { text: t.sometimes || "Sometimes", value: 2 },
+                { text: t.fairly_often || "Fairly Often", value: 3 },
+                { text: t.very_often || "Very Often", value: 4 }
             ];
-            allQuestions.push({ test: 'pss', name: `pss-q${i}`, text: questionText, options: translatedOptions, reverse: assessmentData.pss.reverseScore.includes(i) });
+            allQuestions.push({ test: 'pss10', name: `pss-q${i}`, text: questionText, options: translatedOptions, reverse: assessmentData.pss.reverseScore.includes(i) });
         }
         
         console.log('✅ Assessment questions setup complete. Total questions:', allQuestions.length);
@@ -636,6 +650,143 @@ document.addEventListener('DOMContentLoaded', () => {
         if (allQuestions.length > 0) {
             console.log('🔍 Testing question rendering...');
             renderCurrentQuestion();
+        }
+    };
+    
+    // Debug function to test assessment data saving
+    window.testAssessmentSave = async function() {
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        if (!currentUser) {
+            console.error('❌ No user logged in for test');
+            return;
+        }
+        
+        console.log('🧪 Testing assessment save with dummy data...');
+        const testScores = { phq9: 5, gad7: 3, pss: 15 };
+        const testResponses = { 'phq9-q0': 1, 'phq9-q1': 0, 'gad7-q0': 1 };
+        
+        // Temporarily set userAnswers for testing
+        const originalAnswers = userAnswers;
+        userAnswers = testResponses;
+        
+        try {
+            const result = await saveAssessmentResult(testScores);
+            console.log('🧪 Test save result:', result);
+        } catch (err) {
+            console.error('🧪 Test save failed:', err);
+        } finally {
+            // Restore original answers
+            userAnswers = originalAnswers;
+        }
+    };
+    
+    // Debug function to test progress chart
+    window.testProgressChart = async function() {
+        console.log('📊 Testing progress chart...');
+        try {
+            await renderProgressChart();
+            console.log('📊 Progress chart test completed');
+        } catch (err) {
+            console.error('📊 Progress chart test failed:', err);
+        }
+    };
+    
+    // Debug function to force chart refresh
+    window.forceChartRefresh = async function() {
+        console.log('🔄 Forcing complete chart refresh...');
+        
+        // Destroy existing chart
+        if (progressChart) {
+            console.log('📊 Destroying existing chart...');
+            progressChart.destroy();
+            progressChart = null;
+        }
+        
+        // Clear canvas
+        const chartEl = document.getElementById('progress-chart');
+        if (chartEl) {
+            const ctx = chartEl.getContext('2d');
+            ctx.clearRect(0, 0, chartEl.width, chartEl.height);
+        }
+        
+        // Wait and refresh
+        await new Promise(resolve => setTimeout(resolve, 200));
+        
+        try {
+            await renderProgressChart();
+            console.log('✅ Chart refresh completed successfully');
+        } catch (err) {
+            console.error('❌ Chart refresh failed:', err);
+        }
+    };
+    
+    // Enhanced debug function to check assessment data freshness
+    window.debugAssessmentData = async function() {
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        if (!currentUser) {
+            console.log('❌ No user found');
+            return;
+        }
+        
+        console.log('🔍=== ASSESSMENT DATA DEBUG ===');
+        console.log('👤 Current user:', currentUser.id, currentUser.name);
+        console.log('🕰️ Current time:', new Date().toISOString());
+        console.log('🕰️ Last chart render:', window.lastChartRender || 'Never');
+        
+        try {
+            // Test multiple API calls to see data consistency
+            for (let i = 1; i <= 3; i++) {
+                console.log(`📊 API Call ${i}:`);
+                const timestamp = new Date().getTime();
+                const response = await fetch(`${API_BASE}/api/assessments?userId=${currentUser.id}&_t=${timestamp}&_debug=${i}`);
+                const data = await response.json();
+                
+                const assessments = data.success ? data.assessments : (data.assessments || []);
+                console.log(`  - Found ${assessments.length} assessments`);
+                
+                if (assessments.length > 0) {
+                    const latest = assessments[assessments.length - 1];
+                    console.log(`  - Latest: ${latest.assessment_date} - PHQ9:${latest.phq9_score} GAD7:${latest.gad7_score} PSS:${latest.pss_score}`);
+                }
+                
+                // Small delay between calls
+                await new Promise(resolve => setTimeout(resolve, 500));
+            }
+            
+            console.log('🔍=== END DEBUG ===');
+        } catch (err) {
+            console.error('❌ Debug failed:', err);
+        }
+    };
+    
+    // Debug function to check assessment data
+    window.checkAssessmentData = async function() {
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        if (!currentUser) {
+            console.log('❌ No user found');
+            return;
+        }
+        
+        try {
+            const response = await fetch(`${API_BASE}/api/assessments?userId=${currentUser.id}&_t=${Date.now()}`);
+            const data = await response.json();
+            console.log('📊 Assessment data check:', data);
+            
+            if (data.success && data.assessments) {
+                console.log('📊 Found', data.assessments.length, 'assessments');
+                data.assessments.forEach((assessment, index) => {
+                    console.log(`Assessment ${index + 1}:`, {
+                        date: assessment.assessment_date,
+                        phq9: assessment.phq9_score,
+                        gad7: assessment.gad7_score,
+                        pss: assessment.pss_score
+                    });
+                });
+            } else {
+                console.log('❌ No assessments found or API error');
+            }
+        } catch (err) {
+            console.error('❌ Failed to fetch assessment data:', err);
         }
     };
     
@@ -724,7 +875,18 @@ document.addEventListener('DOMContentLoaded', () => {
         progressBar.style.width = `${progressPercent}%`;
         progressText.textContent = `Question ${currentQuestionIndex + 1} of ${allQuestions.length}`;
         prevBtn.disabled = currentQuestionIndex === 0;
-        nextBtn.textContent = (currentQuestionIndex === allQuestions.length - 1) ? 'See My Results' : 'Next';
+        
+        // Update button text with translations
+        const currentLang = localStorage.getItem('selectedLanguage') || 'en';
+        const t = window.translations && window.translations[currentLang] ? window.translations[currentLang] : {};
+        
+        if (currentQuestionIndex === allQuestions.length - 1) {
+            nextBtn.textContent = t.see_my_results || 'See My Results';
+        } else {
+            nextBtn.textContent = t.next_question || t.next || 'Next Question';
+        }
+        
+        prevBtn.textContent = t.previous || 'Previous';
     }
 
     function saveCurrentAnswer() {
@@ -737,7 +899,7 @@ document.addEventListener('DOMContentLoaded', () => {
         return false;
     }
 
-    function calculateScores() {
+    async function calculateScores() {
         try {
             // Show loading screen
             const resultsContainer = document.querySelector('#results-screen .page-content');
@@ -750,17 +912,19 @@ document.addEventListener('DOMContentLoaded', () => {
             `;
             showScreen('results-screen');
             
-            setTimeout(() => {
+            setTimeout(async () => {
                 try {
                     let scores = { phq9: 0, gad7: 0, pss: 0 };
                     console.log('📋 User answers:', userAnswers);
                     
                     allQuestions.forEach(q => {
                         let value = userAnswers[q.name] || 0;
-                        if (q.test === 'pss' && q.reverse) {
+                        if (q.test === 'pss10' && q.reverse) {
                             value = 4 - value;
                         }
-                        scores[q.test] += value;
+                        // Map pss10 back to pss for scoring
+                        const scoreKey = q.test === 'pss10' ? 'pss' : q.test;
+                        scores[scoreKey] += value;
                     });
                     
                     console.log('📊 Calculated scores:', scores);
@@ -794,8 +958,64 @@ document.addEventListener('DOMContentLoaded', () => {
                     }
                     
                     // Normal flow - save and display results
-                    saveAssessmentResult(scores);
+                    // Clear userAnswers to prevent server processing
+                    const tempAnswers = userAnswers;
+                    userAnswers = {};
+                    const saveSuccess = await saveAssessmentResult(scores);
+                    userAnswers = tempAnswers;
                     displayResults(scores);
+                    
+                    // If save was successful, refresh progress chart with enhanced retry mechanism
+                    if (saveSuccess) {
+                        console.log('📊 Assessment saved successfully, refreshing progress chart...');
+                        
+                        // Enhanced refresh with exponential backoff and cache clearing
+                        const refreshWithRetry = async (attempt = 1, maxAttempts = 5) => {
+                            try {
+                                console.log(`📊 Progress chart refresh attempt ${attempt}/${maxAttempts}...`);
+                                
+                                // Force clear any cached data
+                                if (progressChart) {
+                                    progressChart.destroy();
+                                    progressChart = null;
+                                }
+                                
+                                // Add longer delay for database consistency
+                                await new Promise(resolve => setTimeout(resolve, attempt * 1000));
+                                
+                                await renderProgressChart();
+                                console.log(`✅ Progress chart refresh attempt ${attempt} completed`);
+                                
+                                // Verify the chart was actually updated by checking if new data is present
+                                const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+                                if (currentUser && currentUser.id) {
+                                    const timestamp = new Date().getTime();
+                                    const response = await fetch(`${API_BASE}/api/assessments?userId=${currentUser.id}&_t=${timestamp}`);
+                                    const data = await response.json();
+                                    const assessments = data.success ? data.assessments : (data.assessments || []);
+                                    
+                                    if (assessments.length > 0) {
+                                        console.log(`✅ Chart refresh successful - found ${assessments.length} assessments`);
+                                        return; // Success, stop retrying
+                                    }
+                                }
+                                
+                                // If we reach here and it's not the last attempt, retry
+                                if (attempt < maxAttempts) {
+                                    console.log(`⚠️ Chart may not have updated, retrying in ${(attempt + 1) * 1000}ms...`);
+                                    setTimeout(() => refreshWithRetry(attempt + 1, maxAttempts), (attempt + 1) * 1000);
+                                }
+                            } catch (err) {
+                                console.error(`❌ Progress chart refresh attempt ${attempt} failed:`, err);
+                                if (attempt < maxAttempts) {
+                                    setTimeout(() => refreshWithRetry(attempt + 1, maxAttempts), (attempt + 1) * 1000);
+                                }
+                            }
+                        };
+                        
+                        // Start the retry process
+                        refreshWithRetry();
+                    }
                 } catch (error) {
                     console.error('Error in score calculation:', error);
                     displayResults({ phq9: 0, gad7: 0, pss: 0 });
@@ -803,47 +1023,106 @@ document.addEventListener('DOMContentLoaded', () => {
             }, 1000);
         } catch (error) {
             console.error('Error in calculateScores:', error);
-            showScreen('dashboard-screen');
+            displayResults({ phq9: 0, gad7: 0, pss: 0 });
         }
     }
     
     async function saveAssessmentResult(scores) {
         const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-        if (!currentUser) return;
+        if (!currentUser || !currentUser.id) {
+            console.error('❌ No valid user found for assessment save');
+            alert('Please log in to save your assessment results.');
+            return;
+        }
         
         try {
-            console.log('💾 Saving assessment result:', { scores, responses: userAnswers });
+            console.log('💾 Saving assessment result:', { scores, userId: currentUser.id });
+            
+            const assessmentData = {
+                userId: currentUser.id,
+                phq9: scores.phq9,
+                gad7: scores.gad7,
+                pss: scores.pss,
+                responses: null,
+                assessmentDate: new Date().toISOString().split('T')[0] // Use ISO format YYYY-MM-DD
+            };
+            
+            console.log('🚀 Sending assessment data:', assessmentData);
             
             const response = await fetch(`${API_BASE}/api/assessments`, {
                 method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({
-                    userId: currentUser.id,
-                    phq9: scores.phq9,
-                    gad7: scores.gad7,
-                    pss: scores.pss,
-                    responses: userAnswers,
-                    assessmentDate: new Date().toLocaleDateString('en-CA')
-                })
+                headers: { 
+                    'Content-Type': 'application/json',
+                    'Accept': 'application/json'
+                },
+                body: JSON.stringify(assessmentData)
             });
             
+            console.log('📞 Assessment response status:', response.status);
+            console.log('📞 Assessment response headers:', Object.fromEntries(response.headers.entries()));
+            
+            if (!response.ok) {
+                const errorText = await response.text();
+                console.error('❌ Assessment response error:', errorText);
+                throw new Error(`HTTP ${response.status}: ${errorText}`);
+            }
+            
             const result = await response.json();
+            console.log('📊 Assessment result:', result);
+            
             if (result.success) {
-                console.log('✅ Assessment saved successfully');
+                console.log('✅ Assessment saved successfully with ID:', result.assessment?.id);
+                
+                // Show success message to user
+                setTimeout(() => {
+                    alert('✅ Assessment results saved successfully!');
+                }, 500);
+                
+                // Update streak after successful assessment save
+                try {
+                    const streakResponse = await fetch(`${API_BASE}/api/streaks/update`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ userId: currentUser.id })
+                    });
+                    const streakResult = await streakResponse.json();
+                    if (streakResult.success) {
+                        console.log('🔥 Streak updated successfully:', streakResult.streak);
+                    }
+                } catch (streakErr) {
+                    console.error('❌ Failed to update streak:', streakErr);
+                }
                 
                 // Check and update milestones after assessment
                 setTimeout(async () => {
                     if (typeof checkMilestones === 'function') await checkMilestones();
                 }, 1000);
+                
+                return true; // Indicate successful save
             } else {
                 console.error('❌ Failed to save assessment:', result.error);
+                alert('❌ Failed to save assessment: ' + (result.error || 'Unknown error'));
+                return false;
             }
         } catch (err) {
-            console.error('Failed to save assessment:', err);
+            console.error('❌ Assessment save error:', err);
+            alert('❌ Failed to save assessment. Please check your connection and try again.');
+            return false;
         }
     }
 
     function displayResults(scores) {
+        // Add comprehensive null check to prevent errors
+        if (!scores || typeof scores !== 'object' || scores === null || scores === undefined) {
+            console.error('❌ displayResults called with invalid scores:', scores);
+            scores = { phq9: 0, gad7: 0, pss: 0 };
+        }
+        
+        // Ensure all required properties exist
+        if (typeof scores.phq9 === 'undefined') scores.phq9 = 0;
+        if (typeof scores.gad7 === 'undefined') scores.gad7 = 0;
+        if (typeof scores.pss === 'undefined') scores.pss = 0;
+        
         const getInterpretation = (test, score) => {
             if (test === 'phq9') {
                 if (score <= 4) return "Minimal depression"; 
@@ -881,68 +1160,265 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('pss-results').innerHTML = `<h2>Stress (PSS-10)</h2><p class="score">${scores.pss}</p><p class="interpretation">${getInterpretation('pss', scores.pss)}</p>`;
         
         // Add event listener to the dynamically created button
-        document.getElementById('results-view-progress-btn')?.addEventListener('click', () => { 
-            renderProgressChart(); 
-            showScreen('progress-screen'); 
+        document.getElementById('results-view-progress-btn')?.addEventListener('click', async () => { 
+            console.log('📊 View Progress button clicked - forcing chart refresh...');
+            showScreen('progress-screen');
+            
+            // Use the enhanced refresh mechanism when viewing progress from results
+            setTimeout(async () => {
+                if (typeof window.triggerAssessmentRefresh === 'function') {
+                    console.log('📊 Triggering enhanced chart refresh from results screen...');
+                    await window.triggerAssessmentRefresh();
+                } else if (typeof renderProgressChart === 'function') {
+                    console.log('📊 Fallback: Basic chart refresh from results screen...');
+                    await renderProgressChart();
+                }
+            }, 300);
         });
     }
 
     async function renderProgressChart() {
         const currentUser = JSON.parse(localStorage.getItem('currentUser'));
-        if (!currentUser) return;
+        if (!currentUser || !currentUser.id) {
+            console.log('❌ No user found for progress chart');
+            return;
+        }
         
         const chartEl = document.getElementById('progress-chart');
         const promptEl = document.getElementById('progress-prompt');
         
+        if (!chartEl) {
+            console.error('❌ Progress chart element not found');
+            return;
+        }
+        
         try {
-            const response = await fetch(`${API_BASE}/api/assessments?userId=${currentUser.id}`);
+            console.log('📊 Fetching assessment data for progress chart, user:', currentUser.id);
+            
+            // Enhanced cache-busting with multiple parameters
+            const timestamp = new Date().getTime();
+            const randomParam = Math.random().toString(36).substring(7);
+            const response = await fetch(`${API_BASE}/api/assessments?userId=${currentUser.id}&_t=${timestamp}&_r=${randomParam}&_nocache=1`, {
+                method: 'GET',
+                headers: {
+                    'Cache-Control': 'no-cache, no-store, must-revalidate',
+                    'Pragma': 'no-cache',
+                    'Expires': '0'
+                }
+            });
+            console.log('📊 Progress chart API response status:', response.status);
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
             const data = await response.json();
-            const history = (data.success && data.assessments) ? data.assessments : (data.assessments || []);
+            console.log('📊 Progress chart API response data:', data);
+            
+            // Handle different response formats
+            let history = [];
+            if (data.success && data.assessments) {
+                history = data.assessments;
+            } else if (data.assessments) {
+                history = data.assessments;
+            } else if (Array.isArray(data)) {
+                history = data;
+            }
+            
+            console.log('📊 Processed assessment history:', history.length, 'entries');
             
             if (history.length === 0) {
-                chartEl.style.display = 'none';
-                promptEl.style.display = 'block';
+                console.log('📊 No assessment data found, showing prompt');
+                if (chartEl) chartEl.style.display = 'none';
+                if (promptEl) {
+                    promptEl.style.display = 'block';
+                    promptEl.innerHTML = '<p>No assessment history yet. Complete your first assessment to see your progress!</p>';
+                }
                 return;
             }
             
-            chartEl.style.display = 'block';
-            promptEl.style.display = 'none';
+            // Sort by date (oldest first for chronological chart display)
+            history.sort((a, b) => new Date(a.assessment_date) - new Date(b.assessment_date));
+            const chartData = history; // Show all assessments in chronological order
             
-            const labels = history.map(item => {
+            console.log('📊 Chart data prepared:', chartData.length, 'entries');
+            console.log('📊 Latest assessment:', chartData[chartData.length - 1]);
+            
+            if (chartEl) chartEl.style.display = 'block';
+            if (promptEl) promptEl.style.display = 'none';
+            
+            // Check if Chart.js is available
+            if (typeof Chart === 'undefined') {
+                console.error('❌ Chart.js not loaded');
+                if (chartEl) {
+                    chartEl.innerHTML = '<p style="text-align: center; padding: 2rem;">Chart library not available. Please refresh the page.</p>';
+                }
+                return;
+            }
+            
+            const labels = chartData.map(item => {
                 const date = new Date(item.assessment_date);
                 return isNaN(date.getTime()) ? 'Invalid Date' : date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: '2-digit' });
             });
-            const phq9Data = history.map(item => item.phq9_score);
-            const gad7Data = history.map(item => item.gad7_score);
-            const pssData = history.map(item => item.pss_score);
+            const phq9Data = chartData.map(item => item.phq9_score || 0);
+            const gad7Data = chartData.map(item => item.gad7_score || 0);
+            const pssData = chartData.map(item => item.pss_score || 0);
             
-            const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary');
-            const gridColor = getComputedStyle(document.body).getPropertyValue('--border');
+            console.log('📊 Chart datasets:', { labels, phq9Data, gad7Data, pssData });
             
-            if (progressChart) progressChart.destroy();
+            const textColor = getComputedStyle(document.body).getPropertyValue('--text-primary') || '#333';
+            const gridColor = getComputedStyle(document.body).getPropertyValue('--border') || '#ddd';
             
-            progressChart = new Chart(chartEl.getContext('2d'), {
+            // Destroy existing chart instance completely
+            if (progressChart) {
+                console.log('📊 Destroying existing progress chart...');
+                try {
+                    progressChart.destroy();
+                } catch (destroyErr) {
+                    console.log('⚠️ Chart destroy error (non-critical):', destroyErr.message);
+                }
+                progressChart = null;
+            }
+            
+            // Destroy all existing Chart.js instances on this canvas
+            const existingChart = Chart.getChart(chartEl);
+            if (existingChart) {
+                console.log('📊 Found existing Chart.js instance, destroying...');
+                existingChart.destroy();
+            }
+            
+            // Force remove from Chart.js registry by canvas ID
+            if (chartEl.id) {
+                const chartById = Chart.getChart(chartEl.id);
+                if (chartById) {
+                    console.log('📊 Found chart by ID, destroying...');
+                    chartById.destroy();
+                }
+            }
+            
+            // Clear any Chart.js data attributes and properties
+            chartEl.removeAttribute('data-chartjs-chart-id');
+            if (chartEl.chart) {
+                delete chartEl.chart;
+            }
+            
+            // Reset canvas dimensions and clear
+            const ctx = chartEl.getContext('2d');
+            ctx.clearRect(0, 0, chartEl.width, chartEl.height);
+            
+            // Force a delay to ensure complete cleanup
+            await new Promise(resolve => setTimeout(resolve, 100));
+            
+            // Create new chart with fresh context
+            progressChart = new Chart(ctx, {
                 type: 'line',
                 data: {
                     labels,
                     datasets: [
-                        { label: 'Depression (PHQ-9)', data: phq9Data, borderColor: '#FF6384', tension: 0.1 },
-                        { label: 'Anxiety (GAD-7)', data: gad7Data, borderColor: '#36A2EB', tension: 0.1 },
-                        { label: 'Stress (PSS-10)', data: pssData, borderColor: '#FFCE56', tension: 0.1 }
+                        { 
+                            label: 'Depression (PHQ-9)', 
+                            data: phq9Data, 
+                            borderColor: '#FF6384', 
+                            backgroundColor: 'rgba(255, 99, 132, 0.1)',
+                            tension: 0.1,
+                            fill: false,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        },
+                        { 
+                            label: 'Anxiety (GAD-7)', 
+                            data: gad7Data, 
+                            borderColor: '#36A2EB', 
+                            backgroundColor: 'rgba(54, 162, 235, 0.1)',
+                            tension: 0.1,
+                            fill: false,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        },
+                        { 
+                            label: 'Stress (PSS-10)', 
+                            data: pssData, 
+                            borderColor: '#FFCE56', 
+                            backgroundColor: 'rgba(255, 206, 86, 0.1)',
+                            tension: 0.1,
+                            fill: false,
+                            pointRadius: 4,
+                            pointHoverRadius: 6
+                        }
                     ]
                 },
                 options: {
-                    scales: { 
-                        y: { beginAtZero: true, ticks: { color: textColor }, grid: { color: gridColor } }, 
-                        x: { ticks: { color: textColor }, grid: { color: gridColor } } 
+                    responsive: true,
+                    maintainAspectRatio: true,
+                    aspectRatio: 2,
+                    layout: {
+                        padding: 10
                     },
-                    plugins: { legend: { labels: { color: textColor } } }
+                    scales: { 
+                        y: { 
+                            beginAtZero: true,
+                            max: 30,
+                            ticks: { color: textColor, stepSize: 5 }, 
+                            grid: { color: gridColor },
+                            title: {
+                                display: true,
+                                text: 'Score',
+                                color: textColor
+                            }
+                        }, 
+                        x: { 
+                            ticks: { 
+                                color: textColor,
+                                display: true,
+                                maxRotation: 45,
+                                minRotation: 0
+                            }, 
+                            grid: { color: gridColor },
+                            title: {
+                                display: true,
+                                text: 'Assessment Date',
+                                color: textColor
+                            }
+                        } 
+                    },
+                    plugins: { 
+                        legend: { 
+                            labels: { color: textColor },
+                            position: 'top'
+                        },
+                        tooltip: {
+                            mode: 'index',
+                            intersect: false,
+                            backgroundColor: 'rgba(0,0,0,0.8)',
+                            titleColor: '#fff',
+                            bodyColor: '#fff'
+                        }
+                    },
+                    interaction: {
+                        mode: 'nearest',
+                        axis: 'x',
+                        intersect: false
+                    }
                 }
             });
+            
+            console.log('✅ Progress chart rendered successfully with', chartData.length, 'data points');
+            console.log('📊 Latest data point:', chartData[chartData.length - 1]);
+            
+            // Store the timestamp of this render for debugging
+            window.lastChartRender = new Date().toISOString();
+            console.log('🕰️ Chart rendered at:', window.lastChartRender);
+            
         } catch (err) {
-            console.error('Failed to load progress data:', err);
-            chartEl.style.display = 'none';
-            promptEl.style.display = 'block';
+            console.error('❌ Failed to load progress data:', err);
+            if (chartEl) {
+                chartEl.style.display = 'none';
+                chartEl.innerHTML = '<p style="text-align: center; padding: 2rem; color: red;">Error loading chart data. Please try again.</p>';
+            }
+            if (promptEl) {
+                promptEl.style.display = 'block';
+                promptEl.innerHTML = '<p>Unable to load assessment history. Please try refreshing the page.</p>';
+            }
         }
     }
 
@@ -1054,13 +1530,16 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadAdminPanel() {
         try {
+            console.log('🔧 Loading admin panel data...');
             const response = await fetch(`${API_BASE}/api/users?action=admin`);
+            console.log('🔧 Admin API response status:', response.status);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
             const responseText = await response.text();
+            console.log('🔧 Admin API raw response:', responseText.substring(0, 500));
             let data;
             
             try {
@@ -1070,12 +1549,21 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('Admin API returned invalid response');
             }
             
+            console.log('🔧 Admin API parsed data:', data);
+            
             // Handle missing or invalid data
             const users = data.users || [];
             const regularUsers = users.filter(user => !user.isadmin);
+            const totalAssessments = data.totalAssessments || 0;
+            
+            console.log('🔧 Admin panel stats:', {
+                totalUsers: regularUsers.length,
+                totalAssessments: totalAssessments,
+                usersWithAssessments: regularUsers.filter(u => u.assessment_count > 0).length
+            });
             
             document.getElementById('total-users').textContent = regularUsers.length;
-            document.getElementById('total-assessments').textContent = data.totalAssessments || 0;
+            document.getElementById('total-assessments').textContent = totalAssessments;
             
             // Add recent assessments info if element exists
             const recentAssessmentsEl = document.getElementById('recent-assessments');
@@ -1245,8 +1733,17 @@ document.addEventListener('DOMContentLoaded', () => {
     async function viewUserReports(userId, userName) {
         try {
             console.log('📊 Loading reports for user:', userId, userName);
-            const response = await fetch(`${API_BASE}/api/assessments?userId=${userId}`);
-            console.log('📊 Response status:', response.status);
+            
+            // Try the new admin user-reports endpoint first
+            let response = await fetch(`${API_BASE}/api/users?action=user-reports&userId=${userId}`);
+            console.log('📊 Admin endpoint response status:', response.status);
+            
+            if (!response.ok) {
+                console.log('📊 Admin endpoint failed, trying data endpoint...');
+                // Fallback to the data endpoint
+                response = await fetch(`${API_BASE}/api/data?type=assessments&userId=${userId}`);
+                console.log('📊 Data endpoint response status:', response.status);
+            }
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
@@ -1632,6 +2129,43 @@ document.addEventListener('DOMContentLoaded', () => {
     window.resetTherapists = resetTherapists;
     window.updateQuickActionButtons = updateQuickActionButtons;
     
+    // Make chart refresh functions globally available for debugging
+    window.renderProgressChart = renderProgressChart;
+    
+    // Add a function to manually trigger the enhanced refresh mechanism
+    window.triggerAssessmentRefresh = async function() {
+        console.log('🔄 Manually triggering assessment chart refresh...');
+        const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+        if (!currentUser) {
+            console.log('❌ No user found');
+            return;
+        }
+        
+        // Use the same enhanced refresh logic from calculateScores
+        const refreshWithRetry = async (attempt = 1, maxAttempts = 3) => {
+            try {
+                console.log(`📊 Manual refresh attempt ${attempt}/${maxAttempts}...`);
+                
+                if (progressChart) {
+                    progressChart.destroy();
+                    progressChart = null;
+                }
+                
+                await new Promise(resolve => setTimeout(resolve, attempt * 500));
+                await renderProgressChart();
+                console.log(`✅ Manual refresh attempt ${attempt} completed`);
+                
+            } catch (err) {
+                console.error(`❌ Manual refresh attempt ${attempt} failed:`, err);
+                if (attempt < maxAttempts) {
+                    setTimeout(() => refreshWithRetry(attempt + 1, maxAttempts), attempt * 1000);
+                }
+            }
+        };
+        
+        refreshWithRetry();
+    };
+    
     // Suicidal ideation handling functions
     function handleSuicidalIdeation() {
         console.log('🚨 Suicidal ideation detected');
@@ -1675,6 +2209,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 localStorage.setItem('bookingRequests', JSON.stringify(bookingRequests));
                 
                 console.log('🚨 Emergency booking created:', emergencyRequest);
+                alert(`🚨 Emergency booking created with ${bestTherapist.name}! Please check your booking requests.`);
             } catch (err) {
                 console.error('Failed to create emergency booking:', err);
             }
@@ -1683,6 +2218,9 @@ document.addEventListener('DOMContentLoaded', () => {
         // Show emergency support screen immediately
         showModal('emergency-modal');
     }
+    
+    // Make emergency functions globally available
+    window.handleEmergencyConsent = handleEmergencyConsent;
     
     // Global functions for mood tracking and milestones
     async function renderMoodChart() {
@@ -3633,6 +4171,57 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('Push notifications disabled');
         });
         
+        // Emergency consent modal event listeners
+        document.getElementById('emergency-consent-yes')?.addEventListener('click', async () => {
+            console.log('🚨 User consented to emergency help');
+            await handleEmergencyConsent();
+            
+            // Save and display results after emergency booking
+            const scores = window.emergencyScores || { phq9: 0, gad7: 0, pss: 0 };
+            const tempAnswers = userAnswers;
+            userAnswers = {};
+            await saveAssessmentResult(scores);
+            userAnswers = tempAnswers;
+            displayResults(scores);
+        });
+        
+        document.getElementById('emergency-consent-no')?.addEventListener('click', () => {
+            console.log('🚨 User declined emergency help');
+            hideModals();
+            
+            // Continue with normal results display
+            const scores = window.emergencyScores || { phq9: 0, gad7: 0, pss: 0 };
+            displayResults(scores);
+        });
+        
+        // Emergency booking buttons in consent modal
+        document.getElementById('book-therapist-btn')?.addEventListener('click', async () => {
+            console.log('🚨 Emergency booking button clicked');
+            await handleEmergencyConsent();
+            
+            // Save and display results after emergency booking
+            if (window.emergencyScores) {
+                const tempAnswers = userAnswers;
+                userAnswers = {};
+                await saveAssessmentResult(window.emergencyScores);
+                userAnswers = tempAnswers;
+                displayResults(window.emergencyScores);
+            }
+        });
+        
+        document.getElementById('continue-assessment-btn')?.addEventListener('click', () => {
+            console.log('🚨 Continue assessment button clicked');
+            hideModals();
+            
+            // Continue with normal results display
+            if (window.emergencyScores) {
+                displayResults(window.emergencyScores);
+            }
+        });
+        
+        // Emergency modal close button
+        document.getElementById('emergency-modal-close-btn')?.addEventListener('click', hideModals);
+        
 
         
         // Load notification settings function
@@ -3941,15 +4530,10 @@ document.addEventListener('DOMContentLoaded', () => {
         // Results screen navigation
         document.getElementById('results-back-btn')?.addEventListener('click', () => showScreen('dashboard-screen'));
         
-        document.getElementById('prev-question-btn')?.addEventListener('click', () => {
-            saveCurrentAnswer();
-            if (currentQuestionIndex > 0) {
-                currentQuestionIndex--;
-                renderCurrentQuestion();
-            }
-        });
-        
         document.getElementById('next-question-btn')?.addEventListener('click', () => {
+            if (nextBtnProcessing) return; // Prevent double-clicks
+            nextBtnProcessing = true;
+            
             if (saveCurrentAnswer()) {
                 if (currentQuestionIndex < allQuestions.length - 1) {
                     currentQuestionIndex++;
@@ -3960,6 +4544,8 @@ document.addEventListener('DOMContentLoaded', () => {
             } else {
                 alert('Please select an answer to continue.');
             }
+            
+            setTimeout(() => { nextBtnProcessing = false; }, 300);
         });
         
         function calculateScores() {
@@ -3980,10 +4566,12 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     allQuestions.forEach(q => {
                         let value = userAnswers[q.name] || 0;
-                        if (q.test === 'pss' && q.reverse) {
+                        if (q.test === 'pss10' && q.reverse) {
                             value = 4 - value;
                         }
-                        scores[q.test] += value;
+                        // Map pss10 back to pss for scoring
+                        const scoreKey = q.test === 'pss10' ? 'pss' : q.test;
+                        scores[scoreKey] += value;
                     });
                     
                     // HIGH-RISK DETECTION: Check for suicidal ideation (PHQ-9 question 9)
@@ -6284,16 +6872,7 @@ document.addEventListener('DOMContentLoaded', () => {
             renderCurrentQuestion();
         });
         
-        // Assessment navigation event listeners
-        document.getElementById('prev-question-btn')?.addEventListener('click', () => {
-            if (currentQuestionIndex > 0) {
-                saveCurrentAnswer();
-                currentQuestionIndex--;
-                renderCurrentQuestion();
-            }
-        });
         
-
 
         
         // Event delegation for dynamically generated assessment options

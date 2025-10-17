@@ -209,6 +209,33 @@ export default async function handler(req, res) {
         }
     }
 
+    // Get user profile by ID
+    if (method === 'GET' && action === 'profile') {
+        const userId = query.id;
+        if (!userId) {
+            return res.status(400).json({ success: false, error: 'User ID required' });
+        }
+        
+        try {
+            const userResult = await pool.query(
+                'SELECT id, name, email, created_at FROM users WHERE id = $1',
+                [userId]
+            );
+            
+            if (userResult.rows.length === 0) {
+                return res.status(404).json({ success: false, error: 'User not found' });
+            }
+            
+            return res.json({
+                success: true,
+                user: userResult.rows[0]
+            });
+        } catch (err) {
+            console.error('Profile fetch error:', err);
+            return res.status(500).json({ success: false, error: 'Failed to fetch user profile' });
+        }
+    }
+
     // Debug endpoint
     if (method === 'GET' && action === 'test') {
         return res.json({ success: true, message: 'API is working', action, method, url: req.url });

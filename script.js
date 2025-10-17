@@ -1,4 +1,4 @@
-﻿document.addEventListener('DOMContentLoaded', () => {
+document.addEventListener('DOMContentLoaded', () => {
     // --- STATE VARIABLES ---
     let currentScreen = 'login-screen';
     let chatCount = parseInt(localStorage.getItem('demoChatCount')) || 0;
@@ -3371,12 +3371,6 @@
         
         // renderMilestones moved to global scope
         
-        // Export functionality
-        document.getElementById('export-progress-btn')?.addEventListener('click', () => {
-            showModal('export-modal');
-        });
-        
-        document.getElementById('export-modal-close-btn')?.addEventListener('click', hideModals);
         
 
         
@@ -3794,7 +3788,7 @@
                     yPos += 15;
                     
                     // Prepare chart data (reverse to show chronological order)
-                    const chartData = assessments.slice(0, 10).reverse();
+                    const chartData = assessments.reverse();
                     console.log('Chart data for PDF:', chartData);
                     const chartWidth = 160;
                     const chartHeight = 90;
@@ -6121,11 +6115,58 @@
         });
         
         // Export all data button in data privacy screen
-        document.getElementById('export-all-data-btn')?.addEventListener('click', () => {
+        document.getElementById('export-all-data-btn')?.addEventListener('click', async () => {
+            const currentUser = JSON.parse(localStorage.getItem('currentUser'));
+            if (!currentUser || !currentUser.id) {
+                alert('Please log in to export your data.');
+                return;
+            }
+            
+            try {
+                const [assessmentRes, moodRes, milestonesRes] = await Promise.all([
+                    fetch(`${API_BASE}/api/assessments?userId=${currentUser.id}`),
+                    fetch(`${API_BASE}/api/moods?userId=${currentUser.id}`),
+                    fetch(`${API_BASE}/api/milestones?userId=${currentUser.id}`)
+                ]);
+                
+                const assessmentData = await assessmentRes.json();
+                const moodData = await moodRes.json();
+                const milestonesData = await milestonesRes.json();
+                
+                const exportData = {
+                    user: {
+                        name: currentUser.name,
+                        email: currentUser.email,
+                        exportDate: new Date().toISOString()
+                    },
+                    assessments: assessmentData.assessments || [],
+                    moods: moodData.moods || [],
+                    milestones: milestonesData.milestones || []
+                };
+                
+                const blob = new Blob([JSON.stringify(exportData, null, 2)], { type: 'application/json' });
+                const url = URL.createObjectURL(blob);
+                const a = document.createElement('a');
+                a.href = url;
+                a.download = `chetana_data_${new Date().toISOString().split('T')[0]}.json`;
+                a.click();
+                URL.revokeObjectURL(url);
+                
+                alert('📊 Your data has been exported successfully!');
+            } catch (err) {
+                console.error('Export failed:', err);
+                alert('Failed to export data. Please try again.');
+            }
+        });
+        
+        // Export progress button in progress dashboard screen
+        document.getElementById('export-progress-btn')?.addEventListener('click', () => {
             showModal('export-modal');
         });
-        document.getElementById('export-all-data-btn')?.addEventListener('click', () => {
-            showModal('export-modal');
+        
+        // Export modal close button
+        document.getElementById('export-modal-close-btn')?.addEventListener('click', () => {
+            hideModals();
         });
         document.getElementById('view-privacy-policy-btn')?.addEventListener('click', () => {
             showScreen('privacy-policy-screen');
@@ -6310,10 +6351,6 @@
         });
         
         // Data privacy actions
-        document.getElementById('export-all-data-btn')?.addEventListener('click', () => {
-            showModal('export-modal');
-        });
-        
         document.getElementById('view-privacy-policy-btn')?.addEventListener('click', () => {
             showScreen('privacy-policy-screen');
         });
@@ -6663,10 +6700,6 @@
         });
         document.getElementById('privacy-back-btn')?.addEventListener('click', () => showScreen('data-privacy-screen'));
         
-        // Export and delete account
-        document.getElementById('export-all-data-btn')?.addEventListener('click', () => showModal('export-modal'));
-        document.getElementById('delete-account-btn')?.addEventListener('click', () => showModal('delete-account-modal'));
-        
         // Modal handlers
         document.getElementById('grant-permissions-btn')?.addEventListener('click', () => {
             hideModals();
@@ -6743,10 +6776,6 @@
             showScreen('privacy-policy-screen');
         });
         document.getElementById('privacy-back-btn')?.addEventListener('click', () => showScreen('data-privacy-screen'));
-        
-        // Export and delete account
-        document.getElementById('export-all-data-btn')?.addEventListener('click', () => showModal('export-modal'));
-        document.getElementById('delete-account-btn')?.addEventListener('click', () => showModal('delete-account-modal'));
         
         // Wellness resource navigation
         document.getElementById('understanding-depression-btn')?.addEventListener('click', () => showScreen('understanding-depression-screen'));

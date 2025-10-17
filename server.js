@@ -798,65 +798,7 @@ app.post('/api/login', async (req, res) => {
       }
     }
     
-    // Demo user check
-    if (email === 'demo@chetana.com' && password === 'demo123') {
-      try {
-        let demoUserResult = await queryWithRetry('SELECT * FROM users WHERE email = $1', ['demo@chetana.com']);
-        
-        if (demoUserResult.rows.length === 0) {
-          const hashedPassword = await bcrypt.hash('demo123', 10);
-          demoUserResult = await queryWithRetry(
-            'INSERT INTO users (name, email, password) VALUES ($1, $2, $3) RETURNING *',
-            ['Demo User', 'demo@chetana.com', hashedPassword]
-          );
-        }
-        
-        const demoUser = demoUserResult.rows[0];
-        const token = jwt.sign({ userId: demoUser.id }, process.env.JWT_SECRET);
-        console.log('Demo user login successful');
-        return res.json({ 
-          success: true, 
-          token, 
-          user: { id: demoUser.id, name: demoUser.name, email: demoUser.email } 
-        });
-      } catch (demoUserErr) {
-        console.error('Demo user error:', demoUserErr);
-      }
-    }
-    
-    // Dummy test user login - ensure user exists in database
-    if (email === 'test@test.com' && password === '123456') {
-      try {
-        // Check if test user exists, create if not
-        let testUserResult = await queryWithRetry('SELECT * FROM users WHERE email = $1', ['test@test.com']);
-        
-        if (testUserResult.rows.length === 0) {
-          const hashedPassword = await bcrypt.hash('123456', 10);
-          testUserResult = await queryWithRetry(
-            'INSERT INTO users (id, name, email, password) VALUES ($1, $2, $3, $4) RETURNING *',
-            [999, 'Test User', 'test@test.com', hashedPassword]
-          );
-        }
-        
-        const testUser = testUserResult.rows[0];
-        const token = jwt.sign({ userId: testUser.id }, process.env.JWT_SECRET);
-        console.log('Test user login successful');
-        return res.json({ 
-          success: true, 
-          token, 
-          user: { id: testUser.id, name: testUser.name, email: testUser.email } 
-        });
-      } catch (testUserErr) {
-        console.error('Test user creation error:', testUserErr);
-        // Fallback to original behavior
-        const token = jwt.sign({ userId: 999 }, process.env.JWT_SECRET);
-        return res.json({ 
-          success: true, 
-          token, 
-          user: { id: 999, name: 'Test User', email: 'test@test.com' } 
-        });
-      }
-    }
+
     
     const result = await queryWithRetry('SELECT * FROM users WHERE email = $1', [email]);
     
@@ -1421,11 +1363,7 @@ app.post('/api/init-db', async (req, res) => {
     const hashedPassword = await bcrypt.hash('admin123', 10);
     await queryWithRetry(`INSERT INTO users (name, email, password, isadmin) VALUES ('Admin', 'admin@chetana.com', $1, true) ON CONFLICT (email) DO NOTHING`, [hashedPassword]);
     
-    const demoHashedPassword = await bcrypt.hash('demo123', 10);
-    await queryWithRetry(`INSERT INTO users (name, email, password) VALUES ('Demo User', 'demo@chetana.com', $1) ON CONFLICT (email) DO NOTHING`, [demoHashedPassword]);
-    
-    const testHashedPassword = await bcrypt.hash('123456', 10);
-    await queryWithRetry(`INSERT INTO users (id, name, email, password) VALUES (999, 'Test User', 'test@test.com', $1) ON CONFLICT (email) DO NOTHING`, [testHashedPassword]);
+
     
     res.json({ success: true, message: 'Database initialized with default users' });
   } catch (err) {

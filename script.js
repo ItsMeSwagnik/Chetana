@@ -1485,6 +1485,24 @@ document.addEventListener('DOMContentLoaded', () => {
         const token = localStorage.getItem('token');
         if (!token) return;
         
+        // First check if we have user data in localStorage
+        const storedUser = localStorage.getItem('currentUser');
+        if (storedUser) {
+            try {
+                const user = JSON.parse(storedUser);
+                updateWelcomeMessage(user.name);
+                if (user.isAdmin) {
+                    loadAdminPanel();
+                    showScreen('admin-screen');
+                } else {
+                    showScreen('dashboard-screen');
+                }
+                return;
+            } catch (err) {
+                console.error('Failed to parse stored user:', err);
+            }
+        }
+        
         try {
             // Handle simple token format (admin-token)
             if (token === 'admin-token') {
@@ -1513,15 +1531,30 @@ document.addEventListener('DOMContentLoaded', () => {
                 }
                 
                 if (userId) {
-                    // Fetch regular user data from database
-                    const response = await fetch(`${API_BASE}/api/users/${userId}`);
-                    const data = await response.json();
-                    
-                    if (data.success && data.user) {
-                        localStorage.setItem('currentUser', JSON.stringify(data.user));
-                        updateWelcomeMessage(data.user.name);
-                        showScreen('dashboard-screen');
+                    // Try to fetch user data from database, but fallback to token data
+                    try {
+                        const response = await fetch(`${API_BASE}/api/users/${userId}`);
+                        const data = await response.json();
+                        
+                        if (data.success && data.user) {
+                            localStorage.setItem('currentUser', JSON.stringify(data.user));
+                            updateWelcomeMessage(data.user.name);
+                            showScreen('dashboard-screen');
+                            return;
+                        }
+                    } catch (apiErr) {
+                        console.log('API not available, using token data');
                     }
+                    
+                    // Fallback: create user from token data
+                    const fallbackUser = {
+                        id: userId,
+                        name: payload.name || 'User',
+                        email: payload.email || 'user@example.com'
+                    };
+                    localStorage.setItem('currentUser', JSON.stringify(fallbackUser));
+                    updateWelcomeMessage(fallbackUser.name);
+                    showScreen('dashboard-screen');
                 }
             }
         } catch (err) {

@@ -585,7 +585,7 @@ document.addEventListener('DOMContentLoaded', () => {
         console.log('✅ Assessment questions setup complete. Total questions:', allQuestions.length);
         console.log('📋 PHQ-9:', allQuestions.filter(q => q.test === 'phq9').length, 'questions');
         console.log('📋 GAD-7:', allQuestions.filter(q => q.test === 'gad7').length, 'questions');
-        console.log('📋 PSS-10:', allQuestions.filter(q => q.test === 'pss').length, 'questions');
+        console.log('📋 PSS-10:', allQuestions.filter(q => q.test === 'pss10').length, 'questions');
         
         // Validate questions were created
         if (allQuestions.length !== 26) {

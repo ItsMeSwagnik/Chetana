@@ -80,14 +80,41 @@ document.addEventListener('DOMContentLoaded', () => {
     
     const setAppHeight = () => document.documentElement.style.setProperty('--app-height', `${window.innerHeight}px`);
     
+    // Debounce mechanism to prevent multiple data loading calls
+    let dataLoadingTimeouts = {};
+    
     function showScreen(screenId) {
         currentScreen = screenId;
         screens.forEach(screen => screen.classList.toggle('active', screen.id === screenId));
         const activeScreen = document.querySelector('.screen.active');
         if (activeScreen) activeScreen.scrollTop = 0;
         
-        // Load data when showing progress screen
-        if (screenId === 'progress-screen') {
+        // Load data when showing specific screens (with debounce)
+        if (screenId === 'writing-journal-screen') {
+            // Clear any existing timeout
+            if (dataLoadingTimeouts.journal) {
+                clearTimeout(dataLoadingTimeouts.journal);
+            }
+            // Load journal entries when journal screen is shown
+            dataLoadingTimeouts.journal = setTimeout(async () => {
+                if (typeof window.loadJournalEntries === 'function') {
+                    await window.loadJournalEntries();
+                }
+                delete dataLoadingTimeouts.journal;
+            }, 200);
+        } else if (screenId === 'behavioral-activation-screen') {
+            // Clear any existing timeout
+            if (dataLoadingTimeouts.activities) {
+                clearTimeout(dataLoadingTimeouts.activities);
+            }
+            // Load activity planner when behavioral activation screen is shown
+            dataLoadingTimeouts.activities = setTimeout(async () => {
+                if (typeof window.loadActivityPlanner === 'function') {
+                    await window.loadActivityPlanner();
+                }
+                delete dataLoadingTimeouts.activities;
+            }, 200);
+        } else if (screenId === 'progress-screen') {
             const currentUser = JSON.parse(localStorage.getItem('currentUser'));
             if (currentUser && currentUser.id) {
                 console.log('📊 Loading progress screen data for user:', currentUser.id);
@@ -2800,7 +2827,7 @@ document.addEventListener('DOMContentLoaded', () => {
                     document.querySelectorAll('.mood-btn').forEach(b => b.classList.remove('selected'));
                     
                     // Reload journal entries to show the new entry
-                    await loadJournalEntries();
+                    await window.loadJournalEntries();
                     
                     alert('📝 Journal entry saved successfully!');
                     console.log('✅ Journal entry saved and list refreshed');
@@ -2825,13 +2852,24 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
         
-        async function loadJournalEntries() {
+        // Loading flags to prevent multiple simultaneous calls
+        let isLoadingJournal = false;
+        let isLoadingActivities = false;
+        
+        // Make loadJournalEntries globally available
+        window.loadJournalEntries = async function() {
+            if (isLoadingJournal) {
+                console.log('📝 Journal already loading, skipping...');
+                return;
+            }
+            
             const currentUser = JSON.parse(localStorage.getItem('currentUser'));
             if (!currentUser || !currentUser.id) {
                 console.log('📝 No user found for journal entries load');
                 return;
             }
             
+            isLoadingJournal = true;
             try {
                 console.log('📝 Loading journal entries for user:', currentUser.id);
                 const response = await fetch(`${API_BASE}/api/data?type=journal&userId=${currentUser.id}`);
@@ -2874,8 +2912,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 if (list) {
                     list.innerHTML = '<p style="text-align: center; color: var(--danger); padding: 1rem;">Error loading journal entries. Please try again.</p>';
                 }
+            } finally {
+                isLoadingJournal = false;
             }
-        }
+        };
         
         window.deleteJournalEntry = function(index) {
             if (confirm('Delete this journal entry?')) {
@@ -3126,14 +3166,20 @@ document.addEventListener('DOMContentLoaded', () => {
             }
         }
         
-        // Load activity planner data
-        async function loadActivityPlanner() {
+        // Make loadActivityPlanner globally available
+        window.loadActivityPlanner = async function() {
+            if (isLoadingActivities) {
+                console.log('📅 Activities already loading, skipping...');
+                return;
+            }
+            
             const currentUser = JSON.parse(localStorage.getItem('currentUser'));
             if (!currentUser || !currentUser.id) {
                 console.log('📅 No user found for activity planner load');
                 return;
             }
             
+            isLoadingActivities = true;
             try {
                 console.log('📅 Loading activity planner for user:', currentUser.id);
                 const response = await fetch(`${API_BASE}/api/data?type=activities&userId=${currentUser.id}`);
@@ -3170,8 +3216,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 console.log('📅 Activity planner loaded successfully');
             } catch (err) {
                 console.error('📅 Failed to load activities:', err);
+            } finally {
+                isLoadingActivities = false;
             }
-        }
+        };
         
         // Manual save button functionality
         document.getElementById('save-activity-planner-btn')?.addEventListener('click', async () => {
@@ -4155,6 +4203,26 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         });
 
+        // Add wellness resource navigation event listeners
+        document.getElementById('writing-journal-btn')?.addEventListener('click', () => showScreen('writing-journal-screen'));
+        document.getElementById('behavioral-activation-btn')?.addEventListener('click', () => showScreen('behavioral-activation-screen'));
+        document.getElementById('breathing-exercise-btn')?.addEventListener('click', () => showScreen('breathing-exercise-screen'));
+        document.getElementById('mindfulness-meditation-btn')?.addEventListener('click', () => showScreen('mindfulness-meditation-screen'));
+        document.getElementById('relax-environment-btn')?.addEventListener('click', () => showScreen('relax-environment-screen'));
+        document.getElementById('understanding-depression-btn')?.addEventListener('click', () => showScreen('understanding-depression-screen'));
+        document.getElementById('understanding-anxiety-btn')?.addEventListener('click', () => showScreen('understanding-anxiety-screen'));
+        document.getElementById('understanding-stress-btn')?.addEventListener('click', () => showScreen('understanding-stress-screen'));
+        
+        // Back button event listeners for wellness screens
+        document.getElementById('journal-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('behavioral-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('breathing-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('mindfulness-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('relax-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('depression-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('anxiety-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        document.getElementById('stress-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
+        
         // Add all event listeners
         document.getElementById('login-btn')?.addEventListener('click', handleLogin);
         
@@ -6993,6 +7061,27 @@ document.addEventListener('DOMContentLoaded', () => {
         });
     }
     
+    // Debug functions for testing data loading
+    window.testJournalLoad = async function() {
+        console.log('📝 Testing journal data loading...');
+        if (typeof window.loadJournalEntries === 'function') {
+            await window.loadJournalEntries();
+            console.log('📝 Journal load test completed');
+        } else {
+            console.error('📝 loadJournalEntries function not available');
+        }
+    };
+    
+    window.testActivityLoad = async function() {
+        console.log('📅 Testing activity planner data loading...');
+        if (typeof window.loadActivityPlanner === 'function') {
+            await window.loadActivityPlanner();
+            console.log('📅 Activity planner load test completed');
+        } else {
+            console.error('📅 loadActivityPlanner function not available');
+        }
+    };
+    
     // Make functions globally available
     window.showScreen = showScreen;
     window.showReportModal = function(type, id) {
@@ -7069,19 +7158,14 @@ document.addEventListener('DOMContentLoaded', () => {
         setTimeout(loadCommunityMemberships, 100);
     });
     
-    initializeApp();
-});
-// Add event listeners for new anxiety and stress screens
-document.addEventListener('DOMContentLoaded', () => {
+    // Add event listeners for anxiety and stress screens
     document.getElementById('understanding-anxiety-btn')?.addEventListener('click', () => showScreen('understanding-anxiety-screen'));
     document.getElementById('understanding-stress-btn')?.addEventListener('click', () => showScreen('understanding-stress-screen'));
     document.getElementById('anxiety-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
     document.getElementById('stress-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
-});
-// Language selector event handlers - add to existing script.js
-document.addEventListener('DOMContentLoaded', function() {
-    const selectors = ['#language-selector', '#demo-language-select'];
     
+    // Language selector event handlers
+    const selectors = ['#language-selector', '#demo-language-select'];
     selectors.forEach(selectorId => {
         const selector = document.querySelector(selectorId);
         if (selector) {
@@ -7100,4 +7184,6 @@ document.addEventListener('DOMContentLoaded', function() {
             });
         }
     });
+    
+    initializeApp();
 });

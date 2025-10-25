@@ -8,7 +8,7 @@ const pool = new Pool({
 });
 
 export default async function handler(req, res) {
-    const { method } = req;
+    const { method, query } = req;
     
     // Add CORS headers
     res.setHeader('Access-Control-Allow-Origin', '*');
@@ -63,27 +63,53 @@ export default async function handler(req, res) {
     }
     
     if (method === 'GET') {
+        const userId = query.userId;
+        
         try {
-            // Get all locations with user information
-            const locationsResult = await pool.query(`
-                SELECT 
-                    ul.id,
-                    ul.user_id,
-                    ul.latitude,
-                    ul.longitude,
-                    ul.accuracy,
-                    ul.created_at,
-                    u.name,
-                    u.email
-                FROM user_locations ul
-                LEFT JOIN users u ON ul.user_id = u.id
-                ORDER BY ul.created_at DESC
-            `);
-            
-            return res.json({
-                success: true,
-                locations: locationsResult.rows
-            });
+            if (userId) {
+                // Get locations for specific user
+                const locationsResult = await pool.query(`
+                    SELECT 
+                        ul.id,
+                        ul.user_id,
+                        ul.latitude,
+                        ul.longitude,
+                        ul.accuracy,
+                        ul.created_at,
+                        u.name,
+                        u.email
+                    FROM user_locations ul
+                    LEFT JOIN users u ON ul.user_id = u.id
+                    WHERE ul.user_id = $1
+                    ORDER BY ul.created_at DESC
+                `, [userId]);
+                
+                return res.json({
+                    success: true,
+                    locations: locationsResult.rows
+                });
+            } else {
+                // Get all locations with user information
+                const locationsResult = await pool.query(`
+                    SELECT 
+                        ul.id,
+                        ul.user_id,
+                        ul.latitude,
+                        ul.longitude,
+                        ul.accuracy,
+                        ul.created_at,
+                        u.name,
+                        u.email
+                    FROM user_locations ul
+                    LEFT JOIN users u ON ul.user_id = u.id
+                    ORDER BY ul.created_at DESC
+                `);
+                
+                return res.json({
+                    success: true,
+                    locations: locationsResult.rows
+                });
+            }
         } catch (err) {
             console.error('Locations fetch error:', err);
             return res.json({ success: true, locations: [] });

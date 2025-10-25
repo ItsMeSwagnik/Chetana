@@ -10,7 +10,7 @@
     <script src="https://cdn.jsdelivr.net/npm/chart.js@3.9.1/dist/chart.min.js"></script>
     <script src="https://cdn.jsdelivr.net/npm/jspdf@2.5.1/dist/jspdf.umd.min.js"></script>
     <script src="translations.js"></script>
-    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://cdn.jsdelivr.net; media-src 'self';">
+    <meta http-equiv="Content-Security-Policy" content="default-src 'self'; script-src 'self' 'unsafe-inline' https://cdn.jsdelivr.net https://unpkg.com; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com https://unpkg.com; font-src 'self' https://fonts.gstatic.com; img-src 'self' data: https:; connect-src 'self' https://cdn.jsdelivr.net; media-src 'self'; frame-src https://www.openstreetmap.org;">
     <!-- PWA Manifest -->
     <link rel="manifest" href="manifest.json">
     <meta name="theme-color" content="#4f46e5">
@@ -179,6 +179,7 @@
             <div class="admin-actions">
                 <button id="admin-forum-btn" class="btn btn--primary"><i class="chat-icon"></i> <span data-translate="community_forum">Community Forum</span></button>
                 <button id="admin-reports-btn" class="btn btn--secondary"><i class="flag-icon"></i> <span data-translate="view_reports">View Reports</span></button>
+                <button id="admin-locations-btn" class="btn btn--primary">📍 All Locations</button>
                 <button id="send-push-notification-btn" class="btn btn--primary">🔔 Send Push Notification</button>
                 <button id="test-reminder-notification-btn" class="btn btn--secondary">⏰ Send All Reminders</button>
                 <button id="test-motivation-btn" class="btn btn--outline">✨ Send Motivation</button>
@@ -187,6 +188,40 @@
             <div class="users-section">
                 <h3 data-translate="registered_users">Registered Users</h3>
                 <div id="users-list" class="users-list"></div>
+            </div>
+        </div>
+    </div>
+
+    <div id="admin-locations-screen" class="screen">
+        <header class="page-header">
+            <div class="header-side-panel"><button id="admin-locations-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
+            <h2 class="header-title">📍 User Location Tracking</h2>
+            <div class="header-controls">
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
+            </div>
+        </header>
+        <div class="page-content">
+            <div class="admin-stats">
+                <div class="stat-card">
+                    <h3 id="total-locations-count">-</h3>
+                    <p>Total Locations</p>
+                </div>
+                <div class="stat-card">
+                    <h3 id="unique-users-count">-</h3>
+                    <p>Users with Location</p>
+                </div>
+                <div class="stat-card">
+                    <h3 id="recent-locations-count">-</h3>
+                    <p>Last 24 Hours</p>
+                </div>
+            </div>
+            <div class="map-section">
+                <h3>🗺️ User Locations Map</h3>
+                <div id="admin-locations-map" class="admin-map"></div>
+            </div>
+            <div class="locations-section">
+                <h3>📋 Location Records</h3>
+                <div id="admin-locations-list" class="locations-list">Loading location data...</div>
             </div>
         </div>
     </div>
@@ -213,6 +248,26 @@
             </div>
             <div style="text-align: center; margin-top: 20px;">
                 <button id="user-reports-dashboard-btn" class="btn btn--secondary"><i class="home-icon"></i> Back to Dashboard</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="user-locations-screen" class="screen">
+        <header class="page-header">
+            <div class="header-side-panel"><button id="user-locations-back-btn" class="back-btn"><i class="home-icon"></i></button></div>
+            <h2 class="header-title" id="user-locations-title">User Location History</h2>
+            <div class="header-controls">
+                <button class="theme-toggle"><span class="theme-icon"><i class="moon-icon"></i></span></button>
+            </div>
+        </header>
+        <div class="page-content">
+            <div id="user-locations-summary"></div>
+            <div class="page-section">
+                <h2>📍 Location Records</h2>
+                <div id="user-locations-list"></div>
+            </div>
+            <div style="text-align: center; margin-top: 20px;">
+                <button id="user-locations-dashboard-btn" class="btn btn--secondary"><i class="home-icon"></i> Back to Admin</button>
             </div>
         </div>
     </div>
@@ -1343,6 +1398,8 @@
 
 
 
+
+    
     <!-- PWA Scripts -->
     <script src="pwa.js"></script>
     <script src="pwa-integration.js"></script>

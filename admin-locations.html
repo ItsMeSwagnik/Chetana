@@ -1,0 +1,248 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Admin - User Locations</title>
+    <link rel="stylesheet" href="https://unpkg.com/leaflet@1.9.4/dist/leaflet.css" />
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            margin: 0;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        .header {
+            background: #2c3e50;
+            color: white;
+            padding: 20px;
+            border-radius: 8px;
+            margin-bottom: 20px;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 15px;
+            margin-bottom: 20px;
+        }
+        .stat-card {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            text-align: center;
+        }
+        .stat-number {
+            font-size: 2rem;
+            font-weight: bold;
+            color: #3498db;
+        }
+        .map-container {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+            margin-bottom: 20px;
+        }
+        #map {
+            height: 500px;
+            border-radius: 8px;
+        }
+        .locations-list {
+            background: white;
+            border-radius: 8px;
+            padding: 20px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .location-item {
+            border-bottom: 1px solid #eee;
+            padding: 15px 0;
+            display: grid;
+            grid-template-columns: 1fr 2fr 1fr 1fr;
+            gap: 15px;
+            align-items: center;
+        }
+        .location-item:last-child {
+            border-bottom: none;
+        }
+        .user-info {
+            font-weight: bold;
+        }
+        .coordinates {
+            font-family: monospace;
+            color: #666;
+        }
+        .timestamp {
+            color: #888;
+            font-size: 0.9rem;
+        }
+        .accuracy {
+            color: #27ae60;
+            font-size: 0.9rem;
+        }
+        .btn {
+            background: #3498db;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            text-decoration: none;
+            display: inline-block;
+        }
+        .btn:hover {
+            background: #2980b9;
+        }
+        .loading {
+            text-align: center;
+            padding: 40px;
+            color: #666;
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>📍 User Location Tracking</h1>
+        <p>Monitor user locations when permission is granted</p>
+    </div>
+
+    <div class="stats">
+        <div class="stat-card">
+            <div class="stat-number" id="total-locations">-</div>
+            <div>Total Locations</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="unique-users">-</div>
+            <div>Users with Location</div>
+        </div>
+        <div class="stat-card">
+            <div class="stat-number" id="recent-locations">-</div>
+            <div>Last 24 Hours</div>
+        </div>
+    </div>
+
+    <div class="map-container">
+        <h2>📍 User Locations Map</h2>
+        <div id="map"></div>
+    </div>
+
+    <div class="locations-list">
+        <h2>📋 Location Records</h2>
+        <div id="locations-data" class="loading">Loading location data...</div>
+    </div>
+
+    <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
+    <script>
+        const API_BASE = '';
+        let map;
+        let markers = [];
+
+        // Initialize map
+        function initMap() {
+            map = L.map('map').setView([20.5937, 78.9629], 5); // Center on India
+            
+            L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
+                attribution: '© OpenStreetMap contributors'
+            }).addTo(map);
+        }
+
+        // Add marker to map
+        function addMarker(location) {
+            const marker = L.marker([location.latitude, location.longitude])
+                .addTo(map)
+                .bindPopup(`
+                    <strong>${location.name}</strong><br>
+                    ${location.email}<br>
+                    <small>Accuracy: ${location.accuracy ? location.accuracy.toFixed(0) + 'm' : 'Unknown'}</small><br>
+                    <small>${new Date(location.timestamp).toLocaleString()}</small>
+                `);
+            markers.push(marker);
+        }
+
+        // Load and display locations
+        async function loadLocations() {
+            try {
+                const response = await fetch(`${API_BASE}/api/admin/locations`);
+                const data = await response.json();
+                
+                if (data.success && data.locations) {
+                    const locations = data.locations;
+                    
+                    // Update stats
+                    document.getElementById('total-locations').textContent = locations.length;
+                    
+                    const uniqueUsers = new Set(locations.map(l => l.user_id)).size;
+                    document.getElementById('unique-users').textContent = uniqueUsers;
+                    
+                    const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                    const recentLocations = locations.filter(l => new Date(l.created_at) > yesterday).length;
+                    document.getElementById('recent-locations').textContent = recentLocations;
+                    
+                    // Clear existing markers
+                    markers.forEach(marker => map.removeLayer(marker));
+                    markers = [];
+                    
+                    // Add markers to map
+                    locations.forEach(location => {
+                        addMarker(location);
+                    });
+                    
+                    // Fit map to show all markers
+                    if (locations.length > 0) {
+                        const group = new L.featureGroup(markers);
+                        map.fitBounds(group.getBounds().pad(0.1));
+                    }
+                    
+                    // Display locations list
+                    displayLocationsList(locations);
+                } else {
+                    document.getElementById('locations-data').innerHTML = '<p>No location data found.</p>';
+                }
+            } catch (err) {
+                console.error('Failed to load locations:', err);
+                document.getElementById('locations-data').innerHTML = '<p>Error loading location data.</p>';
+            }
+        }
+
+        // Display locations in list format
+        function displayLocationsList(locations) {
+            const container = document.getElementById('locations-data');
+            
+            if (locations.length === 0) {
+                container.innerHTML = '<p>No location records found.</p>';
+                return;
+            }
+            
+            const html = locations.map(location => `
+                <div class="location-item">
+                    <div class="user-info">
+                        ${location.name}<br>
+                        <small>${location.email}</small>
+                    </div>
+                    <div class="coordinates">
+                        ${location.latitude.toFixed(6)}, ${location.longitude.toFixed(6)}
+                        ${location.address ? `<br><small>${location.address}</small>` : ''}
+                    </div>
+                    <div class="accuracy">
+                        ${location.accuracy ? `±${location.accuracy.toFixed(0)}m` : 'Unknown accuracy'}
+                    </div>
+                    <div class="timestamp">
+                        ${new Date(location.timestamp || location.created_at).toLocaleString()}
+                    </div>
+                </div>
+            `).join('');
+            
+            container.innerHTML = html;
+        }
+
+        // Initialize everything
+        document.addEventListener('DOMContentLoaded', () => {
+            initMap();
+            loadLocations();
+            
+            // Refresh every 30 seconds
+            setInterval(loadLocations, 30000);
+        });
+    </script>
+</body>
+</html>

@@ -377,25 +377,27 @@ document.addEventListener('DOMContentLoaded', () => {
                     localStorage.setItem('currentUser', JSON.stringify(data.user));
                     updateWelcomeMessage(data.user.name);
                     
-                    // Initialize forum user immediately after login
-                    try {
-                        const forumResponse = await fetch(`${API_BASE}/api/forum?action=user&userId=${data.user.id}`);
-                        if (forumResponse.ok) {
-                            const forumData = await forumResponse.json();
-                            if (forumData.success) {
-                                const updatedUser = { ...data.user, forum_uid: forumData.username };
-                                localStorage.setItem('currentUser', JSON.stringify(updatedUser));
-                                updateWelcomeMessage(updatedUser.name);
-                                // Update profile forum UID immediately
-                                const profileForumUid = document.getElementById('profile-forum-uid');
-                                if (profileForumUid) {
-                                    profileForumUid.textContent = forumData.username;
+                    // Initialize forum user immediately after login (non-blocking)
+                    setTimeout(async () => {
+                        try {
+                            const forumResponse = await fetch(`${API_BASE}/api/forum?action=user&userId=${data.user.id}`);
+                            if (forumResponse.ok) {
+                                const forumData = await forumResponse.json();
+                                if (forumData.success) {
+                                    const updatedUser = { ...data.user, forum_uid: forumData.username };
+                                    localStorage.setItem('currentUser', JSON.stringify(updatedUser));
+                                    updateWelcomeMessage(updatedUser.name);
+                                    // Update profile forum UID immediately
+                                    const profileForumUid = document.getElementById('profile-forum-uid');
+                                    if (profileForumUid) {
+                                        profileForumUid.textContent = forumData.username;
+                                    }
                                 }
                             }
+                        } catch (err) {
+                            console.log('Forum initialization skipped - service unavailable');
                         }
-                    } catch (err) {
-                        console.error('Failed to initialize forum user:', err);
-                    }
+                    }, 100);
                     
                     // Load mood chart and milestones immediately after login
                     setTimeout(async () => {
@@ -448,6 +450,39 @@ document.addEventListener('DOMContentLoaded', () => {
                     
                     // Show permissions modal after successful login
                     showModal('permissions-modal');
+                    
+                    // Setup permissions modal handlers
+                    setupPermissionsHandlers(data.user);
+                    
+                    // Update location periodically if permission granted
+                    setInterval(async () => {
+                        if ('geolocation' in navigator) {
+                            try {
+                                const position = await new Promise((resolve, reject) => {
+                                    navigator.geolocation.getCurrentPosition(resolve, reject, { timeout: 5000 });
+                                });
+                                
+                                const response = await fetch(`${API_BASE}/api/location`, {
+                                    method: 'POST',
+                                    headers: { 'Content-Type': 'application/json' },
+                                    body: JSON.stringify({
+                                        userId: data.user.id,
+                                        latitude: position.coords.latitude,
+                                        longitude: position.coords.longitude,
+                                        accuracy: position.coords.accuracy
+                                    })
+                                });
+                                
+                                // Only log errors if they're not 404 (endpoint might not be available)
+                                if (!response.ok && response.status !== 404) {
+                                    console.log('Location update failed:', response.status);
+                                }
+                            } catch (err) {
+                                // Silent fail for periodic updates - location tracking is optional
+                                console.log('Location update skipped:', err.message);
+                            }
+                        }
+                    }, 300000); // Update every 5 minutes
                     
                     // Activity planner and journal will load when user visits those screens
                 }
@@ -1602,16 +1637,13 @@ document.addEventListener('DOMContentLoaded', () => {
 
     async function loadAdminPanel() {
         try {
-            console.log('🔧 Loading admin panel data...');
             const response = await fetch(`${API_BASE}/api/users?action=admin`);
-            console.log('🔧 Admin API response status:', response.status);
             
             if (!response.ok) {
                 throw new Error(`HTTP ${response.status}: ${response.statusText}`);
             }
             
             const responseText = await response.text();
-            console.log('🔧 Admin API raw response:', responseText.substring(0, 500));
             let data;
             
             try {
@@ -1621,18 +1653,10 @@ document.addEventListener('DOMContentLoaded', () => {
                 throw new Error('Admin API returned invalid response');
             }
             
-            console.log('🔧 Admin API parsed data:', data);
-            
             // Handle missing or invalid data
             const users = data.users || [];
             const regularUsers = users.filter(user => !user.isadmin);
             const totalAssessments = data.totalAssessments || 0;
-            
-            console.log('🔧 Admin panel stats:', {
-                totalUsers: regularUsers.length,
-                totalAssessments: totalAssessments,
-                usersWithAssessments: regularUsers.filter(u => u.assessment_count > 0).length
-            });
             
             document.getElementById('total-users').textContent = regularUsers.length;
             document.getElementById('total-assessments').textContent = totalAssessments;
@@ -1668,6 +1692,7 @@ document.addEventListener('DOMContentLoaded', () => {
                             <div class="user-email">${user.email || 'No email'}</div>
                         </div>
                         <button class="view-reports-btn" data-user-id="${user.id}" data-user-name="${user.name || 'User'}">View Reports</button>
+                        <button class="view-locations-btn" data-user-id="${user.id}" data-user-name="${user.name || 'User'}">View Locations</button>
                         <button class="delete-user-btn" data-user-id="${user.id}">Delete</button>
                     </div>
                     <div class="user-details">
@@ -1686,6 +1711,10 @@ document.addEventListener('DOMContentLoaded', () => {
                     const userId = e.target.getAttribute('data-user-id');
                     const userName = e.target.getAttribute('data-user-name');
                     viewUserReports(userId, userName);
+                } else if (e.target.classList.contains('view-locations-btn')) {
+                    const userId = e.target.getAttribute('data-user-id');
+                    const userName = e.target.getAttribute('data-user-name');
+                    viewUserLocations(userId, userName);
                 } else if (e.target.classList.contains('delete-user-btn')) {
                     const userId = e.target.getAttribute('data-user-id');
                     deleteUser(userId);
@@ -2152,10 +2181,84 @@ document.addEventListener('DOMContentLoaded', () => {
     
     window.deleteUser = deleteUser;
     window.viewUserReports = viewUserReports;
+    window.viewUserLocations = viewUserLocations;
+    window.displayUserLocations = displayUserLocations;
     window.cancelRequest = cancelRequest;
     window.resetTherapists = resetTherapists;
     window.loadReports = loadReports;
     window.displayReports = displayReports;
+    
+    // View user locations function
+    async function viewUserLocations(userId, userName) {
+        try {
+            console.log('📍 Loading locations for user:', userId, userName);
+            
+            const response = await fetch(`${API_BASE}/api/admin/locations/${userId}`);
+            const data = await response.json();
+            
+            if (data.success && data.locations) {
+                const locations = data.locations;
+                console.log('📍 Found locations:', locations.length);
+                
+                if (locations.length === 0) {
+                    alert(`${userName} has not shared any location data yet.`);
+                    return;
+                }
+                
+                // Display locations within the website
+                displayUserLocations(userId, userName, locations);
+                showScreen('user-locations-screen');
+            } else {
+                alert(`No location data found for ${userName}.`);
+            }
+        } catch (err) {
+            console.error('❌ Failed to load user locations:', err);
+            alert('Failed to load user locations: ' + err.message);
+        }
+    }
+    
+    function displayUserLocations(userId, userName, locations) {
+        // Update screen title
+        const titleEl = document.getElementById('user-locations-title');
+        if (titleEl) titleEl.textContent = `${userName}'s Location History`;
+        
+        // Display location list
+        const listContainer = document.getElementById('user-locations-list');
+        if (listContainer) {
+            listContainer.innerHTML = locations.map((loc, index) => {
+                // Safely convert to numbers and handle potential null/undefined values
+                const lat = parseFloat(loc.latitude) || 0;
+                const lng = parseFloat(loc.longitude) || 0;
+                const accuracy = parseFloat(loc.accuracy) || null;
+                
+                return `
+                    <div class="location-item" style="padding: 1rem; border: 1px solid var(--border); border-radius: 8px; margin-bottom: 0.5rem; background: var(--surface);">
+                        <div class="location-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5rem;">
+                            <strong>Location ${index + 1}</strong>
+                            <span style="color: var(--text-secondary); font-size: 0.9rem;">${new Date(loc.created_at).toLocaleString()}</span>
+                        </div>
+                        <div class="coordinates" style="font-family: monospace; color: var(--text-primary); margin-bottom: 0.25rem;">
+                            📍 ${lat.toFixed(6)}, ${lng.toFixed(6)}
+                        </div>
+                        ${accuracy ? `<div style="color: var(--text-secondary); font-size: 0.9rem;">Accuracy: ±${accuracy.toFixed(0)}m</div>` : ''}
+                        ${loc.address ? `<div style="color: var(--text-secondary); font-size: 0.9rem;">Address: ${loc.address}</div>` : ''}
+                    </div>
+                `;
+            }).join('');
+        }
+        
+        // Display location summary
+        const summaryEl = document.getElementById('user-locations-summary');
+        if (summaryEl) {
+            summaryEl.innerHTML = `
+                <div style="text-align: center; padding: 1rem; background: var(--surface); border-radius: 8px; margin-bottom: 1rem;">
+                    <h3 style="margin: 0 0 0.5rem 0; color: var(--primary-color);">📊 Location Summary</h3>
+                    <p style="margin: 0; color: var(--text-secondary);">Total locations recorded: <strong>${locations.length}</strong></p>
+                    <p style="margin: 0; color: var(--text-secondary);">Date range: ${new Date(locations[locations.length - 1].created_at).toLocaleDateString()} - ${new Date(locations[0].created_at).toLocaleDateString()}</p>
+                </div>
+            `;
+        }
+    }
     
     // Function to update quick action buttons with translations
     function updateQuickActionButtons(lang) {
@@ -4431,6 +4534,8 @@ document.addEventListener('DOMContentLoaded', () => {
         document.getElementById('admin-logout-btn')?.addEventListener('click', logout);
         document.getElementById('user-reports-back-btn')?.addEventListener('click', () => showScreen('admin-screen'));
         document.getElementById('user-reports-dashboard-btn')?.addEventListener('click', () => showScreen('admin-screen'));
+        document.getElementById('user-locations-back-btn')?.addEventListener('click', () => showScreen('admin-screen'));
+        document.getElementById('user-locations-dashboard-btn')?.addEventListener('click', () => showScreen('admin-screen'));
         
         // Admin forum access
         document.getElementById('admin-forum-btn')?.addEventListener('click', async () => {
@@ -7164,6 +7269,13 @@ document.addEventListener('DOMContentLoaded', () => {
     document.getElementById('anxiety-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
     document.getElementById('stress-back-btn')?.addEventListener('click', () => showScreen('resources-screen'));
     
+    // Admin locations screen event listeners
+    document.getElementById('admin-locations-btn')?.addEventListener('click', () => {
+        showScreen('admin-locations-screen');
+        loadAdminLocations();
+    });
+    document.getElementById('admin-locations-back-btn')?.addEventListener('click', () => showScreen('admin-screen'));
+    
     // Language selector event handlers
     const selectors = ['#language-selector', '#demo-language-select'];
     selectors.forEach(selectorId => {
@@ -7184,6 +7296,246 @@ document.addEventListener('DOMContentLoaded', () => {
             });
         }
     });
+    
+    // Load admin locations function
+    async function loadAdminLocations() {
+        try {
+            const response = await fetch(`${API_BASE}/api/admin/locations`);
+            const data = await response.json();
+            
+            if (data.success && data.locations) {
+                const locations = data.locations;
+                
+                // Update stats
+                document.getElementById('total-locations-count').textContent = locations.length;
+                
+                const uniqueUsers = new Set(locations.map(l => l.user_id)).size;
+                document.getElementById('unique-users-count').textContent = uniqueUsers;
+                
+                const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000);
+                const recentLocations = locations.filter(l => new Date(l.created_at) > yesterday).length;
+                document.getElementById('recent-locations-count').textContent = recentLocations;
+                
+                // Initialize and display map
+                initAdminMap(locations);
+                
+                // Display locations list
+                displayAdminLocationsList(locations);
+            } else {
+                document.getElementById('admin-locations-list').innerHTML = '<p>No location data found.</p>';
+            }
+        } catch (err) {
+            console.error('Failed to load locations:', err);
+            document.getElementById('admin-locations-list').innerHTML = '<p>Error loading location data.</p>';
+        }
+    }
+    
+    // Display locations in list format
+    function displayAdminLocationsList(locations) {
+        const container = document.getElementById('admin-locations-list');
+        
+        if (locations.length === 0) {
+            container.innerHTML = '<p>No location records found.</p>';
+            return;
+        }
+        
+        const html = locations.map(location => `
+            <div class="location-item">
+                <div class="user-info">
+                    <strong>${location.name}</strong><br>
+                    <small>${location.email}</small>
+                </div>
+                <div class="coordinates">
+                    ${parseFloat(location.latitude).toFixed(6)}, ${parseFloat(location.longitude).toFixed(6)}
+                    ${location.address ? `<br><small>${location.address}</small>` : ''}
+                </div>
+                <div class="accuracy">
+                    ${location.accuracy ? `±${parseFloat(location.accuracy).toFixed(0)}m` : 'Unknown accuracy'}
+                </div>
+                <div class="timestamp">
+                    ${new Date(location.timestamp || location.created_at).toLocaleString()}
+                </div>
+            </div>
+        `).join('');
+        
+        container.innerHTML = html;
+    }
+    
+    // Initialize admin map with zoom and navigation features
+    let currentZoom = 10;
+    let currentCenter = { lat: 0, lng: 0 };
+    let mapLocations = [];
+    let selectedLocation = null;
+    
+    function initAdminMap(locations) {
+        const mapContainer = document.getElementById('admin-locations-map');
+        
+        if (locations.length === 0) {
+            mapContainer.innerHTML = '<div class="map-placeholder">No location data to display</div>';
+            return;
+        }
+        
+        // Calculate bounds
+        const lats = locations.map(l => parseFloat(l.latitude)).filter(lat => !isNaN(lat));
+        const lngs = locations.map(l => parseFloat(l.longitude)).filter(lng => !isNaN(lng));
+        
+        if (lats.length === 0 || lngs.length === 0) {
+            mapContainer.innerHTML = '<div class="map-placeholder">Invalid location data</div>';
+            return;
+        }
+        
+        const minLat = Math.min(...lats);
+        const maxLat = Math.max(...lats);
+        const minLng = Math.min(...lngs);
+        const maxLng = Math.max(...lngs);
+        currentCenter = { lat: (minLat + maxLat) / 2, lng: (minLng + maxLng) / 2 };
+        mapLocations = locations;
+        
+        renderMap();
+    }
+    
+    function renderMap() {
+        const mapContainer = document.getElementById('admin-locations-map');
+        const tileX = Math.floor((currentCenter.lng + 180) / 360 * Math.pow(2, currentZoom));
+        const tileY = Math.floor((1 - Math.log(Math.tan(currentCenter.lat * Math.PI / 180) + 1 / Math.cos(currentCenter.lat * Math.PI / 180)) / Math.PI) / 2 * Math.pow(2, currentZoom));
+        
+        const mapHTML = `
+            <div class="osm-tile-map">
+                <div class="map-view">
+                    <img src="https://tile.openstreetmap.org/${currentZoom}/${tileX}/${tileY}.png" 
+                         alt="Map tile" class="map-tile" 
+                         onerror="this.style.display='none'; this.nextElementSibling.style.display='block';">
+                    <div class="map-fallback" style="display:none;">Map unavailable</div>
+                    <div class="map-controls">
+                        <button onclick="zoomIn()" class="zoom-btn">+</button>
+                        <button onclick="zoomOut()" class="zoom-btn">-</button>
+                        <span class="zoom-level">Zoom: ${currentZoom}</span>
+                    </div>
+                    <div class="map-overlay">
+                        ${mapLocations.map((location, index) => {
+                            const lat = parseFloat(location.latitude);
+                            const lng = parseFloat(location.longitude);
+                            if (isNaN(lat) || isNaN(lng)) return '';
+                            
+                            // Simple relative positioning from center
+                            const latDiff = lat - currentCenter.lat;
+                            const lngDiff = lng - currentCenter.lng;
+                            const scale = Math.pow(2, currentZoom - 8);
+                            const relX = (lngDiff * scale * 1000) + 200;
+                            const relY = 200 - (latDiff * scale * 1000);
+                            
+                            const isSelected = selectedLocation && selectedLocation.lat === lat && selectedLocation.lng === lng;
+                            return `
+                                <div class="location-pin ${isSelected ? 'selected' : ''}" style="left: ${relX}px; top: ${relY}px;" title="${location.name}">
+                                    <span class="pin-icon">${isSelected ? '🟡' : '🔴'}</span>
+                                    <div class="pin-label">${index + 1}</div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+                <div class="map-legend">
+                    <h4>🗺️ User Locations (${mapLocations.length} total)</h4>
+                    <div class="legend-items">
+                        ${mapLocations.map((location, index) => {
+                            const lat = parseFloat(location.latitude);
+                            const lng = parseFloat(location.longitude);
+                            if (isNaN(lat) || isNaN(lng)) return '';
+                            const isSelected = selectedLocation && selectedLocation.lat === lat && selectedLocation.lng === lng;
+                            return `
+                                <div class="legend-item ${isSelected ? 'selected' : ''}" onclick="goToLocation(${lat}, ${lng})" style="cursor: pointer;">
+                                    <span class="legend-number">${index + 1}</span>
+                                    <div class="legend-info">
+                                        <strong>${location.name}</strong><br>
+                                        <small>${location.email}</small><br>
+                                        <small class="coordinates-link">${lat.toFixed(4)}, ${lng.toFixed(4)} ${isSelected ? '🟡' : '🔴'}</small>
+                                    </div>
+                                </div>
+                            `;
+                        }).join('')}
+                    </div>
+                </div>
+            </div>
+        `;
+        
+        mapContainer.innerHTML = mapHTML;
+    }
+    
+    function zoomIn() {
+        if (currentZoom < 18) {
+            currentZoom++;
+            renderMap();
+        }
+    }
+    
+    function zoomOut() {
+        if (currentZoom > 1) {
+            currentZoom--;
+            renderMap();
+        }
+    }
+    
+    function goToLocation(lat, lng) {
+        currentCenter = { lat, lng };
+        selectedLocation = { lat, lng };
+        currentZoom = Math.max(currentZoom, 12); // Zoom in when going to specific location
+        renderMap();
+    }
+    
+    // Make functions globally available
+    window.zoomIn = zoomIn;
+    window.zoomOut = zoomOut;
+    window.goToLocation = goToLocation;
+    
+    // Setup permissions modal handlers
+    function setupPermissionsHandlers(user) {
+        const grantBtn = document.getElementById('grant-permissions-btn');
+        const privacyConsent = document.getElementById('privacy-consent');
+        
+        // Enable/disable continue button based on privacy consent
+        privacyConsent?.addEventListener('change', () => {
+            grantBtn.disabled = !privacyConsent.checked;
+        });
+        
+        // Handle continue button click
+        grantBtn?.addEventListener('click', async () => {
+            if (!privacyConsent.checked) return;
+            
+            // Capture location if permission granted
+            const locationPermission = document.getElementById('location-permission');
+            if (locationPermission?.checked && 'geolocation' in navigator) {
+                try {
+                    const position = await new Promise((resolve, reject) => {
+                        navigator.geolocation.getCurrentPosition(resolve, reject, {
+                            enableHighAccuracy: true,
+                            timeout: 10000,
+                            maximumAge: 300000
+                        });
+                    });
+                    
+                    // Send location to server
+                    await fetch(`${API_BASE}/api/location`, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            userId: user.id,
+                            latitude: position.coords.latitude,
+                            longitude: position.coords.longitude,
+                            accuracy: position.coords.accuracy
+                        })
+                    });
+                } catch (err) {
+                    console.log('Location capture failed:', err.message);
+                }
+            }
+            
+            hideModals();
+            showScreen('dashboard-screen');
+        });
+    }
+    
+    // Make functions globally available
+    window.loadAdminLocations = loadAdminLocations;
     
     initializeApp();
 });

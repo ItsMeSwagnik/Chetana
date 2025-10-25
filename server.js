@@ -528,6 +528,8 @@ async function initDB() {
       
       await queryWithRetry(`CREATE TABLE IF NOT EXISTS push_subscriptions (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, endpoint TEXT NOT NULL, p256dh TEXT NOT NULL, auth TEXT NOT NULL, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP, UNIQUE(user_id))`);
       
+      await queryWithRetry(`CREATE TABLE IF NOT EXISTS user_locations (id SERIAL PRIMARY KEY, user_id INTEGER REFERENCES users(id) ON DELETE CASCADE, latitude DECIMAL(10,8) NOT NULL, longitude DECIMAL(11,8) NOT NULL, accuracy DECIMAL(10,2), timestamp TIMESTAMP DEFAULT CURRENT_TIMESTAMP, address TEXT, created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP)`);
+      
       // Add missing columns to existing tables (migrations)
       try {
         await queryWithRetry(`ALTER TABLE assessments ADD COLUMN IF NOT EXISTS responses JSONB`);
@@ -2028,6 +2030,102 @@ app.post('/api/admin/send-motivation', async (req, res) => {
   } catch (err) {
     console.error('Send motivation error:', err);
     res.status(500).json({ error: 'Failed to send motivation' });
+  }
+});
+
+// Location tracking endpoints
+app.post('/api/location', async (req, res) => {
+  try {
+    let { userId, latitude, longitude, accuracy, address } = req.body;
+    
+    if (!userId || !latitude || !longitude) {
+      return res.status(400).json({ error: 'User ID, latitude, and longitude are required' });
+    }
+    
+    // Handle admin string ID
+    if (userId === 'admin') {
+      const adminResult = await queryWithRetry('SELECT id FROM users WHERE email = $1', ['admin@chetana.com']);
+      if (adminResult.rows.length > 0) {
+        userId = adminResult.rows[0].id;
+      } else {
+        return res.status(400).json({ error: 'Admin user not found' });
+      }
+    }
+    
+    // Validate coordinates
+    if (isNaN(parseFloat(latitude)) || isNaN(parseFloat(longitude))) {
+      return res.status(400).json({ error: 'Invalid coordinates' });
+    }
+    
+    if (Math.abs(parseFloat(latitude)) > 90 || Math.abs(parseFloat(longitude)) > 180) {
+      return res.status(400).json({ error: 'Coordinates out of valid range' });
+    }
+    
+    // Insert or update location
+    const result = await queryWithRetry(
+      'INSERT INTO user_locations (user_id, latitude, longitude, accuracy, address) VALUES ($1, $2, $3, $4, $5) RETURNING *',
+      [parseInt(userId), parseFloat(latitude), parseFloat(longitude), accuracy ? parseFloat(accuracy) : null, address || null]
+    );
+    
+    console.log(`📍 Location saved for user ${userId}: ${latitude}, ${longitude}`);
+    res.json({ success: true, location: result.rows[0] });
+  } catch (err) {
+    console.error('Location save error:', err);
+    res.status(500).json({ error: 'Failed to save location' });
+  }
+});
+
+app.get('/api/admin/locations', async (req, res) => {
+  try {
+    const result = await queryWithRetry(`
+      SELECT 
+        ul.id,
+        ul.user_id,
+        u.name,
+        u.email,
+        ul.latitude,
+        ul.longitude,
+        ul.accuracy,
+        ul.address,
+        ul.timestamp,
+        ul.created_at
+      FROM user_locations ul
+      JOIN users u ON ul.user_id = u.id
+      WHERE (u.isadmin IS NULL OR u.isadmin = false)
+      ORDER BY ul.created_at DESC
+    `);
+    
+    console.log(`📍 Admin locations request: Found ${result.rows.length} location records`);
+    res.json({ success: true, locations: result.rows });
+  } catch (err) {
+    console.error('Admin locations fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch locations' });
+  }
+});
+
+app.get('/api/admin/locations/:userId', async (req, res) => {
+  try {
+    const { userId } = req.params;
+    
+    if (!userId || isNaN(parseInt(userId))) {
+      return res.status(400).json({ error: 'Invalid user ID' });
+    }
+    
+    const result = await queryWithRetry(`
+      SELECT 
+        ul.*,
+        u.name,
+        u.email
+      FROM user_locations ul
+      JOIN users u ON ul.user_id = u.id
+      WHERE ul.user_id = $1
+      ORDER BY ul.created_at DESC
+    `, [parseInt(userId)]);
+    
+    res.json({ success: true, locations: result.rows });
+  } catch (err) {
+    console.error('User locations fetch error:', err);
+    res.status(500).json({ error: 'Failed to fetch user locations' });
   }
 });
 

@@ -65,15 +65,11 @@
     },
     {
       "source": "/api/admin/locations/([0-9]+)",
-      "destination": "/api/admin/locations.js?userId=$1"
-    },
-    {
-      "source": "/api/admin/locations",
-      "destination": "/api/admin/locations.js"
+      "destination": "/api/admin/locations?userId=$1"
     },
     {
       "source": "/api/location",
-      "destination": "/api/admin/locations.js"
+      "destination": "/api/admin/locations"
     }
   ]
 }

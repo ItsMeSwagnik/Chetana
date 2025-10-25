@@ -1,0 +1,132 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Test Locations API</title>
+    <style>
+        body { font-family: Arial, sans-serif; margin: 20px; }
+        .test-section { margin: 20px 0; padding: 15px; border: 1px solid #ccc; border-radius: 5px; }
+        .result { margin: 10px 0; padding: 10px; background: #f5f5f5; border-radius: 3px; }
+        .error { background: #ffebee; color: #c62828; }
+        .success { background: #e8f5e8; color: #2e7d32; }
+        button { padding: 8px 16px; margin: 5px; cursor: pointer; }
+    </style>
+</head>
+<body>
+    <h1>Location API Test</h1>
+    
+    <div class="test-section">
+        <h3>Test 1: Get All Locations</h3>
+        <button onclick="testAllLocations()">Test /api/admin/locations</button>
+        <div id="result1" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test 2: Get User Locations (Path Parameter)</h3>
+        <button onclick="testUserLocationsPath()">Test /api/admin/locations/1</button>
+        <div id="result2" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test 3: Get User Locations (Query Parameter)</h3>
+        <button onclick="testUserLocationsQuery()">Test /api/admin/locations?userId=1</button>
+        <div id="result3" class="result"></div>
+    </div>
+    
+    <div class="test-section">
+        <h3>Test 4: Save Location</h3>
+        <button onclick="testSaveLocation()">Test POST /api/location</button>
+        <div id="result4" class="result"></div>
+    </div>
+
+    <script>
+        const API_BASE = '';
+
+        async function testAllLocations() {
+            const resultDiv = document.getElementById('result1');
+            try {
+                const response = await fetch(`${API_BASE}/api/admin/locations`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `<strong>Success (${response.status}):</strong><br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `<strong>Error (${response.status}):</strong><br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                }
+            } catch (err) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<strong>Network Error:</strong><br>${err.message}`;
+            }
+        }
+
+        async function testUserLocationsPath() {
+            const resultDiv = document.getElementById('result2');
+            try {
+                const response = await fetch(`${API_BASE}/api/admin/locations/1`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `<strong>Success (${response.status}):</strong><br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `<strong>Error (${response.status}):</strong><br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                }
+            } catch (err) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<strong>Network Error:</strong><br>${err.message}`;
+            }
+        }
+
+        async function testUserLocationsQuery() {
+            const resultDiv = document.getElementById('result3');
+            try {
+                const response = await fetch(`${API_BASE}/api/admin/locations?userId=1`);
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `<strong>Success (${response.status}):</strong><br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `<strong>Error (${response.status}):</strong><br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                }
+            } catch (err) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<strong>Network Error:</strong><br>${err.message}`;
+            }
+        }
+
+        async function testSaveLocation() {
+            const resultDiv = document.getElementById('result4');
+            try {
+                const response = await fetch(`${API_BASE}/api/location`, {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        userId: 1,
+                        latitude: 40.7128,
+                        longitude: -74.0060,
+                        accuracy: 10
+                    })
+                });
+                const data = await response.json();
+                
+                if (response.ok) {
+                    resultDiv.className = 'result success';
+                    resultDiv.innerHTML = `<strong>Success (${response.status}):</strong><br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                } else {
+                    resultDiv.className = 'result error';
+                    resultDiv.innerHTML = `<strong>Error (${response.status}):</strong><br><pre>${JSON.stringify(data, null, 2)}</pre>`;
+                }
+            } catch (err) {
+                resultDiv.className = 'result error';
+                resultDiv.innerHTML = `<strong>Network Error:</strong><br>${err.message}`;
+            }
+        }
+    </script>
+</body>
+</html>

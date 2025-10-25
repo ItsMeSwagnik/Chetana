@@ -19,6 +19,9 @@ export default async function handler(req, res) {
         return res.status(200).end();
     }
     
+    // Debug logging
+    console.log('Admin locations API called:', { method, query, url: req.url });
+    
     // Parse JSON body if needed
     let body = req.body;
     if (typeof body === 'string') {

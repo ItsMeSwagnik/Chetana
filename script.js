@@ -2193,14 +2193,30 @@ document.addEventListener('DOMContentLoaded', () => {
         try {
             console.log('📍 Loading locations for user:', userId, userName);
             
-            const response = await fetch(`${API_BASE}/api/admin/locations/${userId}`);
-            console.log('📍 Response status:', response.status);
+            // Try the primary route first
+            let response = await fetch(`${API_BASE}/api/admin/locations/${userId}`);
+            console.log('📍 Primary route response status:', response.status);
+            
+            // If primary route fails with 404, try alternative route with query parameter
+            if (response.status === 404) {
+                console.log('📍 Primary route failed, trying alternative route...');
+                response = await fetch(`${API_BASE}/api/admin/locations?userId=${userId}`);
+                console.log('📍 Alternative route response status:', response.status);
+            }
             
             if (!response.ok) {
                 console.error('❌ Failed to load user locations: HTTP', response.status);
                 const errorText = await response.text();
                 console.error('❌ Error response:', errorText.substring(0, 200));
-                alert(`Failed to load user locations: Server returned ${response.status}`);
+                
+                // Show user-friendly message for different error types
+                if (response.status === 404) {
+                    alert(`Location data not found for ${userName}. This could mean:\n\n1. The user hasn't shared any location data yet\n2. Location tracking is disabled\n3. The location service is temporarily unavailable\n\nPlease try again later or check if the user has enabled location sharing.`);
+                } else if (response.status === 500) {
+                    alert(`Server error while loading locations for ${userName}. Please try again in a few moments.`);
+                } else {
+                    alert(`Failed to load user locations: Server returned ${response.status}. Please contact support if this persists.`);
+                }
                 return;
             }
             

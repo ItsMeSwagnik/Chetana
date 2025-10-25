@@ -2194,7 +2194,28 @@ document.addEventListener('DOMContentLoaded', () => {
             console.log('📍 Loading locations for user:', userId, userName);
             
             const response = await fetch(`${API_BASE}/api/admin/locations/${userId}`);
-            const data = await response.json();
+            console.log('📍 Response status:', response.status);
+            
+            if (!response.ok) {
+                console.error('❌ Failed to load user locations: HTTP', response.status);
+                const errorText = await response.text();
+                console.error('❌ Error response:', errorText.substring(0, 200));
+                alert(`Failed to load user locations: Server returned ${response.status}`);
+                return;
+            }
+            
+            const responseText = await response.text();
+            console.log('📍 Raw response:', responseText.substring(0, 200));
+            
+            let data;
+            try {
+                data = JSON.parse(responseText);
+            } catch (parseErr) {
+                console.error('❌ Failed to parse JSON response:', parseErr);
+                console.error('❌ Response was:', responseText.substring(0, 500));
+                alert('Server returned invalid response. Please try again.');
+                return;
+            }
             
             if (data.success && data.locations) {
                 const locations = data.locations;
@@ -2209,6 +2230,7 @@ document.addEventListener('DOMContentLoaded', () => {
                 displayUserLocations(userId, userName, locations);
                 showScreen('user-locations-screen');
             } else {
+                console.error('❌ API returned error:', data.error || 'Unknown error');
                 alert(`No location data found for ${userName}.`);
             }
         } catch (err) {

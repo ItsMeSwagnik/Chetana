@@ -712,7 +712,7 @@ app.all('/api/users', async (req, res) => {
 
 app.post('/api/register', async (req, res) => {
   try {
-    console.log('Registration attempt:', { email: req.body.email, hasPassword: !!req.body.password });
+    console.log('Registration attempt received');
     const { name, email, password, dob } = req.body;
     
     // Input validation
@@ -742,8 +742,7 @@ app.post('/api/register', async (req, res) => {
       [name, email, hashedPassword, dob]
     );
     
-    console.log('User registered successfully:', result.rows[0]);
-    console.log('Stored password hash length:', hashedPassword.length);
+    console.log('User registered successfully');
     res.json({ success: true, user: result.rows[0] });
   } catch (err) {
     console.error('Registration error:', err.message);
@@ -757,7 +756,7 @@ app.post('/api/register', async (req, res) => {
 
 app.post('/api/login', async (req, res) => {
   try {
-    console.log('Login attempt:', { email: req.body.email, hasPassword: !!req.body.password });
+    console.log('Login attempt received');
     const { email, password } = req.body;
     
     // Input validation
@@ -805,24 +804,19 @@ app.post('/api/login', async (req, res) => {
     const result = await queryWithRetry('SELECT * FROM users WHERE email = $1', [email]);
     
     if (result.rows.length === 0) {
-      console.log('User not found:', email);
+
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
     
     const user = result.rows[0];
-    console.log('Found user:', email, 'stored password length:', user.password?.length);
-    console.log('Password starts with $2b$ (bcrypt):', user.password?.startsWith('$2b$'));
-    
     const validPassword = await bcrypt.compare(password, user.password);
-    console.log('Password comparison result:', validPassword);
     
     if (!validPassword) {
-      console.log('Invalid password for user:', email);
       return res.status(401).json({ success: false, error: 'Invalid credentials' });
     }
     
     const token = jwt.sign({ userId: user.id }, process.env.JWT_SECRET);
-    console.log('User login successful:', user.email);
+    console.log('User login successful');
     res.json({ 
       success: true, 
       token, 
@@ -1078,7 +1072,6 @@ app.get('/api/admin/users', async (req, res) => {
     `);
     
     console.log('📊 Admin endpoint: Found', usersResult.rows.length, 'users');
-    console.log('📊 Admin endpoint: Sample user data:', usersResult.rows[0]);
     
     const totalAssessments = await queryWithRetry('SELECT COUNT(*) as total FROM assessments');
     const assessmentCount = parseInt(totalAssessments.rows[0].total) || 0;
@@ -2067,7 +2060,7 @@ app.post('/api/location', async (req, res) => {
       [parseInt(userId), parseFloat(latitude), parseFloat(longitude), accuracy ? parseFloat(accuracy) : null, address || null]
     );
     
-    console.log(`📍 Location saved for user ${userId}: ${latitude}, ${longitude}`);
+    console.log(`📍 Location saved for user ${userId}`);
     res.json({ success: true, location: result.rows[0] });
   } catch (err) {
     console.error('Location save error:', err);
